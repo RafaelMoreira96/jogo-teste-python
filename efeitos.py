@@ -5,6 +5,7 @@ import random
 import pygame
 
 from settings import ALTURA, LARGURA, TILE
+from ui import desenhar_painel, desenhar_texto
 
 
 class Coracao:
@@ -1246,14 +1247,17 @@ class TotemSinalizacao:
         # Exibe letreiro elegante na tela se o jogador estiver próximo (< 28px)
         dist = self.pos.distance_to(jogador_rect.center)
         if dist < 32.0:
+            # Letreiro da estrada: uma linha se couber, senão duas rotas por linha
             texto_completo = " | ".join(self.rotas)
-            larg_t = fonte.size(texto_completo)[0] + 16
-            alt_t = 15
-            painel_p = pygame.Surface((larg_t, alt_t), pygame.SRCALPHA)
-            pygame.draw.rect(painel_p, (18, 22, 34, 225), (0, 0, larg_t, alt_t))
-            pygame.draw.rect(painel_p, (215, 185, 75, 235), (0, 0, larg_t, alt_t), 1)
-            tela.blit(painel_p, (LARGURA // 2 - larg_t // 2, 28))
-            desenhar_texto(tela, fonte, texto_completo, (LARGURA // 2, 28 + 2), (255, 235, 140), centro=True)
+            if fonte.size(texto_completo)[0] <= LARGURA - 40:
+                linhas = [texto_completo]
+            else:
+                linhas = [" | ".join(self.rotas[i : i + 2]) for i in range(0, len(self.rotas), 2)]
+            larg_t = max(fonte.size(l)[0] for l in linhas) + 16
+            alt_t = 6 + 10 * len(linhas)
+            desenhar_painel(tela, (LARGURA // 2 - larg_t // 2, 44, larg_t, alt_t), "dourado", alfa=230, cantos=False)
+            for i, linha in enumerate(linhas):
+                desenhar_texto(tela, fonte, linha, (LARGURA // 2, 44 + 8 + i * 10), (255, 235, 140), centro=True)
 
 
 # =====================================================================
