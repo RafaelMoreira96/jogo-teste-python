@@ -213,7 +213,13 @@ def desenhar_bussola(tela, fonte, bussola, tempo):
     pygame.draw.polygon(tela, (220, 220, 230), [cauda, (cx + lado[0], cy + lado[1]), (cx - lado[0], cy - lado[1])])
     pygame.draw.circle(tela, (255, 220, 120), (cx, cy), 2)
 
-    # Painel: objetivo (Guardião) em cima e o próximo mapa da rota embaixo
+    # Lembrete da tecla que mostra o objetivo
+    desenhar_tecla(tela, fonte, "O", (cx - raio - 4, cy + raio - 6))
+
+    # Painel do objetivo: escondido por padrão, aparece por 5 s ao apertar [O]
+    visivel = bussola.get("tempo_visivel", 0.0)
+    if visivel <= 0:
+        return
     objetivo = limpar_texto(bussola.get("objetivo") or "")
     rotulo = limpar_texto(bussola.get("rotulo") or "")
     largura_max = 128
@@ -227,8 +233,9 @@ def desenhar_bussola(tela, fonte, bussola, tempo):
     linha2 = caber(f"→ {rotulo}") if rotulo else ""
     larg = max(fonte.size(linha1)[0], fonte.size(linha2)[0]) + 10
     alt = 26 if linha2 else 14
-    # Fica logo acima da rosa dos ventos, alinhado à direita (longe de avisos e dicas)
-    x0 = LARGURA - 2 - larg
+    # Desliza para a direita e some no último meio segundo
+    saida = max(0.0, 0.5 - visivel) / 0.5
+    x0 = LARGURA - 2 - larg + round(saida * (larg + 4))
     y0 = cy - raio - 6 - alt
     destaque = bussola.get("destaque", 0.0) > 0 and int(tempo * 6) % 2 == 0
     desenhar_painel(tela, (x0, y0, larg, alt), "dourado" if destaque else "padrao", alfa=210, cantos=False)

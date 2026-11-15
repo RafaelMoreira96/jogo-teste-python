@@ -884,6 +884,7 @@ class Jogo(Cena):
         self.jogador.fator_velocidade_rpg = self.rpg.fator_velocidade
         self.ambiente.atualizar(dt)
         self.destaque_bussola = max(0.0, getattr(self, "destaque_bussola", 0.0) - dt)
+        self.tempo_objetivo_visivel = max(0.0, getattr(self, "tempo_objetivo_visivel", 0.0) - dt)
         for obj3d in getattr(self.nivel, "objetos_3d", []):
             obj3d.atualizar(self.tempo_cenario)
         self.particulas = [p for p in self.particulas if p.atualizar(dt)]
@@ -967,6 +968,12 @@ class Jogo(Cena):
                 return
             if entrada.apertou("vento_guia"):
                 self.invocar_vento_guia()
+                self.tempo_objetivo_visivel = 5.0
+            if entrada.apertou("objetivo"):
+                # O painel do objetivo fica escondido e só aparece por 5 segundos ao apertar [O]
+                self.tempo_objetivo_visivel = 5.0
+                if hasattr(self.app, "audio"):
+                    self.app.audio.sfx("menu_mover")
             if entrada.apertou("trocar_magia"):
                 novo = self.rpg.trocar_poder()
                 if novo:
@@ -1550,6 +1557,7 @@ class Jogo(Cena):
                     "rotulo": alvo_bussola["rotulo"],
                     "objetivo": alvo_bussola.get("objetivo"),
                     "destaque": getattr(self, "destaque_bussola", 0.0),
+                    "tempo_visivel": getattr(self, "tempo_objetivo_visivel", 0.0),
                 }
             dados_atuais = self.mapas.get(self.nivel.caminho.resolve())
             chefe_hud = self.chefes[0] if self.chefes else None
@@ -1738,6 +1746,7 @@ class Jogo(Cena):
                 self.aviso_mapa = f"Novo objetivo: {nome_alvo}"
                 self.tempo_aviso_mapa = 3.5
                 self.destaque_bussola = 3.5
+                self.tempo_objetivo_visivel = 5.0
             self._objetivo_anterior = alvo_mapa
         if not alvo_mapa:
             return None

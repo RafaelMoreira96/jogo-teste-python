@@ -26,6 +26,7 @@ CONTROLES = [
     ("Espada / falar", "Espaço / Z / J", "A / X"),
     ("Poder / Trocar", "F / Q", "X / RB"),
     ("Mapa / Árvore", "M / U (Tab)", "Select"),
+    ("Ver objetivo", "O", "-"),
     ("Pausar / Voltar", "Esc / P", "Start / B"),
 ]
 

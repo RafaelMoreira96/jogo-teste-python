@@ -23,6 +23,7 @@ TECLADO = {
     "mapa": (pygame.K_m,),
     "habilidades": (pygame.K_u, pygame.K_TAB),
     "vento_guia": (pygame.K_h, pygame.K_t),
+    "objetivo": (pygame.K_o,),
     "confirmar": (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE, pygame.K_z, pygame.K_j),
     "voltar": (pygame.K_ESCAPE, pygame.K_x, pygame.K_BACKSPACE),
     "pausa": (pygame.K_ESCAPE, pygame.K_p),
