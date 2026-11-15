@@ -1,0 +1,18 @@
+WWWWWWWWWWWWWWWW
+W_M__M____M__C_W
+W______________W
+W______1_______W
+W___M______M___W
+W______P___H___W
+W______________W
+WWWWWWWDDWWWWWWW
+
+[mapa]
+nome = Bazar de Especiarias
+clima = dia
+
+[npcs]
+1 = aldeao, mercador_oasis
+
+[portas]
+D = oasis.txt

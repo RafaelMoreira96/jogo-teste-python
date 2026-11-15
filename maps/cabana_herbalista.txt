@@ -1,0 +1,18 @@
+WWWWWWWWWWWWWW
+W_*__C____M__W
+W____________W
+W___M__1__M__W
+W__*______*__W
+W______P__H__W
+W____________W
+WWWWWWDDWWWWWW
+
+[mapa]
+nome = Cabana da Herbalista
+clima = dia
+
+[npcs]
+1 = aldea, herbalista_outono
+
+[portas]
+D = bosque_outono.txt

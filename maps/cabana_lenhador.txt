@@ -1,0 +1,18 @@
+WWWWWWWWWWWWWW
+W_C_______M__W
+W___M________W
+W______1_____W
+W_________H__W
+W______P_____W
+W____________W
+WWWWWWDDWWWWWW
+
+[mapa]
+nome = Cabana do Lenhador
+clima = dia
+
+[npcs]
+1 = aldeao, lenhador_outono
+
+[portas]
+D = bosque_outono.txt

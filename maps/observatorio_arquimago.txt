@@ -1,0 +1,26 @@
+WWWWWWWWWWWWWWWWWWWWWWWW
+W......................W
+W......................W
+W......................W
+W...#..............#...W
+W......................W
+W......................W
+W......................W
+W......................W
+W......................W
+W......................W
+W...#..............#...W
+W......................W
+W......................W
+W...........P..........W
+WWWWWWWWWWWSSWWWWWWWWWWW
+
+[mapa]
+nome = Observatório do Arquimago
+clima = noite
+
+[chefes]
+arquimago = 12, 6
+
+[portas]
+S = castelo_biblioteca.txt

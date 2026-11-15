@@ -1,0 +1,18 @@
+WWWWWWWWWWWWWWWW
+W_C__C____M__M_W
+W______________W
+W___M______M___W
+W______1_______W
+W___M______M___W
+W______P___H___W
+WWWWWWWDDWWWWWWW
+
+[mapa]
+nome = Taverna do Javali Dourado
+clima = dia
+
+[npcs]
+1 = aldeao, taverneiro_vila
+
+[portas]
+D = vila.txt

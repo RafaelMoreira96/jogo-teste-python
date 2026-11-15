@@ -1,0 +1,27 @@
+WWWWWWWWWWWWWWWWWWWWWWNNWWWWWWWWWWWWWWWWWWWWWW
+W____________________,,,,____________________W
+W_######__######_____,,,,_____######__######_W
+W_#____#__#____#_____,,,,_____#____#__#____#_W
+W_######__######_____,,,,_____######__######_W
+W____________________,,,,____________________W
+W____________________,,,,____________________W
+W________1___________,PK,___________2________W
+W____________________,,,,____________________W
+W_######__######_____,,,,_____######__######_W
+W_#....#__#....#_____,,,,_____#....#__#....#_W
+W_######__######_____,,,,_____######__######_W
+W____________________,,,,____________________W
+WWWWWWWWWWWWWWWWWWWWWWUUWWWWWWWWWWWWWWWWWWWWWW
+
+[mapa]
+nome = Galeria do Trono
+clima = trevas
+
+[npcs]
+1 = cavaleiro, guarda_galeria
+2 = placa, placa_galeria
+
+[portas]
+K = tribunal_paladino.txt
+U = castelo_patio.txt
+N = castelo_sala_salvamento.txt

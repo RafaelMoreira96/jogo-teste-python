@@ -1,0 +1,26 @@
+WWWWWWWWWWWWWWWWWWWWWWWW
+W......................W
+W......................W
+W......................W
+W...#..............#...W
+W......................W
+W......................W
+W......................W
+W......................W
+W......................W
+W......................W
+W...#..............#...W
+W......................W
+W......................W
+W...........P..........W
+WWWWWWWWWWWSSWWWWWWWWWWW
+
+[mapa]
+nome = Arena do Cavaleiro Negro
+clima = noite
+
+[chefes]
+cavaleiro_negro = 12, 6
+
+[portas]
+S = castelo_patio.txt

@@ -1,0 +1,26 @@
+WWWWWWWWWWWWWWWWWWWWWWWW
+W......................W
+W......................W
+W......................W
+W...#..............#...W
+W......................W
+W......................W
+W......................W
+W......................W
+W......................W
+W......................W
+W...#..............#...W
+W......................W
+W......................W
+W...........P..........W
+WWWWWWWWWWWSSWWWWWWWWWWW
+
+[mapa]
+nome = Fosso da Quimera Abissal
+clima = noite
+
+[chefes]
+quimera_abissal = 12, 6
+
+[portas]
+S = castelo_masmorra.txt

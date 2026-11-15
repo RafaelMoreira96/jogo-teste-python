@@ -1,0 +1,18 @@
+WWWWWWWWWWWWWWWW
+W_C__C____*__*_W
+W______________W
+W___M__1___M___W
+W______________W
+W___H__P_______W
+W______________W
+WWWWWWWDDWWWWWWW
+
+[mapa]
+nome = Pousada das Palmeiras
+clima = dia
+
+[npcs]
+1 = aldea, hospedeira_oasis
+
+[portas]
+D = oasis.txt

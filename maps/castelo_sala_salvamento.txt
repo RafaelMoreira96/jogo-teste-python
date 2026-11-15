@@ -1,0 +1,21 @@
+WWWWWWWWWWWWWWWWWWWWWWNNWWWWWWWWWWWWWWWWWWWWWW
+W____________________,,,,____________________W
+W_M__________________,,,,__________________M_W
+W____________________,,,,____________________W
+W________1___________,$,,___________2________W
+W____________________,,,,____________________W
+W____________________,P,,____________________W
+W_H__________________,,,,__________________H_W
+WWWWWWWWWWWWWWWWWWWWWWUUWWWWWWWWWWWWWWWWWWWWWW
+
+[mapa]
+nome = Santuário do Selo
+clima = dia
+
+[npcs]
+1 = mago, sabio_astral
+2 = placa, placa_salvamento
+
+[portas]
+U = castelo_ante_camara.txt
+N = castelo_salao_trono.txt

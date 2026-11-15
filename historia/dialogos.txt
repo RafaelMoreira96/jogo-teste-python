@@ -1,0 +1,425 @@
+# =====================================================================
+#  HISTÓRIA DO JOGO
+#
+#  Este arquivo é seu! Tudo abaixo é só um EXEMPLO mostrando os recursos.
+#  Apague e escreva a sua história. As mudanças valem no próximo
+#  "Novo jogo" (não precisa fechar o jogo).
+#  Se algo estiver errado, o jogo mostra o erro e a linha na tela.
+# ---------------------------------------------------------------------
+#  COMO ESCREVER
+#
+#  === nome            começa um diálogo. O nome é usado no mapa
+#                      (seção [npcs] de maps/mundo.txt) e nos @ir/@opcao.
+#
+#  Nome: texto         alguém fala. Texto longo quebra de linha sozinho.
+#  texto               narração (sem nome na caixa).
+#  - texto             narração mesmo que tenha ":" no meio.
+#
+#  @marcar algo        liga uma "marca" para o jogo lembrar que algo
+#                      aconteceu (ex.: @marcar pegou_chave).
+#  @desmarcar algo     desliga a marca.
+#
+#  @se algo            o que vem até o @fim só acontece se a marca
+#    ...               estiver ligada. Use @se !algo para "se NÃO".
+#  @senao              (opcional) o que acontece caso contrário.
+#    ...
+#  @fim
+#
+#  @opcao Texto -> outro_dialogo      escolhas para o jogador.
+#  @opcao Outro texto -> mais_um      (coloque várias seguidas)
+#
+#  @ir outro_dialogo   continua em outro diálogo.
+#  @curar              enche a vida do jogador.
+#
+#  DIREÇÃO DE CENAS E MOVIMENTOS (controle tudo por aqui!)
+#  @mapa casa.txt [x y]             troca de mapa (opcional: posição x y).
+#  @cenario normal|cidade|cidade_destruicao   muda para cutscene especial.
+#  @clima dia|noite|chuva|trevas    muda a iluminação/clima na hora.
+#  @clarao [branco|vermelho|roxo|dourado]     clarão dramático na tela.
+#  @tremer [forca] [segundos]       treme a tela e vibra o controle.
+#  @efeito poder|fogo|fumaca|explosao|parar [ator]   partículas no ator.
+#  @pose <ator> dormir|acordar|assustar|comemorar|tremer|poder|caido
+#  @olhar <ator> cima|baixo|esquerda|direita|<outro_ator>
+#  @pular <ator>                    faz o personagem dar um pulo.
+#  @emocao <ator> !|?|...|coracao   mostra balão de expressão na cabeça.
+#  @mover <ator> <direcao> [passos] faz o personagem caminhar na cena.
+#  @mover <ator> <x> <y>            caminha até a coordenada (x, y).
+#  @posicionar <ator> <x> <y>       teleporta o ator para o tile (x, y).
+#  @camera <ator>|<x y>             foca a câmera em alguém ou num ponto.
+#  @esperar <segundos>              pausa o texto enquanto a cena acontece.
+#  (Ator pode ser: heroi, o número do NPC no mapa como 1, ou seu diálogo como sabio)
+#
+#  DIÁLOGOS ESPECIAIS (rodam sozinhos)
+#  inicio                 cena de abertura quando começa um Novo Jogo.
+#  ao_slimes_derrotados   quando o último slime é derrotado
+#                         (isso também liga a marca slimes_derrotados).
+#
+#  DICA: Aperte F2 no jogo para abrir o Editor Visual e F5 para recarregar
+#  este arquivo ao vivo!
+# =====================================================================
+
+=== inicio
+@mapa casa.txt
+@clima noite
+@pose heroi dormir
+@esperar 1.5
+Voz Misteriosa: ... Ouça-me, jovem escolhido...
+@efeito poder heroi
+Voz Misteriosa: O despertar de seus poderes finalmente chegou.
+Voz Misteriosa: Um mal ancestral está prestes a encarnar, e agora é hora de você salvar o mundo!
+@clarao branco
+@cenario cidade
+@esperar 1.2
+Nas profundezas da escuridão, a Entidade Maligna desperta...
+@cenario cidade_destruicao
+@tremer 4 1.0
+Com sua fúria avassaladora, ela reduz uma cidade inteira a cinzas!
+Voz Misteriosa: Apenas você pode deter essa destruição. Acorde!
+@clarao branco
+@cenario normal
+@clima dia
+@efeito parar
+@pose heroi assustar
+Você acorda num salto, com o coração disparado.
+@mover heroi baixo 1
+Aquela voz e a visão da cidade sendo destruída pareciam reais demais...
+Melhor sair da casinha e descobrir o que está acontecendo na floresta!
+
+=== prologo_sonho
+Voz Misteriosa: ... Ouça-me, jovem escolhido...
+Voz Misteriosa: O despertar de seus poderes finalmente chegou.
+Voz Misteriosa: Um mal ancestral está prestes a encarnar, e agora é hora de você salvar o mundo!
+
+=== prologo_visao
+Nas profundezas da escuridão, a Entidade Maligna desperta...
+Com sua fúria avassaladora, ela reduz uma cidade inteira a cinzas!
+Voz Misteriosa: Apenas você pode deter essa destruição. Acorde!
+
+=== sabio
+@se slimes_derrotados
+  Sábio: Você limpou a floresta! Eu sabia que você conseguiria.
+  Sábio: Mas isso é só o começo da sua jornada...
+@senao
+  @se !conheceu_sabio
+    Sábio: Ah, finalmente você acordou!
+    Sábio: Os slimes invadiram a floresta. Você precisa expulsá-los antes que cheguem à vila.
+    @marcar conheceu_sabio
+  @fim
+  Sábio: Precisa de alguma coisa?
+  @opcao Estou ferido -> sabio_cura
+  @opcao Como eu luto? -> sabio_dica
+  @opcao Nada, obrigado -> sabio_tchau
+@fim
+
+=== sabio_cura
+Sábio: Deixe-me cuidar desses machucados.
+@curar
+Sua vida foi restaurada!
+
+=== sabio_dica
+Sábio: Use Espaço, ou o botão A do controle, para golpear com a espada.
+Sábio: Arbustos também podem ser cortados. Às vezes há corações escondidos neles.
+
+=== sabio_tchau
+Sábio: Boa sorte, jovem.
+
+=== aldea
+@se slimes_derrotados
+  Aldeã: Obrigada! Agora posso voltar a cuidar do meu jardim.
+@senao
+  Aldeã: Tenho medo de sair daqui com esses slimes por perto...
+@fim
+
+=== cavaleiro
+@se slimes_derrotados
+  Cavaleiro: Belo trabalho! As ruínas estão seguras de novo.
+@senao
+  Cavaleiro: Alto! Estou guardando as Ruínas Antigas.
+  Cavaleiro: Dizem que há um coração escondido lá dentro... mas cuidado com os slimes.
+@fim
+
+=== aldeao
+Aldeão: Minha irmã não para de falar dos arbustos do jardim dela.
+
+=== placa_inicio
+Placa: Norte: Vila Aurora | Oeste: Lago Cristalino | Leste: Ruínas Antigas.
+
+=== ao_slimes_derrotados
+A área ficou em silêncio. Todos os slimes daqui foram derrotados!
+
+# ---------------------------------------------------------------------
+#  DIÁLOGOS DOS 4 NOVOS MAPAS (Vila, Lago, Ruínas e Santuário)
+# ---------------------------------------------------------------------
+
+=== anciao_vila
+Ancião da Vila: Bem-vindo à Vila Aurora, jovem escolhido!
+Ancião da Vila: Nossas pontes cruzam o Rio Cristalino. Ao norte das Ruínas fica o antigo Santuário Sombrio, onde o mal começou a despertar.
+@opcao Entregar Relíquias dos Guardiões Antigos -> anciao_reliquias
+@opcao Descansar e curar ferimentos -> sabio_cura
+@opcao Obrigado pelo aviso -> sabio_tchau
+
+=== anciao_reliquias
+Ancião da Vila: Extraordinário! Você recuperou fragmentos sagrados dos Guardiões Antigos!
+@entregar_reliquias
+Ancião da Vila: As bênçãos dos ancestrais foram despertadas! Suas capacidades e vitalidade foram ampliadas.
+
+=== florista_vila
+Florista: As borboletas adoram as flores da nossa vila e do Lago Cristalino a oeste!
+
+=== mercador_vila
+Mercador: Desde que o céu escureceu no Santuário ao norte, poucos viajantes ousam cruzar as Ruínas Antigas.
+
+=== placa_vila
+Placa: Vila Aurora — Sul: Floresta Esmeralda | Oeste: Lago Cristalino | Norte: Santuário Sombrio.
+
+=== mago_lago
+Mago das Águas: Ouça o som das ondas do Lago Cristalino...
+Mago das Águas: Nas ilhas floridas há corações vitais que fortalecerão sua jornada. Quer que as águas restaurem sua energia?
+@opcao Sim, por favor -> sabio_cura
+@opcao Agora não -> sabio_tchau
+
+=== placa_lago
+Placa: Lago Cristalino — Cuidado com os slimes escondidos entre as ilhas! Leste: Floresta Esmeralda.
+
+=== guarda_ruinas
+Guarda das Ruínas: Estas muralhas antigas escondem passagens bloqueadas por arbustos.
+Guarda das Ruínas: Use sua espada para abrir caminho! Ao norte fica a entrada para o Santuário Sombrio.
+
+=== placa_ruinas
+Placa: Ruínas Antigas — Oeste: Floresta Esmeralda | Norte: Santuário Sombrio.
+
+=== guardiao_santuario
+@efeito poder 1
+Guardião Ancestral: Você chegou ao Santuário Sombrio, onde a presença da Entidade Maligna é mais forte.
+Guardião Ancestral: Derrote as criaturas das sombras que profanam este altar para provar o despertar do seu poder!
+@efeito parar
+
+=== placa_santuario
+Placa: Santuário Sombrio — Sul: Ruínas Antigas | Oeste: Vila Aurora | Norte: Cidadela Abissal.
+
+=== eremita_montanha
+Eremita do Pico: O ar rarefeito do Pico dos Ventos fortalece o espírito!
+Eremita do Pico: Você sabia que pode abrir a Árvore de Habilidades com a tecla U (ou Tab) e usar seus poderes com F ou Q?
+@opcao Meditar e restaurar vida -> sabio_cura
+@opcao Obrigado pelo ensinamento -> sabio_tchau
+
+=== placa_montanha
+Placa: Pico dos Ventos — Sul: Vila Aurora.
+
+=== cacador_pantano
+Caçador do Pântano: A chuva nunca para neste Pântano Nebuloso, e os slimes se multiplicam nas poças!
+Caçador do Pântano: Derrote-os para ganhar XP, subir de nível e ganhar Pontos de Habilidade (PH)!
+
+=== placa_pantano
+Placa: Pântano Nebuloso — Norte: Floresta Esmeralda.
+
+=== nomade_deserto
+Nômade do Oásis: Depois de cruzar as dunas escaldantes, as águas deste Oásis Dourado são uma bênção.
+Nômade do Oásis: Aperte M a qualquer momento para abrir o Atlas do Mundo e fazer Viagem Rápida entre as regiões!
+
+=== placa_deserto
+Placa: Oásis Dourado — Leste: Lago Cristalino.
+
+=== campeao_castelo
+@efeito poder 1
+Campeão Real: Esta é a Cidadela Abissal, a fortaleza erguida pela Entidade Maligna!
+Campeão Real: Use seus poderes elementais (F/Q) e troque de magia (E/R) para purificar este salão!
+@efeito parar
+
+=== placa_castelo
+Placa: Cidadela Abissal — Sul: Santuário Sombrio.
+
+=== guardiao_oasis
+Guardiã da Miragem: Bem-vindo ao Oásis de Miragem! Você pode nadar livremente nas águas claras.
+Guardiã da Miragem: Ao norte ergue-se o antigo Templo Solar de Helion.
+
+=== placa_oasis
+Placa: Oásis de Miragem — Leste: Deserto Dourado | Norte: Templo Solar.
+
+=== sacerdote_sol
+@efeito poder 1
+Sacerdote de Helion: A chama ancestral do Templo Solar nunca se apaga!
+Sacerdote de Helion: Que a luz do sol cure suas feridas para a jornada.
+@curar
+@efeito parar
+
+=== placa_templo_sol
+Placa: Templo Solar de Helion — Sul: Oásis de Miragem.
+
+=== sentinela_gelo
+Sentinela da Geada: No Pico da Geada Eterna, os ventos congelantes testam até os guerreiros mais bravos!
+Sentinela da Geada: A oeste fica a entrada secreta para a Caverna dos Cristais Astrais.
+
+=== placa_pico_congelado
+Placa: Pico da Geada Eterna — Sul: Pico dos Ventos | Oeste: Caverna de Cristal.
+
+=== sabio_cristal
+@efeito poder 1
+Sábio Astral: Estes cristais 3D ressoam com a própria essência de Aethelgard!
+Sábio Astral: Suas águas subterrâneas levam de volta ao Lago Cristalino ao sul.
+@efeito parar
+
+=== placa_caverna_cristal
+Placa: Caverna dos Cristais Astrais — Leste: Pico da Geada | Sul: Lago Cristalino.
+
+=== druida_outono
+Druida do Crepúsculo: As árvores douradas do Bosque do Crepúsculo guardam a fronteira entre o Lago e o Pântano.
+Druida do Crepúsculo: Pule sobre os slimes com C ou Ctrl para cruzar caminhos estreitos sem levar dano!
+
+=== placa_bosque_outono
+Placa: Bosque do Crepúsculo — Norte: Lago Cristalino | Leste: Pântano Nebuloso.
+
+=== espirito_rei
+@efeito poder 1
+Espírito do Rei Antigo: Minha cripta foi invadida pelas crias da escuridão...
+Espírito do Rei Antigo: Honre nossa linhagem purificando estas câmaras reais!
+@efeito parar
+
+=== placa_cripta
+Placa: Cripta dos Reis Antigos — Oeste: Ruínas Antigas.
+
+=== anciao_interior
+Ancião da Biblioteca: Estes tomos antigos contam como os Cristais de Mana selaram a Entidade Maligna há mil anos.
+@opcao Entregar Relíquias dos Guardiões -> anciao_reliquias
+@opcao Descansar e restaurar energias -> sabio_cura
+@opcao Continuar lendo os tomos -> sabio_tchau
+
+=== florista_interior
+Florista de Aurora: Cultivo flores de mana dentro desta estufa para proteger a vila da escuridão.
+Florista de Aurora: Sinta o perfume das pétalas e recupere seu vigor!
+@curar
+
+=== taverneiro_vila
+Taverneiro: Bem-vindo à Taverna do Javali Dourado! O que deseja, bravo aventureiro?
+@opcao Ver Provisões e Itens da Loja -> taverna_loja
+@opcao Descansar e Comer algo quente -> taverna_descansar
+@opcao Ouvir Rumores da Região -> taverna_rumores
+
+=== taverna_loja
+Taverneiro: Temos as melhores poções e suprimentos de Aethelgard!
+@loja
+
+=== taverna_descansar
+Taverneiro: Sente-se perto da lareira e coma este assado suculento.
+@curar
+Taverneiro: Sua vitalidade foi totalmente revigorada!
+
+=== taverna_rumores
+Taverneiro: Dizem que baús de ferro trancados exigem Chaves de Masmorra encontradas nos covis.
+Taverneiro: E cuidado com paredes rachadas nas ruínas... uma bomba bem colocada pode revelar tesouros ancestrais!
+
+=== ferreiro_vila
+Mestre Ferreiro: Minha forja queima com o fogo sagrado dos guardiões! Em que posso ajudá-lo?
+@opcao Ver Armas e Equipamentos à Venda -> ferreiro_loja
+@opcao Missão: A Lâmina dos Guardiões -> ferreiro_missao
+@opcao Dicas de Combate -> ferreiro_dicas
+
+=== ferreiro_loja
+Mestre Ferreiro: Dê uma olhada em nossas lâminas, armaduras e escudos forjados em aço!
+@loja
+
+=== ferreiro_missao
+@se lamina_guardioes_concluida
+Mestre Ferreiro: A Lâmina dos Guardiões que forjei para você continua reluzindo como o próprio sol!
+@senao
+@se lamina_guardioes_ativa
+Mestre Ferreiro: Conseguiu os 2 Minérios de Cristal da Caverna de Cristal?
+@entregar_lamina
+@senao
+Mestre Ferreiro: Se você me trouxer 2 Minérios de Cristal da Caverna de Cristal, forjarei a lendária Lâmina dos Guardiões para você!
+@missao_lamina
+@marcar lamina_guardioes_ativa
+@fim
+@fim
+
+=== ferreiro_dicas
+Mestre Ferreiro: Segure [E] ou [Ctrl] com um escudo equipado para rebater flechas e projéteis inimigos!
+
+=== druida_interior
+Druida Ancião: Saudações, jovem herói. A floresta geme sob o peso da corrupção das trevas.
+@opcao Missão: A Fonte Corrompida -> druida_missao
+@opcao Receber Bênção da Floresta -> druida_bencao
+
+=== druida_missao
+@se fonte_corrompida_concluida
+Druida Ancião: A nascente límpida corre novamente em paz graças à sua coragem.
+@senao
+@se fonte_corrompida_ativa
+Druida Ancião: Derrote os 4 monstros corrompidos que profanam a fonte no Bosque de Outono!
+@entregar_fonte
+@senao
+Druida Ancião: Criaturas das trevas profanaram a nascente sagrada. Elimine 4 monstros corrompidos no Bosque para purificar as águas!
+@missao_fonte
+@marcar fonte_corrompida_ativa
+@fim
+@fim
+
+=== druida_bencao
+Druida Ancião: Que a essência pura dos carvalhos ancestrais cure suas feridas.
+@curar
+
+=== herbalista_outono
+Herbalista: Olá, viajante! Minhas poções de ervas silvestres mantêm os moradores saudáveis.
+@opcao Missão: O Remédio Ancestral -> herbalista_missao
+@opcao Curar Ferimentos -> herbalista_curar
+
+=== herbalista_missao
+@se remedio_ancestral_concluida
+Herbalista: O elixir que destilei dos cogumelos noturnos salvou toda a nossa aldeia!
+@senao
+@se remedio_ancestral_ativa
+Herbalista: Você já encontrou os 3 Cogumelos Noturnos brilhantes no Pântano Nebuloso?
+@entregar_remedio
+@senao
+Herbalista: Preciso de 3 Cogumelos Noturnos do Pântano Nebuloso para criar um remédio contra a praga sombria. Pode me ajudar?
+@missao_remedio
+@marcar remedio_ancestral_ativa
+@fim
+@fim
+
+=== herbalista_curar
+Herbalista: Beba este chá de camomila dourada e recupere suas forças!
+@curar
+
+=== guardiao_bosque_int
+Guardião da Cabana: Vigio a fronteira leste contra as criaturas que vêm do Pântano Nebuloso.
+
+=== lenhador_outono
+Lenhador: As árvores deste bosque são tão antigas quanto as próprias ruínas de Aethelgard!
+
+=== hospedeira_oasis
+Hospedeira da Pousada: Viajantes exaustos do deserto sempre encontram sombra e água fresca aqui na Pousada das Palmeiras!
+@curar
+
+=== mercador_oasis
+Mercador de Especiarias: Trouxe relíquias e especiarias raras das terras além do Templo Solar!
+
+=== guarda_galeria
+Guarda da Galeria: Além desta galeria repousa o Santuário do Selo.
+Guarda da Galeria: Apenas aqueles que provarem sua força derrotando os 15 Chefões das terras poderão quebrar o selo do Salão do Trono!
+
+=== placa_galeria
+Placa: Galeria do Trono — Norte: Santuário do Selo e Ponto de Salvamento.
+
+=== sabio_astral
+Sábio Astral: Jovem Escolhido! Você alcançou o último refúgio antes do confronto final.
+Sábio Astral: Aproxime-se do Altar de Cristal sagrado para salvar todo o seu progresso e recuperar suas forças!
+Sábio Astral: Quando entrar pelas portas ao norte, você enfrentará o Desafio das Sombras — as almas de todos os 15 Chefões — culminando no despertar definitivo da Entidade Maligna!
+Sábio Astral: Que a Luz Ancestral guie sua lâmina!
+@curar
+
+=== placa_salvamento
+Placa: Altar de Luz — Pressione Ação próximo ao Cristal Sagrado para Salvar seu Jogo e restaurar sua Vida e Mana!
+
+=== ao_vitoria_final
+@clarao dourado
+@clima dia
+@tremer 3.0 1.5
+@pose heroi comemorar
+Com um golpe decisivo repleto da Luz Ancestral, a Entidade Maligna é destruída para sempre!
+O castelo das trevas se desfaz em partículas douradas e a luz do sol banha todo o reino.
+A paz finalmente retorna às terras de A Lenda Perdida!
+Você é o verdadeiro Herói Lendário!
+PARABÉNS! VOCÊ CONCLUIU O JOGO!
+
+

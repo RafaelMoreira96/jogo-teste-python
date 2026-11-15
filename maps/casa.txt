@@ -1,0 +1,14 @@
+WWWWWWWWWWWW
+W_C________W
+W_P______M_W
+W__________W
+W________M_W
+W__________W
+W__________W
+WWWWWDDWWWWW
+
+[mapa]
+nome = Cabana do Herói
+
+[portas]
+D = mundo.txt

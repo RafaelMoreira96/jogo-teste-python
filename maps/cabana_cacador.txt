@@ -1,0 +1,18 @@
+WWWWWWWWWWWWWW
+W_C________M_W
+W____________W
+W____M___M___W
+W______1_____W
+W__H___P_____W
+W____________W
+WWWWWWDDWWWWWW
+
+[mapa]
+nome = Cabana do Guardião
+clima = dia
+
+[npcs]
+1 = cavaleiro, guardiao_bosque_int
+
+[portas]
+D = bosque_outono.txt
