@@ -1,109 +1,147 @@
-# A Lenda Perdida
+# ⚔️ A Lenda Perdida (The Lost Legend)
 
-RPG 2D de ação e aventura em 16-bits, com gráficos pixel art detalhados, sistema de chefões, progressão de habilidades e trilha sonora procedural, feito em Python com pygame-ce.
+> Um RPG de Ação e Aventura 2D em 16-bits com estética retrô clássica (SNES / Mega Drive), combate em tempo real, 15 Guardiões Ancestrais, magias elementais, viagem rápida astral, atlas mundial e trilha sonora sintetizada proceduralmente. Desenvolvido em Python com [pygame-ce](https://pyga.me).
 
-## Como rodar
+---
 
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python main.py
-```
+## 🌟 Principais Recursos
 
-## Controles
+- 🗡️ **Combate de Ação Ágil**: Espada com combos, escudo com sistema de contra-ataque (*parry*), esquiva (*dash* com frames de invulnerabilidade) e arremesso de bombas para abrir passagens secretas.
+- 🔮 **Magias Elementais & RPG**: Esfera de Fogo, Rajada Congelante, Lança de Trovão, Lâmina de Vento e Bênção de Luz, além de sistema de níveis, mana, atributos e árvore de habilidades (`[U]`).
+- 🚪 **Portais Místicos & 15 Guardiões Ancestrais**: Cada grande chefe possui uma arena isolada com entrada mística monumental e efeitos de partículas. Ao derrotar um guardião, seu portal se transforma em um selo espectral eterno e sua relíquia é liberada.
+- 💨 **Navegação & Vento Guia**: Nunca mais fique perdido! Invoque o **Vento Guia** (`[H]`) para que as brisas do mundo revelem a direção do próximo objetivo. Totens de madeira nas encruzilhadas apontam caminhos para vilas, templos e masmorras.
+- 🗺️ **Atlas do Mundo & Badges de Chefes (`[M]`)**: Mapa geral detalhado indicando as regiões exploradas e o status de cada chefe (🔴 Ativo / 🟡 Pronto para lutar / ⚪ Conquistado).
+- 🌌 **Rede de Monólitos Astrais (Fast Travel)**: Encontre e sintonize monólitos nas 6 grandes regiões do continente para viajar instantaneamente entre eles através de feixes de luz celestiais.
+- 📜 **Missões & Conquistas**: Diário de missões secundárias, NPCs com diálogos e escolhas dinâmicas, e dezenas de conquistas desbloqueáveis com pop-ups animados.
+- 🏺 **Exploração & Segredos**: Quebre vasos de cerâmica antigos, corte arbustos, descubra baús com equipamentos raros e colete as **6 Relíquias Ancestrais** para entregar ao Ancião da Vila Aurora.
+- 🎵 **Áudio Sintetizado em Tempo Real**: Músicas de área e efeitos sonoros gerados por ondas procedurais sem depender de pacotes externos de áudio gravado.
+- 🛠️ **Editor Visual de Fases Integrado (`[F2]`)**: Pinte e crie novos mapas diretamente no motor do jogo com o mouse e teclado.
 
-| Ação | Teclado | Controle |
+---
+
+## 🎮 Controles
+
+O jogo conta com suporte total tanto para **Teclado** quanto para **Controles USB / Bluetooth** (Xbox, PlayStation, Nintendo Switch e genéricos):
+
+| Ação | Teclado | Controle (Gamepad) |
 |---|---|---|
-| Andar | Setas / WASD | Direcional / analógico |
-| Correr / Dash | Shift / C | B / RB |
-| Pular | V / K | Y / LB |
-| Espada / falar | Espaço / Z / J | A / X |
-| Confirmar | Enter / Espaço | A |
-| Voltar | Esc / X | B |
-| Pausar | Esc / P | Start |
-| Editor Visual | F2 | |
-| Recarregar História | F5 | |
-| Tela cheia | F11 | |
+| **Movimentação** | Setas direcionais / `W`, `A`, `S`, `D` | Analógico Esquerdo / D-Pad |
+| **Atacar com Espada / Interagir** | `Espaço` / `Z` / `J` | Botão `A` / `X` |
+| **Defender com Escudo (Parry)** | `Ctrl` / `E` | Gatilho Esquerdo (`LT` / `L2`) |
+| **Esquiva (Dash / Correr)** | `Shift` / `C` | Botão `B` / `RB` |
+| **Pular** | `V` / `K` | Botão `Y` / `LB` |
+| **Lançar Magia Ativa** | `F` / `Q` | Gatilho Direito (`RT` / `R2`) |
+| **Trocar Magia Elemental** | `R` / `E` | Botão `Y` |
+| **Colocar Bomba** | `B` / `G` | Botão `X` |
+| **Invocar Vento Guia** | `H` / `T` | Botão Direcional |
+| **Atlas do Mundo / Mapa** | `M` | Botão `Back` / `Select` |
+| **Árvore de Habilidades** | `U` / `Tab` | Botão Guia |
+| **Pausar Jogo** | `Esc` / `P` | Botão `Start` |
+| **Editor de Fases** | `F2` | — |
+| **Tela Cheia** | `F11` | — |
 
-Controles de Xbox, PlayStation, Switch etc. funcionam e podem ser conectados com o jogo aberto.
-Os botões ficam em `entrada.py`.
+---
 
-## Motor de História e Direção de Cenas
+## 🚀 Como Executar
 
-Toda a história e a direção das cenas ficam em `historia/dialogos.txt`. Além de falas, escolhas (`@opcao`) e condições (`@se` / `@marcar`), você pode dirigir como as cenas acontecem usando comandos `@`:
+### Pré-requisitos
+- **Python 3.10** ou superior instalado no seu sistema.
 
+### Instalação passo a passo
+
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/RafaelMoreira96/jogo-teste-python.git
+   cd jogo-teste-python
+   ```
+
+2. **Crie e ative um ambiente virtual:**
+   ```bash
+   # No Linux / macOS:
+   python3 -m venv .venv
+   source .venv/bin/activate
+
+   # No Windows:
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+
+3. **Instale as dependências:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Inicie a jornada:**
+   ```bash
+   python main.py
+   ```
+
+---
+
+## 🗺️ As Grandes Regiões do Mundo
+
+1. **Vila Aurora**: O refúgio inicial onde reside o Ancião, ferreiros, comerciantes e a fonte de água sagrada.
+2. **Floresta Esmeralda & Covil do Rei Slime**: Bosques densos com fauna misteriosa, fungos e o primeiro guardião coroado.
+3. **Lago Cristalino**: Águas serenas pontilhadas por ilhotas e espíritos das profundezas.
+4. **Ruínas Antigas**: Estruturas de pedra milenares guardadas pelo temível Golem de Pedra Ancestral.
+5. **Pântano Sombrio & Cemitério Esquecido**: Terrenos lamacentos e brumas onde repousam criaturas espectrais.
+6. **Santuário das Trevas**: O epicentro da corrupção, onde as forças ancestrais aguardam o derradeiro confronto.
+
+---
+
+## 🏗️ Estrutura do Código-fonte
+
+```text
+├── assets/                     # Sprites, texturas procedurais e artes de tiles
+├── audio.py                    # Sintetizador procedural de áudio (BGM e SFX em tempo real)
+├── caixa_dialogo.py            # Caixa de texto clássica com suporte a paginação e opções
+├── camera.py                   # Câmera cinemática suave com amortecimento e tremores (shake)
+├── chefe.py                    # IA e estados dos 15 Chefões e Guardiões
+├── conquistas.py               # Sistema de conquistas com persistência e alertas animados
+├── efeitos.py                  # Partículas, iluminação, corações flutuantes e vasos quebráveis
+├── enemy.py                    # Inimigos comuns (slimes, zumbis, arqueiros, morcegos)
+├── entidade.py                 # Mecânica de física, colisão e knockback base
+├── entrada.py                  # Mapeamento unificado de teclado e gamepads
+├── equipamentos.py             # Armaduras, armas, escudos e relíquias
+├── historia.py                 # Interpretador de roteiro e eventos direcionados
+├── historia/dialogos.txt       # Roteiro completo do jogo e cutscenes (@comandos)
+├── hud.py                      # Interface de usuário (Vida, Mana, XP, Alvo, Recursos, Minimapa)
+├── level.py                    # Carregador de mapas em ASCII/tiles e colisões
+├── main.py                     # Inicialização da janela SDL e ciclo do jogo
+├── maps/                       # Arquivos .txt de cenários, vilas, cavernas e masmorras
+├── missoes.py                  # Gerenciador de missões primárias e secundárias
+├── player.py                   # Mecânicas do herói, ataques, magias, dash e animações
+├── rpg.py                      # Atributos do personagem, progressão, inventário e magias
+├── salvamento.py               # Serialização e persistência de dados (savegame)
+├── ui.py                       # Fonte bitmap proporcional 16-bits e componentes de menus
+└── cenas/                      # Telas e módulos de estado:
+    ├── jogo.py                 # Ciclo principal do gameplay e mundo
+    ├── menu.py                 # Tela de título e seleção de opções
+    ├── mapa_mundo.py           # Atlas do mundo com sinalização de chefes
+    ├── teleporte.py            # Viagem rápida entre Monólitos Astrais
+    ├── arvore_habilidades.py   # Desbloqueio de poderes e melhorias
+    ├── bestiario.py            # Enciclopédia de criaturas encontradas
+    ├── diario_missoes.py       # Registro de missões em andamento e concluídas
+    ├── conquistas.py           # Galeria de conquistas do jogador
+    ├── loja.py                 # Comércio de itens, poções e aprimoramentos
+    ├── pausa.py                # Menu de pausa
+    └── editor.py               # Editor in-game de fases e posicionamento de entidades
 ```
-@mapa casa.txt                  # troca o mapa atual (opcional: @mapa mundo.txt 5 14)
-@clima noite                    # muda o clima: dia, noite, chuva, trevas
-@pose heroi dormir              # poses: dormir (com Zzz), acordar, assustar, comemorar, tremer, poder, caido
-@esperar 1.5                    # pausa o diálogo enquanto a cena acontece
-@efeito poder heroi             # partículas: poder, fogo, fumaca, explosao, parar
-@clarao branco                  # flash na tela: branco, vermelho, roxo, dourado
-@cenario cidade                 # cutscene da Entidade Maligna despertando
-@cenario cidade_destruicao      # a Entidade Maligna destrói a cidade inteira
-@cenario normal                 # volta para o mapa do jogo
-@tremer 4 1.0                   # treme a câmera (intensidade e duração) e vibra o controle
-@pular heroi                    # faz qualquer personagem dar um pulo
-@emocao heroi !                 # mostra balão de expressão: !, ?, ..., coracao
-@olhar 1 heroi                  # vira um personagem para uma direção ou para outro ator
-@mover heroi baixo 2            # faz o personagem andar (por direção/passos ou coordenada x y)
-@posicionar 1 8 14              # posiciona um ator na coordenada (x, y)
-@camera 1                       # foca a câmera em um personagem ou coordenada
-```
 
-## Editor Visual Integrado (`F2`)
+---
 
-Aperte **`F2`** a qualquer momento (ou escolha **"Editor de jogo"** no Menu Principal) para abrir o editor no próprio jogo:
-- **Mouse Esquerdo**: pinta o tile/objeto selecionado no mapa.
-- **Mouse Direito**: apaga (volta para o chão).
-- **`Q` / `E` ou Roda do Mouse**: troca o pincel (grama, caminho, paredes, cama, mesa, portas, Slimes, Corações, NPCs...).
-- **`Tab`**: alterna entre os arquivos de mapa (`maps/casa.txt`, `maps/mundo.txt`).
-- **`T`**: abre a lista de cenas/diálogos de `historia/dialogos.txt` para testar qualquer cena na hora.
-- **`Ctrl+S`**: salva o mapa no arquivo `.txt`.
-- **`F2` / `Esc`**: salva e joga imediatamente no mapa atual.
+## 🛠️ Editor de Fases (`F2`)
 
-## Estrutura
+Pressione **`F2`** durante o jogo para editar qualquer mapa em tempo real:
+- **Botão Esquerdo do Mouse**: Pinta o tile/objeto selecionado.
+- **Botão Direito do Mouse**: Apaga para o solo base.
+- **Roda do Mouse / Teclas `Q` e `E`**: Alterna entre os pincéis disponíveis (paredes, água, pontes, arbustos, tochas, vasos, totens, portais, NPCs e inimigos).
+- **`Tab`**: Alterna entre mapas disponíveis.
+- **`Ctrl + S`**: Salva as alterações diretamente no arquivo de mapa.
+- **`F2` / `Esc`**: Salva e retorna instantaneamente para o jogo.
 
-| Arquivo | O que faz |
-|---|---|
-| `main.py` | janela, loop principal, pilha de cenas |
-| `cenas/` | menu principal, jogo, pausa, configurações |
-| `entrada.py` | teclado + controle, por ações |
-| `config.py` | configurações salvas em `config.json` |
-| `historia.py` | lê e executa `historia/dialogos.txt` |
-| `caixa_dialogo.py` | caixa de diálogo e escolhas |
-| `npc.py` | personagens que conversam |
-| `ui.py` | texto, menus |
-| `settings.py` | constantes (resolução, velocidades, vida...) |
-| `sprites.py` | tiles, itens e carregamento dos PNGs |
-| `personagens.py` | pixel art dos personagens (32x32, em camadas) |
-| `level.py` | lê o mapa de texto, colisão com tiles |
-| `entidade.py` | movimento com colisão e knockback (base) |
-| `player.py` | jogador: movimento, animação, espada, dano |
-| `enemy.py` | slime: passeia e persegue |
-| `efeitos.py` | corações coletáveis e partículas |
-| `camera.py` | câmera que segue o jogador |
-| `hud.py` | corações, contador, mensagens |
-| `maps/mundo.txt` | o mapa |
+---
 
-## Editando
+## 📜 Licença
 
-**Mapa**: edite `maps/mundo.txt`. Cada caractere é um tile de 16x16:
-
-```
-.  grama        ,  caminho      *  flores
-T  árvore       #  pedra        ~  água         (sólidos)
-B  arbusto (sólido, cortável)
-P  jogador      S  slime        H  coração
-1-9 NPC (veja [npcs] no fim do arquivo)
-```
-
-**Arte**: na primeira execução os sprites são gerados e salvos em `assets/sprites/`.
-Edite os PNGs em qualquer editor de pixel art (LibreSprite, Pixelorama, Aseprite),
-mantendo o tamanho. Apague um PNG para voltar à arte padrão.
-
-- personagens (`heroi.png`, `aldea.png`, `mago.png`...): 128x96, quadros de 32x32; linhas baixo, cima e direita (esquerda é espelhada), 4 quadros de caminhada cada
-- `slime.png`: 32x16, 2 quadros
-- `espada.png`: 16x16, apontando para cima
-- `coracoes.png`: 24x8 (cheio, metade, vazio)
-- tiles: 16x16 cada
+Distribuído sob a licença MIT. Sinta-se à vontade para clonar, estudar, modificar e expandir esta aventura!
