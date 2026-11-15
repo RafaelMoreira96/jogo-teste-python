@@ -213,16 +213,28 @@ def desenhar_bussola(tela, fonte, bussola, tempo):
     pygame.draw.polygon(tela, (220, 220, 230), [cauda, (cx + lado[0], cy + lado[1]), (cx - lado[0], cy - lado[1])])
     pygame.draw.circle(tela, (255, 220, 120), (cx, cy), 2)
 
-    rotulo = bussola.get("rotulo")
-    if rotulo:
-        texto = limpar_texto(rotulo)
-        largura_max = 130
+    # Painel: objetivo (Guardião) em cima e o próximo mapa da rota embaixo
+    objetivo = limpar_texto(bussola.get("objetivo") or "")
+    rotulo = limpar_texto(bussola.get("rotulo") or "")
+    largura_max = 128
+
+    def caber(texto):
         while texto and fonte.size(texto)[0] > largura_max:
             texto = texto[:-1]
-        larg = fonte.size(texto)[0] + 10
-        x0 = cx - raio - 6 - larg
-        desenhar_painel(tela, (x0, ALTURA - 16, larg, 14), "padrao", alfa=205, cantos=False)
-        desenhar_texto(tela, fonte, texto, (x0 + 5, ALTURA - 14), (255, 226, 140))
+        return texto
+
+    linha1 = caber(objetivo)
+    linha2 = caber(f"→ {rotulo}") if rotulo else ""
+    larg = max(fonte.size(linha1)[0], fonte.size(linha2)[0]) + 10
+    alt = 26 if linha2 else 14
+    # Fica logo acima da rosa dos ventos, alinhado à direita (longe de avisos e dicas)
+    x0 = LARGURA - 2 - larg
+    y0 = cy - raio - 6 - alt
+    destaque = bussola.get("destaque", 0.0) > 0 and int(tempo * 6) % 2 == 0
+    desenhar_painel(tela, (x0, y0, larg, alt), "dourado" if destaque else "padrao", alfa=210, cantos=False)
+    desenhar_texto(tela, fonte, linha1, (x0 + 5, y0 + 2), (255, 226, 140))
+    if linha2:
+        desenhar_texto(tela, fonte, linha2, (x0 + 5, y0 + 13), (190, 200, 225))
 
 
 def desenhar_mensagem(tela, fonte, titulo, subtitulo):

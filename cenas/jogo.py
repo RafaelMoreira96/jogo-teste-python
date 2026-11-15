@@ -883,6 +883,7 @@ class Jogo(Cena):
         self.jogador.vida_maxima = self.vida_max_total()
         self.jogador.fator_velocidade_rpg = self.rpg.fator_velocidade
         self.ambiente.atualizar(dt)
+        self.destaque_bussola = max(0.0, getattr(self, "destaque_bussola", 0.0) - dt)
         for obj3d in getattr(self.nivel, "objetos_3d", []):
             obj3d.atualizar(self.tempo_cenario)
         self.particulas = [p for p in self.particulas if p.atualizar(dt)]
@@ -1544,7 +1545,12 @@ class Jogo(Cena):
                 anterior = getattr(self, "angulo_bussola", angulo)
                 diferenca = (angulo - anterior + math.pi) % math.tau - math.pi
                 self.angulo_bussola = anterior + diferenca * 0.18
-                info_bussola = {"angulo": self.angulo_bussola, "rotulo": alvo_bussola["rotulo"], "dist": vetor.length()}
+                info_bussola = {
+                    "angulo": self.angulo_bussola,
+                    "rotulo": alvo_bussola["rotulo"],
+                    "objetivo": alvo_bussola.get("objetivo"),
+                    "destaque": getattr(self, "destaque_bussola", 0.0),
+                }
             dados_atuais = self.mapas.get(self.nivel.caminho.resolve())
             chefe_hud = self.chefes[0] if self.chefes else None
             rush_hud = ({"onda": self.boss_rush_onda, "total": 5} if self.boss_rush_ativo and self.boss_rush_onda <= 5 else None)
@@ -1673,40 +1679,78 @@ class Jogo(Cena):
             return "castelo_salao_trono.txt", "A Entidade Maligna"
         return None, None
 
+    def _nivel_regiao(self, mapa):
+        """Nível recomendado de uma região (o do Guardião que mora ali); 0 se for segura."""
+        if getattr(self, "_niveis_regiao", None) is None:
+            niveis = {}
+            for _, _, nv, covil, origem, _, _ in LISTA_CHEFES_PROGRESSAO:
+                niveis[covil] = nv
+                niveis[origem] = min(niveis.get(origem, nv), nv)
+            self._niveis_regiao = niveis
+        return self._niveis_regiao.get(mapa, 0)
+
+    def _rota_ate(self, atual, alvo_mapa):
+        """Primeiro passo (porta, mapa seguinte) da rota mais segura até `alvo_mapa`.
+
+        Cada mapa custa 1; regiões acima do nível do herói custam bem mais e covis
+        de outros Guardiões nunca entram no caminho (são becos sem saída).
+        """
+        import heapq
+
+        grafo = self._grafo_portas()
+        nivel_heroi = self.rpg.nivel
+        melhor = {atual: 0}
+        anterior = {atual: None}
+        fila = [(0, atual)]
+        while fila:
+            custo, mapa = heapq.heappop(fila)
+            if mapa == alvo_mapa:
+                break
+            if custo > melhor.get(mapa, float("inf")):
+                continue
+            for centro, destino in grafo.get(mapa, []):
+                if destino in MAPA_PARA_CHEFE_ID and destino != alvo_mapa:
+                    continue
+                perigo = self._nivel_regiao(destino) - (nivel_heroi + 1)
+                passo = 1 + (10 + perigo if perigo > 0 else 0)
+                novo = custo + passo
+                if novo < melhor.get(destino, float("inf")):
+                    melhor[destino] = novo
+                    anterior[destino] = (mapa, centro)
+                    heapq.heappush(fila, (novo, destino))
+        if alvo_mapa not in anterior:
+            return None
+        no = alvo_mapa
+        while anterior[no] and anterior[no][0] != atual:
+            no = anterior[no][0]
+        return (anterior[no][1], no) if anterior[no] else None
+
     def alvo_bussola(self):
-        """Ponto (no mundo) para onde a bússola aponta e o texto de destino, ou None."""
+        """Ponto (no mundo) para onde a bússola aponta, o objetivo e o próximo mapa, ou None."""
         if not self.app.config.get("bussola", True) or getattr(self, "modo_chefe", None):
             return None
         alvo_mapa, nome_alvo = self._mapa_objetivo()
+
+        # Avisa quando o objetivo muda (ex.: logo depois de derrotar um Guardião)
+        anterior = getattr(self, "_objetivo_anterior", None)
+        if alvo_mapa != anterior:
+            if anterior is not None and nome_alvo:
+                self.aviso_mapa = f"Novo objetivo: {nome_alvo}"
+                self.tempo_aviso_mapa = 3.5
+                self.destaque_bussola = 3.5
+            self._objetivo_anterior = alvo_mapa
         if not alvo_mapa:
             return None
+
         atual = self.nivel.caminho.name
         if atual == alvo_mapa:
             if self.chefes:
-                return {"pos": self.chefes[0].rect.center, "rotulo": nome_alvo}
+                return {"pos": self.chefes[0].rect.center, "objetivo": nome_alvo, "rotulo": "Aqui!"}
             return None
-        chave = (atual, alvo_mapa)
+        chave = (atual, alvo_mapa, self.rpg.nivel)
         cache = getattr(self, "_cache_rotas", {})
         if chave not in cache:
-            grafo = self._grafo_portas()
-            anterior = {atual: None}
-            fila = [atual]
-            while fila:
-                mapa = fila.pop(0)
-                if mapa == alvo_mapa:
-                    break
-                for centro, destino in grafo.get(mapa, []):
-                    if destino not in anterior:
-                        anterior[destino] = (mapa, centro)
-                        fila.append(destino)
-            passo = None
-            if alvo_mapa in anterior:
-                no = alvo_mapa
-                while anterior[no] and anterior[no][0] != atual:
-                    no = anterior[no][0]
-                if anterior[no]:
-                    passo = (anterior[no][1], no)
-            cache[chave] = passo
+            cache[chave] = self._rota_ate(atual, alvo_mapa)
             self._cache_rotas = cache
         passo = cache[chave]
         if passo is None:
@@ -1714,7 +1758,7 @@ class Jogo(Cena):
         centro_porta, proximo_mapa = passo
         dados = self.mapas.get((PASTA_BASE / "maps" / proximo_mapa).resolve())
         nome_proximo = dados["nivel"].nome if dados else proximo_mapa
-        return {"pos": centro_porta, "rotulo": nome_proximo}
+        return {"pos": centro_porta, "objetivo": nome_alvo, "rotulo": nome_proximo}
 
     def _desenhar_seta_bussola(self, tela, alvo):
         """Seta dourada girando em volta do herói, apontando o caminho."""
