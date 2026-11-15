@@ -208,6 +208,10 @@ class GerenciadorConquistas:
         conquista = CONQUISTAS_DEF[id_conquista]
         self.notificacoes.append(NotificacaoConquista(conquista))
 
+        if id_conquista == "vitoria_final" and jogo and hasattr(jogo, "app"):
+            from config import marcar_jogo_zerado
+            marcar_jogo_zerado(jogo.app)
+
         if jogo and hasattr(jogo, "app") and hasattr(jogo.app, "audio"):
             jogo.app.audio.sfx("level_up")
         return True

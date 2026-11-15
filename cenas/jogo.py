@@ -1364,6 +1364,8 @@ class Jogo(Cena):
                     self.cor_clarao = (255, 255, 240)
                     self.evento("vitoria_final")
                     self.conquistas.desbloquear("vitoria_final", self)
+                    from config import marcar_jogo_zerado
+                    marcar_jogo_zerado(self.app)
                     self.timer_transicao_final = 5.0
             else:
                 chefes_vivos.append(chefe)

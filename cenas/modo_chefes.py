@@ -85,6 +85,11 @@ class SelecaoChefes(Cena):
 
     def __init__(self, app, indice=0):
         super().__init__(app)
+        from config import jogo_foi_zerado
+        if not jogo_foi_zerado(app):
+            from cenas.menu import MenuPrincipal
+            app.trocar(MenuPrincipal(app))
+            return
         self.t = 0.0
         self.ids = [c[0] for c in LISTA_CHEFES_PROGRESSAO] + [ID_DESAFIO]
         self.indice = min(indice, len(self.ids) - 1)

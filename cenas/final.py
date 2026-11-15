@@ -102,6 +102,9 @@ class CenaFinal(Cena):
         self.confetes = [Confete() for _ in range(40)]
         self.concluido = False
 
+        from config import marcar_jogo_zerado
+        marcar_jogo_zerado(app)
+
         audio = getattr(app, "audio", None)
         if audio:
             audio.tocar_bgm("encerramento", forcar=True)

@@ -66,6 +66,7 @@ class MenuPrincipal(Cena):
 
     def __init__(self, app, pular_abertura=False):
         super().__init__(app)
+        from config import jogo_foi_zerado
         from salvamento import existe_save
 
         # A abertura cinematográfica só roda na primeira vez; ao voltar do jogo o menu já abre pronto
@@ -75,6 +76,8 @@ class MenuPrincipal(Cena):
         self.estado = "titulo" if pular_abertura else "abertura"
         self.menu_aberto = pular_abertura
         self.transicao = 1.0 if pular_abertura else 0.0  # 0 = título, 1 = menu aberto
+        self.modo_chefes_liberado = jogo_foi_zerado(app)
+        self.aviso_bloqueado = 0.0
         self.opcoes = ["Novo jogo", "Modo Chefões", "Editor de jogo", "Configurações", "Sair"]
         if existe_save():
             self.opcoes.insert(0, "Continuar")
@@ -229,6 +232,9 @@ class MenuPrincipal(Cena):
         alvo = 1.0 if self.menu_aberto else 0.0
         self.transicao += (alvo - self.transicao) * min(1.0, dt * 7)
 
+        if self.aviso_bloqueado > 0:
+            self.aviso_bloqueado = max(0.0, self.aviso_bloqueado - dt)
+
         if self.estado == "abertura":
             if self.t > 2.6 or entrada.apertou("confirmar") or entrada.apertou("acao"):
                 self.estado = "titulo"
@@ -256,10 +262,17 @@ class MenuPrincipal(Cena):
             return
         if not entrada.apertou("confirmar"):
             return
+
+        escolha = self.opcoes[self.indice]
+        if escolha == "Modo Chefões" and not self.modo_chefes_liberado:
+            if audio:
+                audio.sfx("bloqueio")
+            self.aviso_bloqueado = 3.0
+            return
+
         if audio:
             audio.sfx("menu_confirmar")
 
-        escolha = self.opcoes[self.indice]
         if escolha == "Continuar":
             from salvamento import carregar_jogo
             salvo = carregar_jogo(self.app)
@@ -498,14 +511,23 @@ class MenuPrincipal(Cena):
         for i, op in enumerate(self.opcoes):
             y = janela.y + 8 + i * 14
             sel = i == self.indice
+            bloqueado = (op == "Modo Chefões" and not self.modo_chefes_liberado)
             if sel:
                 faixa = pygame.Surface((janela.width - 8, 12), pygame.SRCALPHA)
-                faixa.fill((255, 220, 120, 40))
+                if bloqueado:
+                    faixa.fill((210, 70, 70, 45))
+                else:
+                    faixa.fill((255, 220, 120, 40))
                 tela.blit(faixa, (janela.x + 4, y - 1))
                 mx = janela.x + 3 + round(math.sin(self.t * 8) * 1.5)
                 self._desenhar_mao(tela, mx, y + 1)
-            cor = (255, 240, 170) if sel else (206, 210, 230)
+            if bloqueado:
+                cor = (215, 160, 160) if sel else (140, 135, 150)
+            else:
+                cor = (255, 240, 170) if sel else (206, 210, 230)
             desenhar_texto(tela, fonte, op, (janela.x + 17, y), cor)
+            if bloqueado:
+                self._desenhar_cadeado(tela, janela.right - 14, y + 2, (245, 185, 75) if sel else (150, 140, 130))
 
         # Janela "Aventura" com resumo do save + descrição da opção
         info = pygame.Rect(138, 74 + desliza, LARGURA - 152, janela.height)
@@ -538,12 +560,33 @@ class MenuPrincipal(Cena):
             y += 14
         # Descrição da opção (quebrada em linhas)
         from ui import quebrar_linhas
-        for linha in quebrar_linhas(fonte, DESCRICOES.get(escolha, ""), info.width - 16)[:3]:
-            desenhar_texto(tela, fonte, linha, (info.x + 8, y), (200, 206, 230))
-            y += 11
-        controle = self.app.entrada.nome_controle()
-        rodape = f"{controle}: A confirma, B volta" if controle else "Enter: confirmar   Esc: voltar"
-        desenhar_texto(tela, fonte, rodape, (LARGURA // 2, ALTURA - 7), (190, 180, 210), centro=True)
+        if escolha == "Modo Chefões" and not self.modo_chefes_liberado:
+            desenhar_texto(tela, fonte, "MODO BLOQUEADO", (info.x + 8, y), (255, 120, 110))
+            y += 12
+            texto_bloqueio = "Derrote a Entidade Maligna e zere a história pela primeira vez para liberar o Desafio dos Guardiões!"
+            for linha in quebrar_linhas(fonte, texto_bloqueio, info.width - 16)[:3]:
+                desenhar_texto(tela, fonte, linha, (info.x + 8, y), (210, 200, 220))
+                y += 11
+        else:
+            for linha in quebrar_linhas(fonte, DESCRICOES.get(escolha, ""), info.width - 16)[:3]:
+                desenhar_texto(tela, fonte, linha, (info.x + 8, y), (200, 206, 230))
+                y += 11
+
+        if self.aviso_bloqueado > 0:
+            pulso = int(math.sin(self.t * 14) * 35)
+            cor_aviso = (255, 120 + pulso, 100)
+            txt_aviso = "! Zere a história principal para desbloquear o Modo Chefões !"
+            desenhar_texto(tela, fonte, txt_aviso, (LARGURA // 2, ALTURA - 8), cor_aviso, centro=True)
+        else:
+            controle = self.app.entrada.nome_controle()
+            rodape = f"{controle}: A confirma, B volta" if controle else "Enter: confirmar   Esc: voltar"
+            desenhar_texto(tela, fonte, rodape, (LARGURA // 2, ALTURA - 7), (190, 180, 210), centro=True)
+
+    def _desenhar_cadeado(self, tela, x, y, cor_metal=(210, 160, 60)):
+        pygame.draw.rect(tela, (170, 170, 185), (x + 1, y, 4, 3), 1)
+        pygame.draw.rect(tela, cor_metal, (x, y + 2, 6, 5))
+        pygame.draw.rect(tela, (50, 35, 15), (x, y + 2, 6, 5), 1)
+        tela.set_at((x + 2, y + 4), (40, 20, 10))
 
     def _desenhar_mao(self, tela, x, y):
         cores = {"#": (30, 24, 40), "w": (255, 255, 255)}

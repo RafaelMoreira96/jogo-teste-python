@@ -29,6 +29,7 @@ def salvar_jogo(jogo):
         "vida_maxima": jogo.jogador.vida_maxima,
         "mapas_visitados": list(jogo.mapas_visitados),
         "flags": list(jogo.flags),
+        "jogo_zerado": "vitoria_final" in jogo.flags or "vitoria_final" in getattr(jogo.conquistas, "desbloqueadas", set()),
         "conquistas": list(getattr(jogo.conquistas, "desbloqueadas", set())),
         "missoes": {
             "ativas": getattr(jogo.missoes, "ativas", {}),
@@ -128,6 +129,10 @@ def carregar_jogo(app):
         # Transição fade-in suave ao carregar
         jogo.fade_estado = "in"
         jogo.fade_alfa = 1.0
+
+        if dados.get("jogo_zerado") or "vitoria_final" in jogo.flags:
+            from config import marcar_jogo_zerado
+            marcar_jogo_zerado(app)
 
         return jogo
     except Exception as e:
