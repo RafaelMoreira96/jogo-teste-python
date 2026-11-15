@@ -1,10 +1,17 @@
+"""Menu de Configurações, Áudio, Vídeo, Acessibilidade e Controles de A Lenda Perdida."""
 import pygame
 
 import config
 from cenas.base import Cena
-from config import ESCALAS, NOMES_VELOCIDADE, VELOCIDADES_TEXTO
+from config import (
+    ESCALAS,
+    INTENSIDADES_TREMOR,
+    NOMES_VELOCIDADE,
+    TAMANHOS_HUD,
+    VELOCIDADES_TEXTO,
+)
 from settings import ALTURA, LARGURA
-from ui import AMARELO, CINZA, MenuLista, desenhar_painel, desenhar_texto
+from ui import AMARELO, BRANCO, CINZA, MenuLista, desenhar_painel, desenhar_texto
 
 ITENS = [
     "volume_bgm",
@@ -12,22 +19,15 @@ ITENS = [
     "tela_cheia",
     "escala",
     "velocidade_texto",
+    "tamanho_hud",
+    "alto_contraste",
+    "intensidade_tremor",
+    "speedrun",
     "bussola",
     "vibracao",
-    "controles",
+    "remapear",
+    "jukebox",
     "voltar",
-]
-
-CONTROLES = [
-    ("", "Teclado", "Controle"),
-    ("Andar", "Setas / WASD", "Direcional / analógico"),
-    ("Correr / Dash", "Shift / C", "B / RB"),
-    ("Pular / Nadar", "C / Ctrl", "Y / LB"),
-    ("Espada / falar", "Espaço / Z / J", "A / X"),
-    ("Poder / Trocar", "F / Q", "X / RB"),
-    ("Mapa / Árvore", "M / U (Tab)", "Select"),
-    ("Ver objetivo", "O", "-"),
-    ("Pausar / Voltar", "Esc / P", "Start / B"),
 ]
 
 
@@ -39,34 +39,39 @@ class Configuracoes(Cena):
     def __init__(self, app):
         super().__init__(app)
         self.menu = MenuLista(self._rotulos())
-        self.vendo_controles = False
 
     def _rotulos(self):
         c = self.app.config
         escala = "(tela cheia)" if c["tela_cheia"] else f"{c['escala']}x"
         vol_bgm = c.get("volume_bgm", 70)
         vol_sfx = c.get("volume_sfx", 80)
+        hud_str = {"normal": "Normal", "compacto": "Compacto", "expandido": "Expandido"}.get(
+            c.get("tamanho_hud", "normal"), "Normal"
+        )
+        tremor_str = {1.0: "100%", 0.5: "50%", 0.0: "Desligado"}.get(
+            c.get("intensidade_tremor", 1.0), "100%"
+        )
+
         return [
             f"Música (BGM): {vol_bgm}%",
             f"Efeitos (SFX): {vol_sfx}%",
             f"Tela cheia: {sim_nao(c['tela_cheia'])}",
             f"Tamanho da janela: {escala}",
             f"Velocidade do texto: {NOMES_VELOCIDADE[c['velocidade_texto']]}",
+            f"Tamanho do HUD: {hud_str}",
+            f"Alto Contraste: {sim_nao(c.get('alto_contraste', False))}",
+            f"Tremor de Tela: {tremor_str}",
+            f"Modo Speedrun: {sim_nao(c.get('speedrun', False))}",
             f"Bússola de objetivo: {sim_nao(c.get('bussola', True))}",
             f"Vibração do controle: {sim_nao(c['vibracao'])}",
-            "Ver controles",
+            "Personalizar Controles...",
+            "Sala de Música (Jukebox)...",
             "Voltar",
         ]
 
     def atualizar(self, dt):
         entrada = self.app.entrada
         audio = getattr(self.app, "audio", None)
-        if self.vendo_controles:
-            if entrada.apertou("confirmar") or entrada.apertou("voltar"):
-                if audio:
-                    audio.sfx("menu_voltar")
-                self.vendo_controles = False
-            return
 
         ant = self.menu.indice
         resultado = self.menu.atualizar(entrada)
@@ -96,10 +101,6 @@ class Configuracoes(Cena):
             if audio:
                 audio.aplicar_volumes()
                 audio.sfx("espada")
-        elif item == "ost_jukebox":
-            if audio:
-                audio.alternar_faixa_ost(passo)
-                audio.sfx("menu_confirmar")
         elif item == "tela_cheia":
             c["tela_cheia"] = not c["tela_cheia"]
             self.app.aplicar_video()
@@ -111,17 +112,41 @@ class Configuracoes(Cena):
             nomes = list(VELOCIDADES_TEXTO)
             i = nomes.index(c["velocidade_texto"])
             c["velocidade_texto"] = nomes[(i + passo) % len(nomes)]
+        elif item == "tamanho_hud":
+            i = TAMANHOS_HUD.index(c.get("tamanho_hud", "normal"))
+            c["tamanho_hud"] = TAMANHOS_HUD[(i + passo) % len(TAMANHOS_HUD)]
+            if audio:
+                audio.sfx("menu_confirmar")
+        elif item == "alto_contraste":
+            c["alto_contraste"] = not c.get("alto_contraste", False)
+            if audio:
+                audio.sfx("menu_confirmar")
+        elif item == "intensidade_tremor":
+            i = INTENSIDADES_TREMOR.index(c.get("intensidade_tremor", 1.0))
+            c["intensidade_tremor"] = INTENSIDADES_TREMOR[(i + passo) % len(INTENSIDADES_TREMOR)]
+            if audio:
+                audio.sfx("menu_confirmar")
+        elif item == "speedrun":
+            c["speedrun"] = not c.get("speedrun", False)
+            if audio:
+                audio.sfx("menu_confirmar")
         elif item == "bussola":
             c["bussola"] = not c.get("bussola", True)
             if audio:
                 audio.sfx("menu_confirmar")
         elif item == "vibracao":
             c["vibracao"] = not c["vibracao"]
-            self.app.entrada.vibrar(0.6, 200)  # vibra para testar
-        elif item == "controles" and confirmou:
+            self.app.entrada.vibrar(0.6, 200)
+        elif item == "remapear" and confirmou:
             if audio:
                 audio.sfx("menu_confirmar")
-            self.vendo_controles = True
+            from cenas.remapeamento import CenaRemapeamento
+            self.app.empilhar(CenaRemapeamento(self.app))
+        elif item == "jukebox" and confirmou:
+            if audio:
+                audio.sfx("menu_confirmar")
+            from cenas.jukebox import CenaJukebox
+            self.app.empilhar(CenaJukebox(self.app))
         elif item == "voltar" and confirmou:
             if audio:
                 audio.sfx("menu_voltar")
@@ -129,24 +154,20 @@ class Configuracoes(Cena):
         config.salvar(c)
 
     def desenhar(self, tela):
-        tela.fill((18, 22, 40))
+        tela.fill((16, 20, 36))
         fontes = self.app.fontes
-        if self.vendo_controles:
-            desenhar_texto(tela, fontes.normal, "Controles", (LARGURA // 2, 16), AMARELO, centro=True)
-            for i, (acao, teclado, controle) in enumerate(CONTROLES):
-                y = 34 + i * 15
-                cor = AMARELO if i == 0 else (240, 240, 240)
-                desenhar_texto(tela, fontes.normal, acao, (10, y), cor)
-                desenhar_texto(tela, fontes.normal, teclado, (108, y), cor)
-                desenhar_texto(tela, fontes.normal, controle, (205, y), cor)
-            desenhar_texto(tela, fontes.normal, "Voltar: Esc / B", (LARGURA // 2, ALTURA - 12), CINZA, centro=True)
-            return
 
-        painel = pygame.Rect(LARGURA // 2 - 115, 26, 230, len(self.menu.opcoes) * 14 + 12)
-        desenhar_painel(tela, painel)
-        cabecalho = pygame.Rect(LARGURA // 2 - 50, 12, 100, 15)
+        # Janela de configurações com rolagem suave
+        larg_painel = 246
+        alt_painel = 152
+        painel = pygame.Rect(LARGURA // 2 - larg_painel // 2, 14, larg_painel, alt_painel)
+        desenhar_painel(tela, painel, estilo="padrao", alfa=245)
+
+        cabecalho = pygame.Rect(LARGURA // 2 - 60, 6, 120, 15)
         desenhar_painel(tela, cabecalho, "dourado", cantos=False)
-        desenhar_texto(tela, fontes.normal, "Configurações", cabecalho.center, (255, 236, 150), centro=True)
-        self.menu.desenhar(tela, fontes.normal, LARGURA // 2, painel.y + 12, espaco=14, largura=painel.width - 12)
-        dica = "Esquerda / direita: mudar    Esc / B: voltar"
-        desenhar_texto(tela, fontes.normal, dica, (LARGURA // 2, ALTURA - 10), CINZA, centro=True)
+        desenhar_texto(tela, fontes.normal, "CONFIGURAÇÕES", cabecalho.center, (255, 236, 150), centro=True)
+
+        # Itens com espaçamento compacto de 10px
+        self.menu.desenhar(tela, fontes.normal, LARGURA // 2, painel.y + 12, espaco=10, largura=painel.width - 12)
+        dica = "Esquerda / direita: mudar    Enter: escolher    Esc / B: voltar"
+        desenhar_texto(tela, fontes.normal, dica, (LARGURA // 2, ALTURA - 7), CINZA, centro=True)

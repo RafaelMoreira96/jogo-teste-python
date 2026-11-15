@@ -834,6 +834,8 @@ class Jogo(Cena):
             self.coracoes.append(Coracao(centro))
 
     def soltar_moeda(self, centro, tipo="cobre", qtd=1):
+        if getattr(self.rpg, "new_game_plus", False):
+            qtd *= 2
         for _ in range(qtd):
             offset = (random.uniform(-4, 4), random.uniform(-4, 4))
             p = (centro[0] + offset[0], centro[1] + offset[1])
@@ -880,6 +882,9 @@ class Jogo(Cena):
         entrada = self.app.entrada
         audio = getattr(self.app, "audio", None)
         self.tempo_cenario += dt
+        if not self.dialogo and self.estado == "jogando":
+            self.rpg.tempo_speedrun += dt
+        self.tempo_split_recente = max(0.0, getattr(self, "tempo_split_recente", 0.0) - dt)
         self.rpg.atualizar(dt)
         self.jogador.vida_maxima = self.vida_max_total()
         self.jogador.fator_velocidade_rpg = self.rpg.fator_velocidade
@@ -1344,6 +1349,10 @@ class Jogo(Cena):
                 self.rpg.pontos_habilidade += 1
                 if not chefe.fantasma:
                     self.rpg.chefes_derrotados.add(chefe.id_chefe)
+                    self.rpg.derrotas_monstros[chefe.id_chefe] = self.rpg.derrotas_monstros.get(chefe.id_chefe, 0) + 1
+                    self.rpg.splits_speedrun[chefe.id_chefe] = self.rpg.tempo_speedrun
+                    self.split_recente = (chefe.nome, self.rpg.tempo_speedrun)
+                    self.tempo_split_recente = 4.5
                     self.textos_flutuantes.append(
                         TextoFlutuante(chefe.rect.midtop, f"{chefe.nome.upper()} DERROTADO! (+1 PH)", (255, 235, 90))
                     )
@@ -1391,6 +1400,7 @@ class Jogo(Cena):
 
             # Drop de Moedas característico e proporcional (Pilar 1)
             tipo_m = getattr(inimigo, "tipo_id", getattr(inimigo, "tipo", "slime"))
+            self.rpg.derrotas_monstros[tipo_m] = self.rpg.derrotas_monstros.get(tipo_m, 0) + 1
             if "troll" in str(tipo_m):
                 self.soltar_moeda(inimigo.rect.center, "prata", 2)
                 if random.random() < 0.4:
@@ -1468,8 +1478,11 @@ class Jogo(Cena):
             tela.fill(COR_FUNDO)
             ox, oy = self.camera.offset
             if self.tremor > 0:
-                ox += round(random.uniform(-self.tremor, self.tremor))
-                oy += round(random.uniform(-self.tremor, self.tremor))
+                mult_tremor = self.app.config.get("intensidade_tremor", 1.0)
+                t_val = self.tremor * mult_tremor
+                if t_val > 0:
+                    ox += round(random.uniform(-t_val, t_val))
+                    oy += round(random.uniform(-t_val, t_val))
             self.nivel.desenhar_cenario_vivo(tela, ox, oy, self.tempo_cenario)
             self.ambiente.desenhar_chao(tela, ox, oy, self.clima)
 
@@ -1533,9 +1546,16 @@ class Jogo(Cena):
                 o.desenhar(tela, self.camera)
             for proj in self.projeteis:
                 proj.desenhar(tela, self.camera)
+            alto_contraste = self.app.config.get("alto_contraste", False)
             for pc in self.projeteis_chefes:
+                if alto_contraste:
+                    r_tela = self.camera.aplicar(pc.rect)
+                    pygame.draw.circle(tela, (255, 255, 0), r_tela.center, max(r_tela.width, r_tela.height) // 2 + 3, 1)
                 pc.desenhar(tela, self.camera)
             for p_ini in getattr(self, "projeteis_inimigos", []):
+                if alto_contraste:
+                    r_tela = self.camera.aplicar(p_ini.rect)
+                    pygame.draw.circle(tela, (255, 255, 0), r_tela.center, max(r_tela.width, r_tela.height) // 2 + 3, 1)
                 p_ini.desenhar(tela, self.camera, gfx)
             for p in self.particulas:
                 p.desenhar(tela, self.camera)
@@ -1581,6 +1601,9 @@ class Jogo(Cena):
                 aviso_mapa=self.aviso_mapa,
                 tempo_aviso_mapa=self.tempo_aviso_mapa,
                 bussola=info_bussola,
+                config=self.app.config,
+                split_recente=getattr(self, "split_recente", None),
+                tempo_split_recente=getattr(self, "tempo_split_recente", 0.0),
             )
 
             # Dica visual na tela ao se aproximar de um Ponto de Salvamento

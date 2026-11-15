@@ -143,6 +143,19 @@ Aldeão: Minha irmã não para de falar dos arbustos do jardim dela.
 
 === placa_inicio
 Placa: Norte: Vila Aurora | Oeste: Lago Cristalino | Leste: Ruínas Antigas.
+Placa: Dica: Use [Espaço] para golpear, [V] para pular e [Shift] para esquiva rápida (Dash).
+
+=== placa_pulo
+Placa de Treino: Pressione [V] para saltar sobre buracos, águas rasas e ataques terrestres!
+
+=== placa_espada
+Placa de Treino: Aperte [Espaço] para brandir sua espada e cortar arbustos densos que bloqueiam trilhas.
+
+=== placa_bomba
+Placa de Treino: Rochas com rachaduras podem ser implodidas. Plante bombas com [B] para abrir atalhos!
+
+=== placa_escudo
+Placa de Treino: Ao obter um escudo, segure [E / LCtrl] para repelir flechas e magias dos inimigos.
 
 === ao_slimes_derrotados
 A área ficou em silêncio. Todos os slimes daqui foram derrotados!

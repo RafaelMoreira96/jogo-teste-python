@@ -109,6 +109,9 @@ def ler_resumo_slot(slot):
         "reliquias": reliquias,
         "ouro": rpg.get("ouro", 0),
         "jogo_zerado": jogo_zerado,
+        "new_game_plus": bool(rpg.get("new_game_plus", False)),
+        "ciclo_ng": rpg.get("ciclo_ng", 0),
+        "tempo_speedrun": rpg.get("tempo_speedrun", 0.0),
         "data": dados.get("data_salvamento", "--/-- --:--"),
     }
 
@@ -160,6 +163,13 @@ def salvar_jogo(jogo, slot=None):
             "waypoint_descobertos": list(getattr(jogo.rpg, "waypoint_descobertos", set())),
             "reliquias_coletadas": list(getattr(jogo.rpg, "reliquias_coletadas", set())),
             "reliquias_entregues": list(getattr(jogo.rpg, "reliquias_entregues", set())),
+            "amuletos": list(getattr(jogo.rpg, "amuletos", set())),
+            "nivel_espada": getattr(jogo.rpg, "nivel_espada", 1),
+            "tempo_speedrun": getattr(jogo.rpg, "tempo_speedrun", 0.0),
+            "splits_speedrun": getattr(jogo.rpg, "splits_speedrun", {}),
+            "derrotas_monstros": getattr(jogo.rpg, "derrotas_monstros", {}),
+            "new_game_plus": getattr(jogo.rpg, "new_game_plus", False),
+            "ciclo_ng": getattr(jogo.rpg, "ciclo_ng", 0),
         },
     }
 
@@ -208,6 +218,13 @@ def carregar_jogo(app, slot=1):
         jogo.rpg.waypoint_descobertos = set(rpg_dados.get("waypoint_descobertos", []))
         jogo.rpg.reliquias_coletadas = set(rpg_dados.get("reliquias_coletadas", []))
         jogo.rpg.reliquias_entregues = set(rpg_dados.get("reliquias_entregues", []))
+        jogo.rpg.amuletos = set(rpg_dados.get("amuletos", []))
+        jogo.rpg.nivel_espada = rpg_dados.get("nivel_espada", 1)
+        jogo.rpg.tempo_speedrun = float(rpg_dados.get("tempo_speedrun", 0.0))
+        jogo.rpg.splits_speedrun = dict(rpg_dados.get("splits_speedrun", {}))
+        jogo.rpg.derrotas_monstros = dict(rpg_dados.get("derrotas_monstros", {}))
+        jogo.rpg.new_game_plus = bool(rpg_dados.get("new_game_plus", False))
+        jogo.rpg.ciclo_ng = int(rpg_dados.get("ciclo_ng", 0))
 
         # Sincroniza equipamento no jogador
         jogo.jogador.arma_equipada = jogo.rpg.arma_equipada

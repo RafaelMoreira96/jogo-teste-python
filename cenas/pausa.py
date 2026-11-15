@@ -24,6 +24,7 @@ class Pausa(Cena):
         self.jogo = jogo
         self.tempo_msg = 0.0
         self.msg_salvo = ""
+        self.modal_sair = False
         if jogo is not None and getattr(jogo, "modo_chefe", None):
             self.menu = MenuLista(["Continuar", "Reiniciar luta", "Escolher outro chefe", "Configurações", "Menu principal"])
             return
@@ -51,6 +52,18 @@ class Pausa(Cena):
         self.tempo_msg = max(0.0, self.tempo_msg - dt)
         entrada = self.app.entrada
         audio = getattr(self.app, "audio", None)
+
+        if self.modal_sair:
+            if entrada.apertou("confirmar"):
+                if audio:
+                    audio.sfx("menu_confirmar")
+                self.app.trocar(MenuPrincipal(self.app))
+            elif entrada.apertou("voltar"):
+                if audio:
+                    audio.sfx("menu_voltar")
+                self.modal_sair = False
+            return
+
         ant = self.menu.indice
         resultado = self.menu.atualizar(entrada)
         if self.menu.indice != ant and audio:
@@ -108,10 +121,10 @@ class Pausa(Cena):
                 if audio:
                     audio.sfx("menu_confirmar")
                 self.app.empilhar(Configuracoes(self.app))
-            else:
+            elif escolha == "Menu principal":
                 if audio:
                     audio.sfx("menu_confirmar")
-                self.app.trocar(MenuPrincipal(self.app))
+                self.modal_sair = True
 
     def desenhar(self, tela):
         escurecer(tela, 175)
@@ -134,6 +147,15 @@ class Pausa(Cena):
             largura = fonte.size(self.msg_salvo)[0] + 16
             desenhar_painel(tela, (LARGURA // 2 - largura // 2, ALTURA - 26, largura, 15), "magico", cantos=False)
             desenhar_texto(tela, fonte, self.msg_salvo, (LARGURA // 2, ALTURA - 19), (140, 255, 170), centro=True)
+
+        if self.modal_sair:
+            escurecer(tela, 180)
+            caixa = pygame.Rect(LARGURA // 2 - 110, ALTURA // 2 - 32, 220, 64)
+            desenhar_painel(tela, caixa, estilo="magico", alfa=250)
+            pygame.draw.rect(tela, (230, 90, 90), caixa, 1)
+            desenhar_texto(tela, fonte, "Voltar ao Menu Principal?", (LARGURA // 2, caixa.y + 10), (255, 120, 120), centro=True)
+            desenhar_texto(tela, fonte, "Progresso não salvo será perdido.", (LARGURA // 2, caixa.y + 24), (210, 215, 230), centro=True)
+            desenhar_texto(tela, fonte, "Enter: Confirmar   Esc: Cancelar", (LARGURA // 2, caixa.y + 44), (255, 230, 140), centro=True)
 
     def _desenhar_ficha(self, tela, fonte, rect):
         jogo = self.jogo

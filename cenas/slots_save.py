@@ -56,6 +56,21 @@ class CenaSlotsSave(Cena):
                     if audio:
                         audio.sfx("menu_confirmar")
                     self.app.trocar(Jogo(self.app, slot_salvo=slot))
+                elif tipo == "new_game_plus":
+                    from salvamento import PASTA_BASE, carregar_jogo, salvar_jogo
+                    if audio:
+                        audio.sfx("fanfarra_item")
+                    jogo = carregar_jogo(self.app, slot)
+                    if jogo:
+                        jogo.rpg.new_game_plus = True
+                        jogo.rpg.ciclo_ng = getattr(jogo.rpg, "ciclo_ng", 0) + 1
+                        jogo.rpg.chefes_derrotados.clear()
+                        jogo.flags.clear()
+                        mapa_inicio = PASTA_BASE / "maps" / "mundo.txt"
+                        jogo.trocar_mapa(mapa_inicio, usar_porta=False, tocar_sfx_porta=False)
+                        salvar_jogo(jogo, slot)
+                        self.app.trocar(jogo)
+                    self.modal = None
                 elif tipo == "duplicar":
                     destino = self.modal["destino"]
                     copiar_slot(slot, destino)
@@ -86,7 +101,15 @@ class CenaSlotsSave(Cena):
         slot_atual = self.indice + 1
         resumo_atual = self.resumos[self.indice]
 
-        # Apagar slot com tecla X ou ação de exclusão
+        # Iniciar New Game+ com tecla N se o slot tiver jogo zerado
+        apertou_n = any(ev.type == pygame.KEYDOWN and ev.key == pygame.K_n for ev in getattr(self.app, "eventos_quadro", []))
+        if apertou_n and resumo_atual is not None and resumo_atual.get("jogo_zerado"):
+            if audio:
+                audio.sfx("menu_confirmar")
+            self.modal = {"tipo": "new_game_plus", "slot": slot_atual}
+            return
+
+        # Apagar slot com tecla F/Q ou ação de exclusão
         if entrada.apertou("magia") or entrada.apertou("trocar_magia"):
             if resumo_atual is not None:
                 if audio:
@@ -188,7 +211,8 @@ class CenaSlotsSave(Cena):
                 desenhar_texto(tela, fonte, f"{r['ouro']}G", (card.x + 192, card.y + 20), (255, 215, 100))
 
                 if r.get("jogo_zerado"):
-                    desenhar_texto(tela, fonte, "* ZERADO *", (card.right - 8 - fonte.size("* ZERADO *")[0], card.y + 20), (255, 215, 70))
+                    tag_z = "★ NG+" if r.get("new_game_plus") else "★ ZERADO"
+                    desenhar_texto(tela, fonte, tag_z, (card.right - 8 - fonte.size(tag_z)[0], card.y + 20), (255, 215, 70))
             else:
                 # Slot Vazio
                 txt_vazio = "[ VAZIO - NOVO JOGO ]" if self.modo == "novo" else "[ VAZIO ]"
@@ -199,7 +223,8 @@ class CenaSlotsSave(Cena):
         if self.tempo_feedback > 0:
             desenhar_texto(tela, fonte, self.msg_feedback, (LARGURA // 2, ALTURA - 16), (255, 220, 100), centro=True)
         else:
-            rodape = "Enter: Escolher   |   F/Q: Apagar   |   Esc: Voltar"
+            tem_zerado = any(r and r.get("jogo_zerado") for r in self.resumos)
+            rodape = "Enter: Escolher  |  N: New Game+  |  F: Apagar  |  Esc: Voltar" if tem_zerado else "Enter: Escolher   |   F/Q: Apagar   |   Esc: Voltar"
             desenhar_texto(tela, fonte, rodape, (LARGURA // 2, ALTURA - 12), (180, 185, 210), centro=True)
 
         # Modal de Confirmação
@@ -208,7 +233,7 @@ class CenaSlotsSave(Cena):
             surf_modal.fill((4, 6, 14, 180))
             tela.blit(surf_modal, (0, 0))
 
-            caixa = pygame.Rect(40, 55, LARGURA - 80, 70)
+            caixa = pygame.Rect(30, 52, LARGURA - 60, 74)
             desenhar_painel(tela, caixa, estilo="magico", alfa=250)
             pygame.draw.rect(tela, (230, 90, 90), caixa, 1)
 
@@ -217,10 +242,13 @@ class CenaSlotsSave(Cena):
             if tipo == "apagar":
                 msg_m1 = f"Deseja APAGAR o Arquivo {slot}?"
                 msg_m2 = "Todo o progresso desta run será perdido."
+            elif tipo == "new_game_plus":
+                msg_m1 = f"Iniciar New Game+ no Arquivo {slot}?"
+                msg_m2 = "Inimigos 35% mais fortes! Mantém itens, armas e 2x Ouro/XP."
             else:
                 msg_m1 = f"Sobrescrever o Arquivo {slot}?"
                 msg_m2 = "O save existente será substituído pela nova run."
 
             desenhar_texto(tela, fonte, msg_m1, (LARGURA // 2, caixa.y + 12), (255, 120, 120), centro=True)
             desenhar_texto(tela, fonte, msg_m2, (LARGURA // 2, caixa.y + 26), (220, 220, 230), centro=True)
-            desenhar_texto(tela, fonte, "Enter: Confirmar    Esc: Cancelar", (LARGURA // 2, caixa.y + 46), (255, 230, 140), centro=True)
+            desenhar_texto(tela, fonte, "Enter: Confirmar    Esc: Cancelar", (LARGURA // 2, caixa.y + 50), (255, 230, 140), centro=True)

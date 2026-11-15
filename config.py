@@ -13,10 +13,19 @@ PADRAO = {
     "bussola": True,
     "jogo_zerado": False,
     "recordes_chefes": {},
+    # QA & Polimento Comercial (Prompt 3)
+    "tamanho_hud": "normal",  # "normal", "compacto", "expandido"
+    "alto_contraste": False,
+    "intensidade_tremor": 1.0,  # 1.0 (100%), 0.5 (50%), 0.0 (Desligado)
+    "speedrun": False,
+    "mapeamento_teclado": {},
+    "mapeamento_controle": {},
 }
 ESCALAS = [2, 3, 4, 5, 6]
 VELOCIDADES_TEXTO = {"lenta": 25, "normal": 50, "rapida": 120}  # letras por segundo
 NOMES_VELOCIDADE = {"lenta": "Lenta", "normal": "Normal", "rapida": "Rápida"}
+TAMANHOS_HUD = ["normal", "compacto", "expandido"]
+INTENSIDADES_TREMOR = [1.0, 0.5, 0.0]
 
 
 def carregar():

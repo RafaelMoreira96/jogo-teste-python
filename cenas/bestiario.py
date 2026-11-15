@@ -281,15 +281,51 @@ class CenaBestiario(Cena):
         eh_chefe_sel = "Guardião" in ent_sel["tipo"] or "Chefe" in ent_sel["tipo"]
         conhecido_sel = (ent_sel["id"] in self.rpg.chefes_derrotados) if eh_chefe_sel else True
 
-        rx = 154
+        rx = 152
         if conhecido_sel:
-            desenhar_texto(tela, fonte, ent_sel["nome"], (rx, 32), AMARELO)
-            desenhar_texto(tela, fonte, f"Classe: {ent_sel['tipo']}", (rx, 46), (110, 220, 255))
-            desenhar_texto(tela, fonte, f"HP: {ent_sel['hp']}   Dano: {ent_sel['dano']}", (rx, 58), BRANCO)
-            desenhar_texto(tela, fonte, f"Fraqueza: {ent_sel['fraqueza']}", (rx, 70), (255, 140, 100))
+            derrotas = getattr(self.rpg, "derrotas_monstros", {}).get(ent_sel["id"], 0) if self.rpg else 0
+            desenhar_texto(tela, fonte, ent_sel["nome"], (rx, 30), AMARELO)
+            desenhar_texto(tela, fonte, f"Classe: {ent_sel['tipo']}", (rx, 42), (110, 220, 255))
+            desenhar_texto(tela, fonte, f"HP: {ent_sel['hp']}  Dano: {ent_sel['dano']}", (rx, 54), BRANCO)
+            desenhar_texto(tela, fonte, f"Abates: {derrotas}", (rx, 66), (120, 255, 160))
+
+            # Tag de Fraqueza Elemental
+            cor_fraq = (255, 140, 80) if "Fogo" in ent_sel["fraqueza"] else ((110, 220, 255) if "Gelo" in ent_sel["fraqueza"] else (255, 235, 130))
+            desenhar_texto(tela, fonte, f"Fraqueza: {ent_sel['fraqueza']}", (rx, 78), cor_fraq)
+
+            # Vitrine 360° da Criatura com pedestal giratório (Pilar 4)
+            cx_ped = LARGURA - 38
+            cy_ped = 52
+            pygame.draw.ellipse(tela, (18, 22, 38), (cx_ped - 14, cy_ped + 6, 28, 9))
+            pygame.draw.ellipse(tela, (65, 80, 120), (cx_ped - 14, cy_ped + 6, 28, 9), 1)
+
+            # Animação orbital 360° do sprite
+            ang = self.t * 3.2
+            rot_x = math.cos(ang)
+            escala = max(0.2, abs(rot_x))
+            # Obtém sprite do repositório gráfico ou cria silhueta dinâmica
+            gfx = getattr(self.app, "gfx", None)
+            sprite_base = None
+            if gfx is not None:
+                if "slime" in ent_sel["id"]:
+                    sprite_base = (gfx.slime_verde if "verde" in ent_sel["id"] else gfx.slime)[0]
+                elif hasattr(gfx, "inimigos") and ent_sel["id"] in gfx.inimigos:
+                    sprite_base = gfx.inimigos[ent_sel["id"]]
+            if sprite_base is None:
+                sprite_base = pygame.Surface((16, 16), pygame.SRCALPHA)
+                cor_m = (220, 60, 60) if eh_chefe_sel else (80, 160, 240)
+                pygame.draw.circle(sprite_base, cor_m, (8, 8), 7)
+                pygame.draw.circle(sprite_base, (255, 255, 255), (6, 6), 2)
+
+            larg_s = max(4, int(sprite_base.get_width() * escala))
+            alt_s = sprite_base.get_height()
+            sprite_rot = pygame.transform.scale(sprite_base, (larg_s, alt_s))
+            if rot_x < 0:
+                sprite_rot = pygame.transform.flip(sprite_rot, True, False)
+            tela.blit(sprite_rot, sprite_rot.get_rect(center=(cx_ped, cy_ped + 2)))
 
             # Caixa de Lore
-            rect_lore = pygame.Rect(rx, 84, 148, 58)
+            rect_lore = pygame.Rect(rx, 92, 150, 52)
             pygame.draw.rect(tela, (22, 26, 46), rect_lore, border_radius=2)
             pygame.draw.rect(tela, (55, 65, 95), rect_lore, 1, border_radius=2)
             

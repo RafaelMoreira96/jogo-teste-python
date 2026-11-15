@@ -170,10 +170,21 @@ class SistemaRPG:
         self.escudo_equipado = "nenhum"
         self.tunica_equipada = "tunica_verde"
 
+        # Amuletos & Forja (Prompt 3)
+        self.amuletos = set()  # "rapidez", "ima"
+        self.nivel_espada = 1  # 1 a 4 (+1 dano por nível acima de 1)
+
         # Viagem Rápida e Relíquias Colecionáveis (Prompt 2)
         self.waypoint_descobertos = set()
         self.reliquias_coletadas = set()
         self.reliquias_entregues = set()
+
+        # Fator Replay & Endgame (Prompt 3)
+        self.tempo_speedrun = 0.0
+        self.splits_speedrun = {}  # {id_chefe: tempo}
+        self.derrotas_monstros = {}  # {id_monstro: int}
+        self.new_game_plus = False
+        self.ciclo_ng = 0
 
     def proximo_chefe(self):
         """Retorna o próximo chefe recomendado que ainda não foi derrotado."""
@@ -190,6 +201,8 @@ class SistemaRPG:
     @property
     def alcance_magnetico_moedas(self):
         bonus = 50.0 if len(self.reliquias_entregues) >= 4 else 0.0
+        if "ima" in getattr(self, "amuletos", set()):
+            bonus += 65.0
         return 42.0 + bonus
 
     @property
@@ -213,12 +226,15 @@ class SistemaRPG:
             dano += 1
         if "furia_escolhido" in self.desbloqueadas:
             dano += 1
+        dano += max(0, getattr(self, "nivel_espada", 1) - 1)
         return dano
 
     @property
     def fator_velocidade(self):
         fator = 1.2 if "furia_escolhido" in self.desbloqueadas else 1.0
         if self.arma_equipada == "sabre_tempestade":
+            fator *= 1.15
+        if "rapidez" in getattr(self, "amuletos", set()):
             fator *= 1.15
         return fator
 
@@ -249,13 +265,16 @@ class SistemaRPG:
         self.mana = min(self.mana_maxima, self.mana + self.regen_mana * dt)
 
     def ganhar_xp(self, quantidade):
-        """Soma XP e devolve True se subiu de nível."""
+        """Soma XP e devolve True se subiu de nível. No New Game+, dobra os pontos de XP."""
+        if getattr(self, "new_game_plus", False):
+            quantidade *= 2
         self.xp += quantidade
         subiu = False
         while self.xp >= self.xp_proximo:
             self.xp -= self.xp_proximo
             self.nivel += 1
-            self.xp_proximo = int(self.xp_proximo * 1.45)
+            # Curva de progressão anti-grind suave: crescimento controlado para atingir nv 15 naturalmente
+            self.xp_proximo = int(self.xp_proximo * 1.32 + 10)
             self.pontos_habilidade += 1
             self.mana = self.mana_maxima
             subiu = True

@@ -75,15 +75,47 @@ class Entrada:
         c = controller.Controller(indice)
         self.controles[c.as_joystick().get_instance_id()] = c
 
+    def obter_teclas_acao(self, acao):
+        custom = self.config.get("mapeamento_teclado", {})
+        if acao in custom and custom[acao]:
+            return tuple(custom[acao])
+        return TECLADO.get(acao, ())
+
+    def obter_botoes_acao(self, acao):
+        custom = self.config.get("mapeamento_controle", {})
+        if acao in custom and custom[acao]:
+            return tuple(custom[acao])
+        return CONTROLE.get(acao, ())
+
+    def remapear_teclado(self, acao, tecla):
+        if "mapeamento_teclado" not in self.config:
+            self.config["mapeamento_teclado"] = {}
+        self.config["mapeamento_teclado"][acao] = [tecla]
+        import config
+        config.salvar(self.config)
+
+    def remapear_controle(self, acao, botao):
+        if "mapeamento_controle" not in self.config:
+            self.config["mapeamento_controle"] = {}
+        self.config["mapeamento_controle"][acao] = [botao]
+        import config
+        config.salvar(self.config)
+
+    def restaurar_padroes_controles(self):
+        self.config["mapeamento_teclado"] = {}
+        self.config["mapeamento_controle"] = {}
+        import config
+        config.salvar(self.config)
+
     def iniciar_quadro(self):
         self.apertadas.clear()
 
     def processar(self, e):
         if e.type == pygame.KEYDOWN:
-            self.apertadas.update(a for a, teclas in TECLADO.items() if e.key in teclas)
+            self.apertadas.update(a for a in TECLADO if e.key in self.obter_teclas_acao(a))
         elif e.type == pygame.CONTROLLERBUTTONDOWN:
             self.botoes.add(e.button)
-            self.apertadas.update(a for a, bts in CONTROLE.items() if e.button in bts)
+            self.apertadas.update(a for a in CONTROLE if e.button in self.obter_botoes_acao(a))
         elif e.type == pygame.CONTROLLERBUTTONUP:
             self.botoes.discard(e.button)
         elif e.type == pygame.CONTROLLERAXISMOTION and e.axis in EIXOS:
@@ -109,9 +141,9 @@ class Entrada:
 
     def segurando(self, acao):
         teclas = pygame.key.get_pressed()
-        if any(teclas[k] for k in TECLADO.get(acao, ())):
+        if any(teclas[k] for k in self.obter_teclas_acao(acao) if k < len(teclas)):
             return True
-        if any(b in self.botoes for b in CONTROLE.get(acao, ())):
+        if any(b in self.botoes for b in self.obter_botoes_acao(acao)):
             return True
         for eixo, (negativo, positivo) in EIXOS.items():
             valor = self.eixos.get(eixo, 0.0)

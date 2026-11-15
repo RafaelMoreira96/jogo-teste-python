@@ -106,28 +106,40 @@ class Entidade:
         self.deformar(1.22, 0.80)
 
     def mover(self, deslocamento, nivel):
-        """Move um eixo de cada vez para deslizar nas paredes. Devolve True se bateu."""
+        """Move com sub-passos contínuos para evitar qualquer tunneling em alta velocidade e deslizar suave nas paredes."""
+        dist = math.hypot(deslocamento.x, deslocamento.y)
+        passos = max(1, math.ceil(dist / 6.0))
+        sub_dx = deslocamento.x / passos
+        sub_dy = deslocamento.y / passos
         bateu = False
-        if deslocamento.x:
-            self.pos.x += deslocamento.x
-            self.rect.x = round(self.pos.x)
-            for bloco in nivel.colisoes(self.rect, pode_nadar=self.pode_nadar):
-                if deslocamento.x > 0:
-                    self.rect.right = bloco.left
-                else:
-                    self.rect.left = bloco.right
-                self.pos.x = self.rect.x
-                bateu = True
-        if deslocamento.y:
-            self.pos.y += deslocamento.y
-            self.rect.y = round(self.pos.y)
-            for bloco in nivel.colisoes(self.rect, pode_nadar=self.pode_nadar):
-                if deslocamento.y > 0:
-                    self.rect.bottom = bloco.top
-                else:
-                    self.rect.top = bloco.bottom
-                self.pos.y = self.rect.y
-                bateu = True
+
+        for _ in range(passos):
+            if sub_dx:
+                self.pos.x += sub_dx
+                self.rect.x = round(self.pos.x)
+                for bloco in nivel.colisoes(self.rect, pode_nadar=self.pode_nadar):
+                    if sub_dx > 0:
+                        self.rect.right = bloco.left
+                    else:
+                        self.rect.left = bloco.right
+                    self.pos.x = self.rect.x
+                    bateu = True
+            if sub_dy:
+                self.pos.y += sub_dy
+                self.rect.y = round(self.pos.y)
+                for bloco in nivel.colisoes(self.rect, pode_nadar=self.pode_nadar):
+                    if sub_dy > 0:
+                        self.rect.bottom = bloco.top
+                    else:
+                        self.rect.top = bloco.bottom
+                    self.pos.y = self.rect.y
+                    bateu = True
+
+        if hasattr(nivel, "largura_px") and hasattr(nivel, "altura_px"):
+            self.rect.left = max(0, min(self.rect.left, nivel.largura_px - self.rect.width))
+            self.rect.top = max(0, min(self.rect.top, nivel.altura_px - self.rect.height))
+            self.pos.update(self.rect.topleft)
+
         return bateu
 
     def atualizar_empurrao(self, dt, nivel):

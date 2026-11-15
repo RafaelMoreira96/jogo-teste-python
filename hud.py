@@ -49,19 +49,27 @@ def desenhar_hud(
     aviso_mapa=None,
     tempo_aviso_mapa=0.0,
     bussola=None,
+    config=None,
+    split_recente=None,
+    tempo_split_recente=0.0,
 ):
+    cfg = config or {}
+    tamanho_hud = cfg.get("tamanho_hud", "normal")
+    modo_speedrun = cfg.get("speedrun", False)
+
     # =========================================================================
     # 1. QUADRO SUPERIOR ESQUERDO: STATUS DO HERÓI
     # =========================================================================
     max_coracoes = vida_maxima // 2
     linhas_coracoes = 1 if max_coracoes <= 6 else 2
     y_barras = 15 + (linhas_coracoes - 1) * 8
-    larg_box = 86
+    larg_box = 72 if tamanho_hud == "compacto" else (100 if tamanho_hud == "expandido" else 86)
     alt_box = (y_barras + 22) if rpg is not None else (y_barras + 2)
     desenhar_painel(tela, (2, 2, larg_box, alt_box), alfa=215)
 
     # 1.1 Corações (com leve pulso quando a vida está baixa)
     vida_baixa = vida <= 2 and vida > 0
+    passo_c = 8 if tamanho_hud == "compacto" else 9
     for i in range(max_coracoes):
         resto = vida - i * 2
         if resto >= 2:
@@ -73,7 +81,10 @@ def desenhar_hud(
         col = i % 6
         lin = i // 6
         dy = -1 if vida_baixa and i == (vida - 1) // 2 and int(tempo * 6) % 2 == 0 else 0
-        tela.blit(img, (7 + col * 9, 6 + lin * 8 + dy))
+        tela.blit(img, (6 + col * passo_c, 6 + lin * 8 + dy))
+
+    if tamanho_hud == "expandido":
+        desenhar_texto(tela, fonte, f"{vida}/{vida_maxima}", (62, 6), (255, 200, 200))
 
     if rpg is not None:
         # 1.2 Nível (selo dourado à direita dos corações)
@@ -89,18 +100,22 @@ def desenhar_hud(
 
         # 1.3 Mana (gota + barra) e XP (barra fina dourada)
         desenhar_icone(tela, "gota", (6, y_barras))
+        larg_barras = 34 if tamanho_hud == "compacto" else (54 if tamanho_hud == "expandido" else 44)
         prop_mp = rpg.mana / max(1.0, rpg.mana_maxima)
-        desenhar_barra(tela, (15, y_barras + 1, 44, 4), prop_mp, (64, 160, 255))
+        desenhar_barra(tela, (15, y_barras + 1, larg_barras, 4), prop_mp, (64, 160, 255))
         prop_xp = rpg.xp / max(1, rpg.xp_proximo)
-        desenhar_barra(tela, (15, y_barras + 7, 44, 2), prop_xp, (246, 206, 70), brilho=False)
-        desenhar_texto(tela, fonte, "XP", (62, y_barras + 2), (200, 180, 120))
+        desenhar_barra(tela, (15, y_barras + 7, larg_barras, 2), prop_xp, (246, 206, 70), brilho=False)
+        if tamanho_hud != "compacto":
+            desenhar_texto(tela, fonte, "XP", (18 + larg_barras, y_barras + 2), (200, 180, 120))
 
         # 1.4 Feitiço equipado: tecla [F] + nome na cor do poder
         poder = rpg.poder_atual
         if poder is not None:
             tem_mana = rpg.mana >= poder["custo_mana"]
             cor_p = poder["cor"] if tem_mana else CINZA
-            tag_poder = TAGS_PODERES.get(poder["id"], poder["nome"][:6])
+            tag_poder = TAGS_PODERES.get(poder["id"], poder["nome"][:5])
+            if tamanho_hud == "compacto":
+                tag_poder = tag_poder[:3]
             y_p = y_barras + 11
             larg_t = desenhar_tecla(tela, fonte, "F", (6, y_p))
             pygame.draw.rect(tela, (8, 8, 16), (8 + larg_t, y_p + 2, 6, 6))
@@ -166,15 +181,43 @@ def desenhar_hud(
                 cur_x += fonte.size(valor)[0] + 5
 
     # =========================================================================
-    # 4. QUADRO SUPERIOR DIREITO: MINIMAPA EMOLDURADO
+    # 4. QUADRO SUPERIOR DIREITO: MINIMAPA EMOLDURADO & MODO SPEEDRUN
     # =========================================================================
-    if dados_mapa is not None and not dados_mapa["nivel"].eh_interior:
+    tem_mapa = dados_mapa is not None and not dados_mapa["nivel"].eh_interior
+    if tem_mapa:
         rect_mini = pygame.Rect(LARGURA - 52, 3, 49, 31)
         desenhar_miniatura_nivel(tela, dados_mapa, rect_mini, jogador_rect=jogador_rect, t=tempo)
         larg_t = fonte.size("Mapa")[0] + 12
         x_t = LARGURA - 3 - larg_t
         desenhar_tecla(tela, fonte, "M", (x_t, 36))
         desenhar_texto(tela, fonte, "Mapa", (x_t + 11, 36), CINZA)
+
+    # 4.1 Cronômetro Oficial do Modo Speedrun (Pilar 4)
+    if modo_speedrun and rpg is not None:
+        t_sr = getattr(rpg, "tempo_speedrun", 0.0)
+        minutos = int(t_sr // 60)
+        segundos = int(t_sr % 60)
+        centesimos = int((t_sr * 100) % 100)
+        txt_cron = f"{minutos:02d}:{segundos:02d}.{centesimos:02d}"
+
+        larg_cron = fonte.size(txt_cron)[0] + 8
+        y_cron = 48 if tem_mapa else 4
+        x_cron = LARGURA - larg_cron - 3
+        desenhar_painel(tela, (x_cron, y_cron, larg_cron, 12), estilo="escuro", alfa=220, cantos=False)
+        desenhar_texto(tela, fonte, txt_cron, (x_cron + 4, y_cron + 2), (120, 255, 170))
+
+        # Notificação de Split ao derrotar um Guardião
+        if tempo_split_recente > 0 and split_recente:
+            nome_ch, tempo_split = split_recente
+            m_s = int(tempo_split // 60)
+            s_s = int(tempo_split % 60)
+            c_s = int((tempo_split * 100) % 100)
+            txt_split = f"★ Split: {m_s:02d}:{s_s:02d}.{c_s:02d}"
+            larg_split = fonte.size(txt_split)[0] + 8
+            x_sp = LARGURA // 2 - larg_split // 2
+            y_sp = 20 if chefe_ativo is None else 28
+            desenhar_painel(tela, (x_sp, y_sp, larg_split, 13), estilo="dourado", alfa=240, cantos=False)
+            desenhar_texto(tela, fonte, txt_split, (x_sp + 4, y_sp + 2), (255, 240, 140))
 
     # =========================================================================
     # 4b. BÚSSOLA DE OBJETIVO (canto inferior direito)

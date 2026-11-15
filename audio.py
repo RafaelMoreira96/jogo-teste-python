@@ -887,7 +887,13 @@ def sintetizar_bgm(nome_faixa):
             ),
         )
     else:
-        mix = array.array("h", map(sum, zip(c_melodia, c_contra, c_harmonia, c_baixo, c_bateria)))
+        mix = array.array(
+            "h",
+            (
+                max(-32700, min(32700, s))
+                for s in map(sum, zip(c_melodia, c_contra, c_harmonia, c_baixo, c_bateria))
+            ),
+        )
 
     return pygame.mixer.Sound(buffer=mix)
 
@@ -1042,7 +1048,7 @@ class SistemaAudio:
                 if atual is not None:
                     pygame.mixer.quit()
                 pygame.mixer.init(frequency=TAXA_AMOSTRAGEM, size=-16, channels=1, buffer=1024)
-            pygame.mixer.set_num_channels(12)
+            pygame.mixer.set_num_channels(16)
             self._canal_bgm = pygame.mixer.Channel(0)
             self._sfx = construir_banco_sfx()
             self.ativo = True
