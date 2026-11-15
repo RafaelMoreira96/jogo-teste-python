@@ -406,6 +406,9 @@ class Jogo(Cena):
         self.camera = Camera(self.nivel.largura_px, self.nivel.altura_px)
         self.camera.centralizar(self.jogador.rect)
 
+        if self.nivel.caminho.name == "santuario.txt" and "santuario_desperto" not in self.flags and not self.em_abertura:
+            self.iniciar_dialogo("cutscene_despertar_santuario", opcional=True)
+
     def iniciar_boss_rush(self):
         self.boss_rush_ativo = True
         self.boss_rush_onda = 1
@@ -1349,6 +1352,7 @@ class Jogo(Cena):
                 self.rpg.pontos_habilidade += 1
                 if not chefe.fantasma:
                     self.rpg.chefes_derrotados.add(chefe.id_chefe)
+                    self.flags.add(f"{chefe.id_chefe}_derrotado")
                     self.rpg.derrotas_monstros[chefe.id_chefe] = self.rpg.derrotas_monstros.get(chefe.id_chefe, 0) + 1
                     self.rpg.splits_speedrun[chefe.id_chefe] = self.rpg.tempo_speedrun
                     self.split_recente = (chefe.nome, self.rpg.tempo_speedrun)

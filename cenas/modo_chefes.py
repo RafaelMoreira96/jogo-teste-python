@@ -11,7 +11,7 @@ import pygame
 import config
 from cenas.base import Cena
 from chefe import CORES_ELEMENTO, CRIADORES_CHEFES
-from rpg import LISTA_CHEFES_PROGRESSAO
+from rpg import CATEGORIAS_CHEFES, LISTA_CHEFES_PROGRESSAO
 from settings import ALTURA, LARGURA
 from temas import TEMA_POR_CHEFE
 from ui import (
@@ -256,9 +256,9 @@ class SelecaoChefes(Cena):
 
         y = palco.bottom + 4
         nome = "Desafio dos Guardiões" if id_sel == ID_DESAFIO else chefe.nome
-        titulo = "Todos os chefes em ondas" if id_sel == ID_DESAFIO else chefe.titulo
-        desenhar_texto(tela, fonte, nome, (painel.centerx, y + 4), (255, 230, 140), centro=True)
-        desenhar_texto(tela, fonte, titulo, (painel.centerx, y + 15), CINZA, centro=True)
+        categoria = CATEGORIAS_CHEFES.get(id_sel, "Desafio em Ondas" if id_sel == ID_DESAFIO else "")
+        desenhar_texto(tela, fonte, nome, (painel.centerx, y + 3), (255, 230, 140), centro=True)
+        desenhar_texto(tela, fonte, categoria, (painel.centerx, y + 14), (120, 220, 255), centro=True)
         cor_el = CORES_ELEMENTO.get(chefe.elemento, ((200, 200, 200),))[0]
         desenhar_texto(tela, fonte, f"Elemento: {NOMES_ELEMENTO.get(chefe.elemento, '?')}", (painel.x + 8, y + 24), cor_el)
         desenhar_texto(tela, fonte, f"Arena: {NOME_ARENA.get(id_sel, '?')}", (painel.x + 8, y + 35), (200, 210, 240))

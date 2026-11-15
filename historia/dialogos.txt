@@ -165,16 +165,71 @@ A área ficou em silêncio. Todos os slimes daqui foram derrotados!
 # ---------------------------------------------------------------------
 
 === anciao_vila
-Ancião da Vila: Bem-vindo à Vila Aurora, jovem escolhido!
-Ancião da Vila: Nossas pontes cruzam o Rio Cristalino. Ao norte das Ruínas fica o antigo Santuário Sombrio, onde o mal começou a despertar.
-@opcao Entregar Relíquias dos Guardiões Antigos -> anciao_reliquias
-@opcao Descansar e curar ferimentos -> sabio_cura
-@opcao Obrigado pelo aviso -> sabio_tchau
+@se santuario_desperto
+  Ancião da Vila: O Eclipse do Apocalipse tomou o céu de Valoria! As tochas de emergência foram acesas.
+  Ancião da Vila: Os quatro Arautos do Eclipse bloquearam a torre central do Santuário Sombrio. Você deve derrotá-los para alcançar o Coliseu das Eras!
+  @opcao Entregar Relíquias dos Guardiões Antigos -> anciao_reliquias
+  @opcao O que são os Arautos do Eclipse? -> anciao_arautos
+  @opcao Descansar e curar ferimentos -> anciao_cura
+  @opcao Estou pronto para o confronto final -> anciao_despedida
+@senao
+  @se rei_slime_derrotado
+    Ancião da Vila: Extraordinário! A derrota do Rei Slime revelou uma fratura mística no horizonte de Valoria!
+    Ancião da Vila: Os 6 Selos Ancestrais estão ruindo. Você precisa explorar os biomas do continente e reunir as 6 Relíquias dos Guardiões Antigos!
+    @opcao Entregar Relíquias dos Guardiões Antigos -> anciao_reliquias
+    @opcao Para onde devo ir agora? -> anciao_rotas_ato2
+    @opcao Descansar e curar ferimentos -> anciao_cura
+    @opcao Seguirei viagem -> anciao_despedida
+  @senao
+    Ancião da Vila: Bem-vindo à Vila Aurora, jovem escolhido!
+    Ancião da Vila: As águas do Rio Cristalino estão agitadas e uma energia violácea corrompeu a fauna da Floresta.
+    Ancião da Vila: Investigue o Covil dos Slimes a leste da floresta e derrote o Rei Slime antes que a vila seja sitiada!
+    @opcao Entregar Relíquias dos Guardiões Antigos -> anciao_reliquias
+    @opcao Descansar e curar ferimentos -> anciao_cura
+    @opcao Obrigado pelo aviso -> anciao_despedida
+  @fim
+@fim
 
 === anciao_reliquias
-Ancião da Vila: Extraordinário! Você recuperou fragmentos sagrados dos Guardiões Antigos!
+Ancião da Vila: Você recuperou fragmentos sagrados dos Guardiões Antigos de Valoria!
 @entregar_reliquias
-Ancião da Vila: As bênçãos dos ancestrais foram despertadas! Suas capacidades e vitalidade foram ampliadas.
+Ancião da Vila: Pelos ancestrais... ao reunir estas relíquias, as inscrições proféticas se revelaram!
+Ancião da Vila: Os selos antigos não aprisionavam a maldição... eles mantinham adormecidos os próprios Titãs Protetores do Reino!
+Ancião da Vila: A corrupção da Entidade Maligna os envenenou enquanto dormiam. Para libertar suas almas, você precisará purificá-los em combate!
+Ancião da Vila: Suas bênçãos ancestrais foram despertadas e fortaleceram sua vitalidade e mana máxima!
+
+=== anciao_rotas_ato2
+Ancião da Vila: A oeste fica o Lago Cristalino e o Pico Congelado. Ao sul erguem-se o Bosque de Outono e o Pântano Nebuloso. A leste cruzam-se as dunas do Deserto Dourado!
+Ancião da Vila: Cada um desses biomas abriga um Guardião das Relíquias e segredos ancestrais.
+
+=== anciao_arautos
+Ancião da Vila: Os Arautos são os quatro generais de elite da Entidade: o Cavaleiro Negro, a Quimera Abissal, o Arquimago Corrompido e o Paladino do Juízo!
+Ancião da Vila: Cada um deles guarda uma chave dos Selos Abissais nas profundezas do castelo.
+
+=== anciao_cura
+@curar
+Ancião da Vila: As águas sagradas da fonte de Aurora restauraram toda a sua vitalidade e energia mágica!
+
+=== anciao_despedida
+Ancião da Vila: Que a Luz Ancestral guie seus passos, jovem campeão!
+
+=== cutscene_despertar_santuario
+@clima trevas
+@clarao roxo
+@tremer 5 1.5
+@pose heroi assustar
+- Uma tempestade de relâmpagos púrpuras rasga o horizonte acima do Santuário Sombrio...
+@camera 160 50
+@esperar 1.0
+@efeito fogo heroi
+Voz das Sombras: MORTAL INSIGNIFICANTE... OS QUATRO SELOS FORAM QUEBRADOS!
+Voz das Sombras: O APOCALIPSE NÃO PODE MAIS SER CONTIDO POR SUAS MÃOS FRÁGEIS!
+@clarao branco
+@tremer 3 0.8
+@camera heroi
+@pose heroi poder
+Herói: Enquanto esta lâmina brilhar, o reino de Valoria não cairá nas trevas!
+@marcar santuario_desperto
 
 === florista_vila
 Florista: As borboletas adoram as flores da nossa vila e do Lago Cristalino a oeste!

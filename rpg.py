@@ -146,6 +146,30 @@ LISTA_CHEFES_PROGRESSAO = [
     ("entidade_maligna", "A Entidade Maligna", 15, "castelo_salao_trono.txt", "castelo_sala_salvamento.txt", "vazio", "Salão do Trono"),
 ]
 
+# Categorias narrativas canônicas dos 16 Chefes (Prompt 4)
+CATEGORIAS_CHEFES = {
+    # Guardiões das Relíquias (6)
+    "rei_slime": "Guardião da Relíquia (Água)",
+    "golem_pedra": "Guardião da Relíquia (Terra)",
+    "serpente_dunas": "Guardião da Relíquia (Areia)",
+    "colosso_solar": "Guardião da Relíquia (Sol)",
+    "ceifador_espectral": "Guardião da Relíquia (Trevas)",
+    "leviata_aquatico": "Guardião da Relíquia (Marés)",
+    # Arautos do Eclipse (4)
+    "cavaleiro_negro": "Arauto do Eclipse (Aço)",
+    "quimera_abissal": "Arauto do Eclipse (Fogo)",
+    "arquimago": "Arauto do Eclipse (Arcano)",
+    "paladino_juizo": "Arauto do Eclipse (Juízo)",
+    # Lendas Ocultas (5)
+    "bruxa_brumas": "Lenda Oculta (Pântano)",
+    "guardiao_diamante": "Lenda Oculta (Cristal)",
+    "troll_rochas": "Lenda Oculta (Rocha)",
+    "yeti_glacial": "Lenda Oculta (Gelo)",
+    "valquiria_caida": "Lenda Oculta (Luz)",
+    # Soberano do Apocalipse (1)
+    "entidade_maligna": "Soberano do Apocalipse",
+}
+
 
 class SistemaRPG:
     """Gerencia nível, XP, mana, atributos e árvore de habilidades do herói."""

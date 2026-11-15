@@ -4,6 +4,7 @@ import pygame
 
 from cenas.base import Cena
 from settings import ALTURA, LARGURA
+from rpg import CATEGORIAS_CHEFES
 from ui import AMARELO, BRANCO, CINZA, ajustar_texto, desenhar_painel, desenhar_rodape, desenhar_texto, escurecer
 
 ENTRADAS_BESTIARIO = [
@@ -284,8 +285,9 @@ class CenaBestiario(Cena):
         rx = 152
         if conhecido_sel:
             derrotas = getattr(self.rpg, "derrotas_monstros", {}).get(ent_sel["id"], 0) if self.rpg else 0
+            classe_disp = CATEGORIAS_CHEFES.get(ent_sel["id"], ent_sel["tipo"])
             desenhar_texto(tela, fonte, ent_sel["nome"], (rx, 30), AMARELO)
-            desenhar_texto(tela, fonte, f"Classe: {ent_sel['tipo']}", (rx, 42), (110, 220, 255))
+            desenhar_texto(tela, fonte, f"Classe: {classe_disp}", (rx, 42), (110, 220, 255))
             desenhar_texto(tela, fonte, f"HP: {ent_sel['hp']}  Dano: {ent_sel['dano']}", (rx, 54), BRANCO)
             desenhar_texto(tela, fonte, f"Abates: {derrotas}", (rx, 66), (120, 255, 160))
 
