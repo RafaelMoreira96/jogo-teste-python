@@ -5,6 +5,7 @@ import random
 import pygame
 
 from caixa_dialogo import CaixaDialogo
+from temas import desenhar_atmosfera
 from retratos import SEM_RETRATO, aparencia_por_nome
 from camera import Camera
 from cenas.base import Cena
@@ -108,8 +109,12 @@ CORES_CLARAO = {
 
 
 class Jogo(Cena):
-    def __init__(self, app, dialogo_inicial="inicio"):
+    def __init__(self, app, dialogo_inicial="inicio", modo_chefe=None):
         super().__init__(app)
+        # Modo Chefões: {"chefe", "nivel", "dificuldade"} (None no modo história)
+        self.modo_chefe = modo_chefe
+        if modo_chefe:
+            dialogo_inicial = None
         # A história é relida a cada "Novo jogo": dá para editar com o jogo aberto.
         self.historia = Historia.carregar(ARQUIVO_HISTORIA)
         self.flags = set()  # marcas da história (@marcar / @se)
@@ -131,7 +136,8 @@ class Jogo(Cena):
         self.boss_rush_concluido = False
         self.mapas_visitados = set()
         self.conquistas = GerenciadorConquistas()
-        self.conquistas.desbloquear("primeiro_passo", self)
+        if not modo_chefe:
+            self.conquistas.desbloquear("primeiro_passo", self)
         self.particulas = []
         self.estado = "jogando"  # ou "derrota"
         self.dialogo = None
@@ -182,9 +188,95 @@ class Jogo(Cena):
         self.apresentacao_chefe = None
         self.feixe_teleporte = None
 
+        if modo_chefe:
+            self._preparar_modo_chefe()
+            return
         self.trocar_mapa(MAPA_CASA, usar_porta=False)
         if dialogo_inicial:
             self.iniciar_dialogo(dialogo_inicial, opcional=True)
+
+    # ------------------------------------------------------------ Modo Chefões
+    def _preparar_modo_chefe(self):
+        """Monta o herói no nível escolhido e abre a arena temática do chefe."""
+        from cenas.modo_chefes import ARENA_POR_CHEFE, ID_DESAFIO
+        from rpg import RAMOS_HABILIDADES
+
+        modo = self.modo_chefe
+        rpg = self.rpg
+        nivel = max(1, int(modo.get("nivel", 1)))
+        rpg.nivel = nivel
+        rpg.xp = 0
+        rpg.xp_proximo = int(30 * (1.45 ** (nivel - 1)))
+        # Habilidades: uma por nível, alternando entre os três ramos da árvore
+        rpg.pontos_habilidade = nivel
+        fila = [hab["id"] for camada in zip(*[r["habilidades"] for r in RAMOS_HABILIDADES]) for hab in camada]
+        for _ in range(3):
+            for id_hab in fila:
+                if rpg.pontos_habilidade <= 0:
+                    break
+                rpg.desbloquear(id_hab)
+        rpg.pontos_habilidade = 0
+        # Equipamento proporcional ao nível
+        if nivel >= 14:
+            rpg.arma_equipada, rpg.escudo_equipado, rpg.tunica_equipada = "lamina_lendaria", "escudo_guardiao", "manto_astral"
+        elif nivel >= 9:
+            rpg.arma_equipada, rpg.escudo_equipado, rpg.tunica_equipada = "sabre_tempestade", "escudo_madeira", "armadura_carmesim"
+        elif nivel >= 5:
+            rpg.arma_equipada = "lamina_vulcanica"
+        rpg.bombas = 10
+        rpg.mana = rpg.mana_maxima
+        self.jogador.vida_maxima = self.vida_max_total()
+        self.jogador.vida = self.jogador.vida_maxima
+
+        id_chefe = modo["chefe"]
+        self.trocar_mapa(PASTA_BASE / "maps" / ARENA_POR_CHEFE.get(id_chefe, "coliseu_eras.txt"), usar_porta=False)
+        self.nivel.portas = []  # a arena só termina com vitória ou derrota
+        self.portais_misticos = []
+        if id_chefe == ID_DESAFIO:
+            self.iniciar_boss_rush()
+        elif id_chefe == "entidade_maligna":
+            fb = EntidadeMalignaChefe(self.nivel.largura_px // 2, 6 * TILE)
+            fb.aplicar_escalonamento(self.rpg)
+            self._ajustar_chefe_modo(fb)
+            self.chefes = [fb]
+            self.iniciar_apresentacao_chefe(fb)
+            if hasattr(self.app, "audio"):
+                self.app.audio.tocar_bgm("chefe_final")
+        self.tempo_luta = 0.0
+        self.dano_luta = 0
+        self._vida_ref = self.jogador.vida
+        self.timer_resultado = None
+
+    def _ajustar_chefe_modo(self, chefe):
+        """Aplica a dificuldade escolhida no Modo Chefões."""
+        if not self.modo_chefe:
+            return
+        from cenas.modo_chefes import DIFICULDADES
+        mult_vida, mult_poder = DIFICULDADES.get(self.modo_chefe.get("dificuldade"), (1.0, 1.0))
+        chefe.vida_max = max(1, int(chefe.vida_max * mult_vida))
+        chefe.vida = chefe.vida_max
+        chefe.vida_exibida = float(chefe.vida_max)
+        chefe.fator_poder *= mult_poder
+
+    def _atualizar_modo_chefe(self, dt):
+        """Cronômetro, dano recebido e fim da luta no Modo Chefões."""
+        if self.estado != "jogando":
+            return
+        if self.jogador.vida < self._vida_ref:
+            self.dano_luta += self._vida_ref - self.jogador.vida
+        self._vida_ref = self.jogador.vida
+        terminou = not self.chefes and (not self.boss_rush_ativo or self.boss_rush_concluido)
+        if self.timer_resultado is None:
+            if terminou:
+                self.timer_resultado = 1.8
+            else:
+                self.tempo_luta += dt
+        else:
+            self.timer_resultado -= dt
+            if self.timer_resultado <= 0:
+                from cenas.modo_chefes import ResultadoChefe
+                self.timer_resultado = float("inf")
+                self.app.empilhar(ResultadoChefe(self.app, self, self.tempo_luta, self.dano_luta))
 
     def recarregar_historia(self):
         self.historia = Historia.carregar(ARQUIVO_HISTORIA)
@@ -284,6 +376,7 @@ class Jogo(Cena):
                 if id_c not in self.rpg.chefes_derrotados and id_c in CRIADORES_CHEFES:
                     chefe_inst = CRIADORES_CHEFES[id_c](cx_p, cy_p)
                     chefe_inst.aplicar_escalonamento(self.rpg)
+                    self._ajustar_chefe_modo(chefe_inst)
                     self.chefes.append(chefe_inst)
 
             if self.chefes and not self.em_abertura:
@@ -343,6 +436,7 @@ class Jogo(Cena):
                     c.aplicar_escalonamento(self.rpg)
                     c.vida_max = int(c.vida_max * 0.65)
                     c.vida = c.vida_max
+                    self._ajustar_chefe_modo(c)
                     self.chefes.append(c)
             audio = getattr(self.app, "audio", None)
             if audio:
@@ -357,6 +451,7 @@ class Jogo(Cena):
             # Clímax: O Final Boss desperta em sua forma completa!
             fb = EntidadeMalignaChefe(self.nivel.largura_px // 2, self.nivel.altura_px // 2 - 40)
             fb.aplicar_escalonamento(self.rpg)
+            self._ajustar_chefe_modo(fb)
             self.chefes = [fb]
             audio = getattr(self.app, "audio", None)
             if audio:
@@ -863,7 +958,7 @@ class Jogo(Cena):
             return
 
         if not self.dialogo and self.estado == "jogando":
-            if entrada.apertou("mapa"):
+            if entrada.apertou("mapa") and not self.modo_chefe:
                 self.app.empilhar(MapaMundo(self.app, self))
                 return
             if entrada.apertou("habilidades"):
@@ -904,7 +999,13 @@ class Jogo(Cena):
             return
 
         if self.estado == "derrota":
-            if entrada.apertou("confirmar"):
+            if self.modo_chefe:
+                if entrada.apertou("confirmar"):
+                    self.app.trocar(Jogo(self.app, dialogo_inicial=None, modo_chefe=dict(self.modo_chefe)))
+                elif entrada.apertou("voltar") or entrada.apertou("pausa"):
+                    from cenas.modo_chefes import SelecaoChefes
+                    self.app.trocar(SelecaoChefes(self.app, self.modo_chefe.get("indice_selecao", 0)))
+            elif entrada.apertou("confirmar"):
                 self.app.trocar(Jogo(self.app))
             return
 
@@ -1245,7 +1346,9 @@ class Jogo(Cena):
                     self.textos_flutuantes.append(
                         TextoFlutuante(chefe.rect.midtop, f"{chefe.nome} Dissipado!", (210, 160, 255))
                     )
-                if isinstance(chefe, EntidadeMalignaChefe):
+                if isinstance(chefe, EntidadeMalignaChefe) and self.modo_chefe:
+                    self.boss_rush_concluido = True
+                elif isinstance(chefe, EntidadeMalignaChefe):
                     self.boss_rush_concluido = True
                     if audio:
                         audio.tocar_bgm("vitoria", forcar=True)
@@ -1333,6 +1436,9 @@ class Jogo(Cena):
                         s.receber_golpe(golpe_bar, jogador.rect.center, dano=1)
 
         self._seguir_camera(dt)
+
+        if self.modo_chefe:
+            self._atualizar_modo_chefe(dt)
 
         if jogador.vida <= 0:
             self.estado = "derrota"
@@ -1427,6 +1533,18 @@ class Jogo(Cena):
 
             self.ambiente.desenhar_ar(tela, ox, oy, self.clima)
             self._desenhar_clima(tela)
+            if getattr(self.nivel, "tema", None):
+                desenhar_atmosfera(tela, self.nivel.tema, ox, oy, self.tempo_cenario)
+            alvo_bussola = self.alvo_bussola() if self.estado != "derrota" and not self.dialogo else None
+            info_bussola = None
+            if alvo_bussola:
+                self._desenhar_seta_bussola(tela, alvo_bussola)
+                vetor = pygame.Vector2(alvo_bussola["pos"]) - pygame.Vector2(self.jogador.rect.center)
+                angulo = math.atan2(vetor.y, vetor.x) if vetor.length_squared() > 0 else -math.pi / 2
+                anterior = getattr(self, "angulo_bussola", angulo)
+                diferenca = (angulo - anterior + math.pi) % math.tau - math.pi
+                self.angulo_bussola = anterior + diferenca * 0.18
+                info_bussola = {"angulo": self.angulo_bussola, "rotulo": alvo_bussola["rotulo"], "dist": vetor.length()}
             dados_atuais = self.mapas.get(self.nivel.caminho.resolve())
             chefe_hud = self.chefes[0] if self.chefes else None
             rush_hud = ({"onda": self.boss_rush_onda, "total": 5} if self.boss_rush_ativo and self.boss_rush_onda <= 5 else None)
@@ -1445,6 +1563,7 @@ class Jogo(Cena):
                 boss_rush_info=rush_hud,
                 aviso_mapa=self.aviso_mapa,
                 tempo_aviso_mapa=self.tempo_aviso_mapa,
+                bussola=info_bussola,
             )
 
             # Dica visual na tela ao se aproximar de um Ponto de Salvamento
@@ -1521,6 +1640,8 @@ class Jogo(Cena):
 
         if self.dialogo:
             self.dialogo.desenhar(tela)
+        elif self.estado == "derrota" and self.modo_chefe:
+            desenhar_mensagem(tela, fonte, "DERROTA", "Enter: tentar de novo   Esc: escolher chefe")
         elif self.estado == "derrota":
             desenhar_mensagem(tela, fonte, "GAME OVER", "Enter / A para tentar de novo")
 
@@ -1533,12 +1654,103 @@ class Jogo(Cena):
         # Notificações de Conquistas em primeiro plano
         self.conquistas.desenhar(tela, fonte, no_topo=self.dialogo is not None)
 
+    # ------------------------------------------------------------ bússola
+    def _grafo_portas(self):
+        """Liga cada mapa aos mapas vizinhos pelas portas: {mapa: [(centro_da_porta, mapa_destino)]}."""
+        if getattr(self, "_cache_grafo_portas", None) is None:
+            grafo = {}
+            for dados in self.mapas.values():
+                nivel = dados["nivel"]
+                grafo[nivel.caminho.name] = [(rect.center, Path(dest).name) for rect, dest in nivel.portas]
+            self._cache_grafo_portas = grafo
+        return self._cache_grafo_portas
+
+    def _mapa_objetivo(self):
+        proximo = self.rpg.proximo_chefe()
+        if proximo:
+            return proximo[3], proximo[1]
+        if "vitoria_final" not in self.flags:
+            return "castelo_salao_trono.txt", "A Entidade Maligna"
+        return None, None
+
+    def alvo_bussola(self):
+        """Ponto (no mundo) para onde a bússola aponta e o texto de destino, ou None."""
+        if not self.app.config.get("bussola", True) or getattr(self, "modo_chefe", None):
+            return None
+        alvo_mapa, nome_alvo = self._mapa_objetivo()
+        if not alvo_mapa:
+            return None
+        atual = self.nivel.caminho.name
+        if atual == alvo_mapa:
+            if self.chefes:
+                return {"pos": self.chefes[0].rect.center, "rotulo": nome_alvo}
+            return None
+        chave = (atual, alvo_mapa)
+        cache = getattr(self, "_cache_rotas", {})
+        if chave not in cache:
+            grafo = self._grafo_portas()
+            anterior = {atual: None}
+            fila = [atual]
+            while fila:
+                mapa = fila.pop(0)
+                if mapa == alvo_mapa:
+                    break
+                for centro, destino in grafo.get(mapa, []):
+                    if destino not in anterior:
+                        anterior[destino] = (mapa, centro)
+                        fila.append(destino)
+            passo = None
+            if alvo_mapa in anterior:
+                no = alvo_mapa
+                while anterior[no] and anterior[no][0] != atual:
+                    no = anterior[no][0]
+                if anterior[no]:
+                    passo = (anterior[no][1], no)
+            cache[chave] = passo
+            self._cache_rotas = cache
+        passo = cache[chave]
+        if passo is None:
+            return None
+        centro_porta, proximo_mapa = passo
+        dados = self.mapas.get((PASTA_BASE / "maps" / proximo_mapa).resolve())
+        nome_proximo = dados["nivel"].nome if dados else proximo_mapa
+        return {"pos": centro_porta, "rotulo": nome_proximo}
+
+    def _desenhar_seta_bussola(self, tela, alvo):
+        """Seta dourada girando em volta do herói, apontando o caminho."""
+        ox, oy = self.camera.offset
+        origem = pygame.Vector2(self.jogador.rect.centerx, self.jogador.rect.centery - 4)
+        vetor = pygame.Vector2(alvo["pos"]) - origem
+        if vetor.length() < 28:
+            return
+        direcao = vetor.normalize()
+        raio = 19 + math.sin(self.tempo_cenario * 5) * 1.5
+        ponta = origem + direcao * (raio + 5)
+        base = origem + direcao * raio
+        lado = direcao.rotate(90) * 3
+        pts = [(ponta.x - ox, ponta.y - oy), (base.x + lado.x - ox, base.y + lado.y - oy), (base.x - lado.x - ox, base.y - lado.y - oy)]
+        pygame.draw.polygon(tela, (40, 26, 8), [(x + 1, y + 1) for x, y in pts])
+        pygame.draw.polygon(tela, (255, 214, 90), pts)
+
+    def _luzes_liquido(self, ox, oy):
+        """Centros (na tela) dos tiles de líquido visíveis, um a cada dois, para pontos de luz."""
+        nivel = self.nivel
+        pontos = []
+        for cy in range(max(0, oy // TILE), min(nivel.linhas, (oy + ALTURA) // TILE + 1)):
+            for cx in range(max(0, ox // TILE), min(nivel.colunas, (ox + LARGURA) // TILE + 1)):
+                if nivel.grade[cy][cx] == "~" and (cx + cy) % 2 == 0:
+                    pontos.append((cx * TILE + TILE // 2 - ox, cy * TILE + TILE // 2 - oy))
+        return pontos
+
     def _desenhar_clima(self, tela):
         clima_atual = self.clima
         alfa_base = 0
         cor_escura = (12, 16, 42)
+        tema = getattr(self.nivel, "tema", None)
 
-        if clima_atual == "trevas":
+        if tema:
+            cor_escura, alfa_base = tema["luz"]
+        elif clima_atual == "trevas":
             cor_escura = (28, 8, 34)
             alfa_base = 125
         elif clima_atual == "chuva":
@@ -1582,6 +1794,13 @@ class Jogo(Cena):
                 pygame.draw.circle(camada, (*cor_escura, alfa_base // 3), (mx - ox, my - oy - 4), 26)
             for tx, ty, _ in getattr(self.nivel, "tochas", []):
                 pygame.draw.circle(camada, (*cor_escura, alfa_base // 3), (tx - ox, ty - oy - 2), 22)
+            # Covis temáticos: o líquido brilhante e a aura do Guardião iluminam a arena
+            if tema and tema["brilha"]:
+                for lx, ly in self._luzes_liquido(ox, oy):
+                    pygame.draw.circle(camada, (*cor_escura, alfa_base // 2), (lx, ly), 14)
+            for chefe in self.chefes:
+                ccx, ccy = chefe.rect.centerx - ox, chefe.rect.centery - oy
+                pygame.draw.circle(camada, (*cor_escura, alfa_base // 2), (ccx, ccy), 40)
 
             tela.blit(camada, (0, 0))
 

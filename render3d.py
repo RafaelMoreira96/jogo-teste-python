@@ -239,7 +239,11 @@ def desenhar_relevo_3d_mapa(nivel, tela, ox, oy, tempo):
         x1 = x0 + TILE
         y1 = y0 + TILE
 
-        if c == "#":
+        tema = getattr(nivel, "tema", None)
+        if c == "#" and tema:
+            z_alt = 9.0
+            cor_topo, cor_esq, cor_dir, cor_frente, cor_borda = tema["bloco"]
+        elif c == "#":
             z_alt = 7.0
             cor_esq = (92, 98, 114)
             cor_dir = (68, 72, 88)
@@ -294,7 +298,10 @@ def desenhar_relevo_3d_mapa(nivel, tela, ox, oy, tempo):
             pygame.draw.line(tela, cor_borda, (x0, y1), (x1, y1))
 
         # Face superior em perspectiva 3D
-        surf_tile = nivel.gfx.tiles["pedra" if c == "#" else ("parede" if c == "W" else "telhado")]
+        if c == "#" and tema:
+            surf_tile = nivel.gfx_tema.bloco
+        else:
+            surf_tile = nivel.gfx.tiles["pedra" if c == "#" else ("parede" if c == "W" else "telhado")]
         pygame.draw.polygon(tela, cor_topo, [p_t00, p_t10, p_t11, p_t01])
         tela.blit(surf_tile, p_t00)
         if esq_livre:
@@ -302,7 +309,8 @@ def desenhar_relevo_3d_mapa(nivel, tela, ox, oy, tempo):
         if dir_livre:
             pygame.draw.line(tela, cor_borda, p_t10, p_t11)
         if baixo_livre:
-            pygame.draw.line(tela, (215, 220, 235) if c == "#" else cor_borda, p_t01, p_t11)
+            cor_quina = tuple(min(255, v + 50) for v in cor_topo) if tema else (215, 220, 235)
+            pygame.draw.line(tela, cor_quina if c == "#" else cor_borda, p_t01, p_t11)
 
 
 def desenhar_copas_3d_arvores(nivel, tela, ox, oy, tempo):
@@ -341,6 +349,10 @@ def gerar_objetos_3d_nivel(nivel):
         cor = (195, 75, 255) if eh_sombrio else ((85, 220, 255) if i % 2 == 0 else (255, 215, 90))
         borda = (75, 20, 120) if eh_sombrio else (25, 90, 135)
         objetos.append(criar_cristal_3d(mx, my - 2, z_base=12.0, raio=4.2, altura=7.5, cor=cor, cor_borda=borda))
+
+    # Covis temáticos usam só a própria decoração (sem objetos genéricos da floresta)
+    if getattr(nivel, "tema", None):
+        return objetos
 
     # 2. Cristais de Mana 3D e Obeliscos 3D específicos de cada região
     if "santuario" in nome_arq:

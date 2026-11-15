@@ -11,15 +11,55 @@ import pygame
 from entidade import Entidade
 from render3d import criar_cristal_3d
 from settings import ALTURA, LARGURA, TILE
-from ui import AMARELO, BRANCO, CINZA, desenhar_texto
+from arte_chefes import ARTE
+from ui import AMARELO, BRANCO, CINZA, desenhar_painel, desenhar_texto
 
 VERMELHO = (245, 65, 75)
 
 
-class ProjetilChefe:
-    """Projétil disparado pelos chefões contra o jogador."""
+# Elemento de cada Guardião (define cor dos projéteis e o estilo dos ataques especiais)
+ELEMENTO_CHEFE = {
+    "rei_slime": "agua", "golem_pedra": "terra", "serpente_dunas": "areia", "colosso_solar": "sol",
+    "bruxa_brumas": "veneno", "ceifador_espectral": "trevas", "leviata_aquatico": "oceano",
+    "guardiao_diamante": "cristal", "troll_rochas": "rocha", "yeti_glacial": "gelo",
+    "valquiria_caida": "luz", "cavaleiro_negro": "aco", "quimera_abissal": "fogo",
+    "arquimago": "arcano", "paladino_juizo": "sagrado", "entidade_maligna": "vazio",
+}
+# (cor principal, brilho)
+CORES_ELEMENTO = {
+    "agua": ((80, 180, 250), (210, 245, 255)), "terra": ((160, 150, 128), (230, 220, 190)),
+    "areia": ((232, 172, 80), (255, 234, 160)), "sol": ((255, 196, 60), (255, 250, 200)),
+    "veneno": ((170, 80, 240), (130, 255, 170)), "trevas": ((90, 220, 240), (225, 255, 255)),
+    "oceano": ((60, 150, 255), (195, 238, 255)), "cristal": ((150, 230, 255), (255, 255, 255)),
+    "rocha": ((170, 120, 80), (232, 204, 164)), "gelo": ((160, 230, 255), (255, 255, 255)),
+    "luz": ((255, 232, 130), (255, 255, 236)), "aco": ((235, 50, 70), (255, 190, 200)),
+    "fogo": ((255, 110, 40), (255, 232, 120)), "arcano": ((190, 90, 255), (242, 205, 255)),
+    "sagrado": ((255, 226, 110), (255, 255, 242)), "vazio": ((240, 40, 90), (255, 175, 205)),
+}
+# Golpes especiais de cada Guardião (alternados; ficam mais frequentes na fúria)
+ESPECIAIS_CHEFE = {
+    "rei_slime": ["chuva", "anel"], "golem_pedra": ["anel", "chuva"],
+    "serpente_dunas": ["muralha", "investida"], "colosso_solar": ["espiral", "chuva"],
+    "bruxa_brumas": ["teleguiado", "anel"], "ceifador_espectral": ["investida", "teleguiado"],
+    "leviata_aquatico": ["muralha", "chuva"], "guardiao_diamante": ["espiral", "anel"],
+    "troll_rochas": ["chuva", "investida"], "yeti_glacial": ["chuva", "muralha"],
+    "valquiria_caida": ["investida", "chuva"], "cavaleiro_negro": ["investida", "muralha"],
+    "quimera_abissal": ["espiral", "investida"], "arquimago": ["teleguiado", "espiral"],
+    "paladino_juizo": ["chuva", "anel"], "entidade_maligna": ["espiral", "teleguiado", "chuva", "muralha"],
+}
+ESTILO_PROJETIL = {
+    "fogo": "chama", "sol": "chama", "gelo": "estilhaco", "cristal": "estilhaco",
+    "trevas": "orbe", "arcano": "orbe", "vazio": "orbe", "agua": "gota", "oceano": "gota",
+    "veneno": "gota", "terra": "pedra", "rocha": "pedra", "areia": "pedra",
+    "luz": "raio", "sagrado": "raio", "aco": "raio",
+}
+SOLIDOS_PROJETIL = set("#TBWRCM")  # projéteis voam por cima de água, lava e abismos
 
-    def __init__(self, pos, vel, dano=1, raio=4, cor=(255, 90, 60), cor_borda=(160, 20, 30), duracao=4.5):
+
+class ProjetilChefe:
+    """Projétil disparado pelos chefões contra o jogador (visual muda com o elemento)."""
+
+    def __init__(self, pos, vel, dano=1, raio=4, cor=(255, 90, 60), cor_borda=(160, 20, 30), duracao=4.5, elemento=None, estilo=None):
         self.pos = pygame.Vector2(pos)
         self.vel = pygame.Vector2(vel)
         self.dano = dano
@@ -27,7 +67,13 @@ class ProjetilChefe:
         self.cor = cor
         self.cor_borda = cor_borda
         self.vida = duracao
+        self.duracao = duracao
         self.tempo = 0.0
+        self.elemento = elemento
+        self.estilo = estilo
+        self.rastro = []
+        self.alvo = None  # entidade perseguida (orbes teleguiados)
+        self.giro = 0.0
 
     @property
     def rect(self):
@@ -40,22 +86,93 @@ class ProjetilChefe:
         self.vida -= dt
         if self.vida <= 0:
             return False
+        if self.alvo is not None and self.vel.length_squared() > 0:
+            desejo = pygame.Vector2(self.alvo.rect.center) - self.pos
+            if desejo.length_squared() > 1:
+                ang = self.vel.angle_to(desejo)
+                ang = (ang + 180) % 360 - 180
+                limite = math.degrees(self.giro) * dt
+                self.vel.rotate_ip(max(-limite, min(limite, ang)))
+        if self.vel.length_squared() > 0:
+            self.rastro.append((self.pos.x, self.pos.y))
+            if len(self.rastro) > 5:
+                self.rastro.pop(0)
         self.pos += self.vel * dt
         cx, cy = int(self.pos.x // TILE), int(self.pos.y // TILE)
-        if not nivel.dentro(cx, cy) or nivel.solido(cx, cy):
+        if not nivel.dentro(cx, cy) or nivel.grade[cy][cx] in SOLIDOS_PROJETIL:
             return False
         return True
 
     def desenhar(self, tela, camera):
         ox, oy = camera.offset
         cx, cy = round(self.pos.x - ox), round(self.pos.y - oy)
-        pygame.draw.circle(tela, self.cor_borda, (cx, cy), self.raio + 1)
-        pygame.draw.circle(tela, self.cor, (cx, cy), self.raio)
-        pygame.draw.circle(tela, (255, 255, 240), (cx - 1, cy - 1), max(1, self.raio // 2))
+        cor_principal, brilho = CORES_ELEMENTO.get(self.elemento, (self.cor, (255, 255, 240)))
+        cor = self.cor or cor_principal
+        estilo = self.estilo or ESTILO_PROJETIL.get(self.elemento, "padrao")
+
+        if estilo == "explosao":
+            prog = 1 - self.vida / max(0.01, self.duracao)
+            r = max(2, round(self.raio * (0.6 + prog * 0.6)))
+            pygame.draw.circle(tela, brilho, (cx, cy), r)
+            pygame.draw.circle(tela, cor, (cx, cy), r, 2)
+            pygame.draw.circle(tela, (255, 255, 255), (cx, cy), max(1, r // 2))
+            return
+
+        # Rastro que vai sumindo
+        for i, (rx, ry) in enumerate(self.rastro):
+            tam = max(1, round(self.raio * (i + 1) / (len(self.rastro) + 2)))
+            pygame.draw.circle(tela, cor, (round(rx - ox), round(ry - oy)), tam)
+
+        direcao = self.vel.normalize() if self.vel.length_squared() > 0 else pygame.Vector2(1, 0)
+        if estilo == "estilhaco":
+            frente = direcao * (self.raio + 3)
+            lado = direcao.rotate(90) * (self.raio - 1)
+            pts = [(cx + frente.x, cy + frente.y), (cx + lado.x, cy + lado.y), (cx - frente.x * 0.7, cy - frente.y * 0.7), (cx - lado.x, cy - lado.y)]
+            pygame.draw.polygon(tela, (20, 30, 60), [(px + 1, py + 1) for px, py in pts])
+            pygame.draw.polygon(tela, cor, pts)
+            pygame.draw.line(tela, brilho, pts[0], pts[2])
+        elif estilo == "chama":
+            osc = round(math.sin(self.tempo * 30) * 1)
+            pygame.draw.circle(tela, (160, 30, 10), (cx, cy), self.raio + 1)
+            pygame.draw.circle(tela, cor, (cx, cy), self.raio + osc)
+            pygame.draw.circle(tela, brilho, (cx - 1, cy - 1), max(1, self.raio // 2 + 1))
+        elif estilo == "orbe":
+            pygame.draw.circle(tela, (16, 8, 24), (cx, cy), self.raio + 2)
+            pygame.draw.circle(tela, cor, (cx, cy), self.raio + 1, 2)
+            pygame.draw.circle(tela, brilho, (cx, cy), max(1, self.raio - 2))
+            a = self.tempo * 10
+            tela.set_at((cx + round(math.cos(a) * (self.raio + 2)), cy + round(math.sin(a) * (self.raio + 2))), (255, 255, 255))
+        elif estilo == "pedra":
+            r = self.raio
+            pts = [(cx - r, cy), (cx - r // 2, cy - r), (cx + r // 2, cy - r), (cx + r, cy - 1), (cx + r // 2, cy + r), (cx - r // 2, cy + r)]
+            pygame.draw.polygon(tela, (40, 30, 24), [(px + 1, py + 1) for px, py in pts])
+            pygame.draw.polygon(tela, cor, pts)
+            pygame.draw.line(tela, brilho, pts[1], pts[2])
+        elif estilo == "raio":
+            tras = direcao * (self.raio + 5)
+            pygame.draw.line(tela, cor, (cx - tras.x, cy - tras.y), (cx, cy), 3)
+            pygame.draw.line(tela, brilho, (cx - tras.x * 0.7, cy - tras.y * 0.7), (cx, cy), 1)
+            pygame.draw.circle(tela, brilho, (cx, cy), 2)
+        else:  # gota / padrão
+            pygame.draw.circle(tela, self.cor_borda if estilo == "padrao" else (20, 30, 60), (cx, cy), self.raio + 1)
+            pygame.draw.circle(tela, cor, (cx, cy), self.raio)
+            pygame.draw.circle(tela, brilho, (cx - 1, cy - 1), max(1, self.raio // 2))
+
+
+class _CameraLocal:
+    """Câmera falsa para desenhar o chefe numa Surface própria (permite contorno e efeitos)."""
+
+    def __init__(self, offset):
+        self.offset = offset
+
+    def aplicar(self, rect):
+        return pygame.Rect(rect).move(-self.offset[0], -self.offset[1])
 
 
 class Chefe(Entidade):
     """Classe base para todos os chefões do jogo."""
+
+    LARG_ARTE, ALT_ARTE = 128, 112
 
     def __init__(self, x, y, larg_hitbox, alt_hitbox, id_chefe, nome, titulo, vida_max, cor_aura=(255, 210, 80), nivel_minimo=1):
         super().__init__(x, y, larg_hitbox, alt_hitbox)
@@ -65,6 +182,7 @@ class Chefe(Entidade):
         self.vida_base = vida_max
         self.vida_max = vida_max
         self.vida = vida_max
+        self.vida_exibida = float(vida_max)
         self.cor_aura = cor_aura
         self.nivel_minimo = nivel_minimo
         self.nivel_chefe = nivel_minimo
@@ -84,6 +202,16 @@ class Chefe(Entidade):
         self.fator_poder = 1.0
         self.morrendo = False
         self.tempo_morte = 0.0
+        # Fúria, golpes especiais e alertas no chão
+        self.elemento = ELEMENTO_CHEFE.get(id_chefe, "arcano")
+        self.especiais = ESPECIAIS_CHEFE.get(id_chefe, ["chuva"])
+        self.indice_especial = 0
+        self.tempo_especial = 5.0
+        self.furia = False
+        self.anuncio_furia = 0.0
+        self.alertas = []  # {"pos", "raio", "t", "total", "acao", "linha"}
+        self.rajada = None
+        self.investida = None
 
     def aplicar_escalonamento(self, rpg):
         """Escalona a vida e o poder do chefe de acordo com o nível e progressão do herói."""
@@ -93,6 +221,7 @@ class Chefe(Entidade):
         mult_vida = 1.0 + crescimento * 0.8
         self.vida_max = int(self.vida_base * mult_vida)
         self.vida = self.vida_max
+        self.vida_exibida = float(self.vida_max)
         self.dano_contato = max(2, 1 + self.nivel_chefe // 5)
         self.fator_poder = min(1.65, 1.0 + crescimento * 0.22)
 
@@ -107,18 +236,25 @@ class Chefe(Entidade):
         self.vida = max(0, self.vida - dano)
         self.piscar = 0.18
         self.atordoado = 0.15
-        self.empurrar(origem, 85, 0.12)
+        if self.investida is None:
+            self.empurrar(origem, 85, 0.12)
         self.deformar(1.22, 0.78)
         if self.vida <= 0:
             self.morrendo = True
             self.tempo_morte = 1.2
+            self.alertas.clear()
+            self.rajada = None
+            self.investida = None
         return True
 
+    # ------------------------------------------------------------------ IA
     def atualizar_chefe(self, dt, nivel, jogador, projeteis, particulas, ondas, audio):
         self.tempo_vida += dt
         self.piscar = max(0.0, self.piscar - dt)
         self.atordoado = max(0.0, self.atordoado - dt)
         self.congelado = max(0.0, self.congelado - dt)
+        self.anuncio_furia = max(0.0, self.anuncio_furia - dt)
+        self.vida_exibida += (self.vida - self.vida_exibida) * min(1.0, dt * 3.0)
         self.atualizar_base(dt, nivel)
 
         if self.morrendo:
@@ -127,12 +263,35 @@ class Chefe(Entidade):
                 from efeitos import explosao
                 cx = self.rect.centerx + random.uniform(-14, 14)
                 cy = self.rect.centery + random.uniform(-14, 14)
-                particulas += explosao((cx, cy), [(255, 230, 90), (255, 90, 40), (240, 240, 255)], 8)
+                cor_a, cor_b = CORES_ELEMENTO.get(self.elemento, ((255, 90, 40), (255, 230, 90)))
+                particulas += explosao((cx, cy), [cor_a, cor_b, (240, 240, 255)], 8)
                 if audio and random.random() < 0.2:
                     audio.sfx("hit_inimigo")
             return
 
+        qtd_antes = len(projeteis)
+        self._atualizar_alertas(dt, projeteis, ondas, audio)
+        self._atualizar_rajada(dt, projeteis, audio)
+
+        # Fúria: metade da vida libera golpes mais rápidos e frequentes
+        if not self.furia and self.vida <= self.vida_max * 0.5:
+            from rpg import OndaMagica
+            self.furia = True
+            self.anuncio_furia = 2.0
+            self.fator_poder *= 1.18
+            self.velocidade_base *= 1.15
+            self.tempo_especial = 0.8
+            ondas.append(OndaMagica(self.rect.center, 70, (255, 70, 80), 0.6))
+            if audio:
+                audio.sfx("rugido_chefe")
+
+        if self.investida is not None:
+            self._atualizar_investida(dt, nivel, particulas)
+            self._marcar_projeteis(projeteis, qtd_antes)
+            return
+
         if self.atualizar_empurrao(dt, nivel) or self.congelado > 0:
+            self._marcar_projeteis(projeteis, qtd_antes)
             return
 
         ate_j = pygame.Vector2(jogador.rect.center) - pygame.Vector2(self.rect.center)
@@ -141,53 +300,251 @@ class Chefe(Entidade):
         else:
             self.direcao_olhar = "baixo" if ate_j.y > 0 else "cima"
 
+        self.tempo_especial -= dt
+        if self.tempo_especial <= 0 and self.rajada is None and not self.alertas:
+            tipo = self.especiais[self.indice_especial % len(self.especiais)]
+            self.indice_especial += 1
+            self.tempo_especial = (4.6 if self.furia else 7.5) / self.fator_poder
+            self.iniciar_especial(tipo, jogador, ate_j, projeteis, audio)
+
         self.atualizar_comportamento(dt, nivel, jogador, ate_j, projeteis, particulas, ondas, audio)
+        self._marcar_projeteis(projeteis, qtd_antes)
+
+    def _marcar_projeteis(self, projeteis, qtd_antes):
+        for p in projeteis[qtd_antes:]:
+            if p.elemento is None:
+                p.elemento = self.elemento
 
     def atualizar_comportamento(self, dt, nivel, jogador, ate_j, projeteis, particulas, ondas, audio):
         """Sobrescrito por cada chefe com seus padrões únicos de ataque."""
         pass
 
+    # ------------------------------------------------------------------ golpes especiais
+    def _projetil(self, pos, vel, **kw):
+        kw.setdefault("dano", self.dano_contato)
+        kw.setdefault("cor", CORES_ELEMENTO.get(self.elemento, ((255, 90, 60),))[0])
+        return ProjetilChefe(pos, vel, elemento=self.elemento, **kw)
+
+    def _alerta(self, pos, raio, tempo, acao, linha=None):
+        self.alertas.append({"pos": pygame.Vector2(pos), "raio": raio, "t": tempo, "total": tempo, "acao": acao, "linha": linha})
+
+    def iniciar_especial(self, tipo, jogador, ate_j, projeteis, audio):
+        centro = pygame.Vector2(self.rect.center)
+        alvo = pygame.Vector2(jogador.rect.center)
+        direcao = ate_j.normalize() if ate_j.length_squared() > 0 else pygame.Vector2(0, 1)
+        vel = 1.0 * self.fator_poder
+
+        if tipo == "chuva":
+            # Impactos telegrafados em volta do herói (círculos vermelhos no chão)
+            qtd = 5 if self.furia else 3
+            for i in range(qtd):
+                desvio = pygame.Vector2() if i == 0 else pygame.Vector2(random.uniform(-34, 34), random.uniform(-26, 26))
+                pos = alvo + desvio
+                self._alerta(pos, 11, 0.95 + i * 0.12, lambda p, ps: self._explosao(p, ps))
+            if audio:
+                audio.sfx("magia_raio")
+        elif tipo == "espiral":
+            self.rajada = {"tipo": "espiral", "t": 1.6 if self.furia else 1.1, "passo": 0.0, "ang": random.uniform(0, 360)}
+            if audio:
+                audio.sfx("laser")
+        elif tipo == "anel":
+            # Dois anéis seguidos, o segundo girado para fechar os vãos
+            def anel(p, ps, giro):
+                for ang in range(0, 360, 30):
+                    v = pygame.Vector2(1, 0).rotate(ang + giro) * (105 * vel)
+                    ps.append(self._projetil(p, v, raio=4))
+            self._alerta(centro, 22, 0.55, lambda p, ps: anel(p, ps, 0))
+            self._alerta(centro, 0, 1.05, lambda p, ps: anel(pygame.Vector2(self.rect.center), ps, 15))
+            if self.furia:
+                self._alerta(centro, 0, 1.55, lambda p, ps: anel(pygame.Vector2(self.rect.center), ps, 7))
+        elif tipo == "muralha":
+            # Muralha de projéteis com um vão: o herói precisa achar a brecha
+            lateral = direcao.rotate(90)
+            vao = random.randint(-2, 2)
+
+            def muralha(p, ps):
+                for k in range(-5, 6):
+                    if abs(k - vao) <= 1:
+                        continue
+                    ponto = pygame.Vector2(self.rect.center) + lateral * (k * 14)
+                    ps.append(self._projetil(ponto, direcao * (90 * vel), raio=5, duracao=3.5))
+            self._alerta(centro, 18, 0.7, muralha, linha=(lateral, 75))
+        elif tipo == "investida":
+            self.investida = {"preparo": 0.65, "duracao": 0.45, "dir": direcao}
+            self.alertas.append({"pos": centro, "raio": 0, "t": 0.65, "total": 0.65, "acao": None, "linha": ("investida", direcao)})
+            if audio:
+                audio.sfx("rugido_chefe")
+        elif tipo == "teleguiado":
+            qtd = 4 if self.furia else 3
+            for i in range(qtd):
+                ang = -40 + i * (80 / max(1, qtd - 1))
+                p = self._projetil(centro, direcao.rotate(ang) * (70 * vel), raio=5, duracao=4.0, estilo="orbe")
+                p.alvo = jogador
+                p.giro = 2.0
+                projeteis.append(p)
+            if audio:
+                audio.sfx("magia_raio")
+
+    def _explosao(self, pos, projeteis):
+        projeteis.append(self._projetil(pos, (0, 0), raio=10, duracao=0.28, estilo="explosao"))
+        for ang in range(0, 360, 90 if not self.furia else 60):
+            v = pygame.Vector2(1, 0).rotate(ang + 45) * 70
+            projeteis.append(self._projetil(pos, v, raio=3, duracao=0.6))
+
+    def _atualizar_alertas(self, dt, projeteis, ondas, audio):
+        restantes = []
+        for a in self.alertas:
+            a["t"] -= dt
+            if a["t"] <= 0:
+                if a["acao"]:
+                    a["acao"](a["pos"], projeteis)
+                    if audio and a["raio"] > 0:
+                        audio.sfx("impacto_pesado")
+            else:
+                restantes.append(a)
+        self.alertas = restantes
+
+    def _atualizar_rajada(self, dt, projeteis, audio):
+        r = self.rajada
+        if r is None:
+            return
+        r["t"] -= dt
+        r["passo"] -= dt
+        while r["passo"] <= 0 and r["t"] > 0:
+            r["passo"] += 0.075
+            r["ang"] += 23
+            for k in (0, 180) if not self.furia else (0, 120, 240):
+                v = pygame.Vector2(1, 0).rotate(r["ang"] + k) * (115 * self.fator_poder)
+                projeteis.append(self._projetil(self.rect.center, v, raio=4))
+        if r["t"] <= 0:
+            self.rajada = None
+
+    def _atualizar_investida(self, dt, nivel, particulas):
+        inv = self.investida
+        if inv["preparo"] > 0:
+            inv["preparo"] -= dt
+            self.deformar(0.86, 1.12)
+            return
+        inv["duracao"] -= dt
+        bateu = self.mover(inv["dir"] * (270 * self.fator_poder * dt), nivel)
+        if random.random() < 0.6:
+            from efeitos import explosao
+            cor_a, cor_b = CORES_ELEMENTO.get(self.elemento, ((255, 255, 255), (255, 255, 255)))
+            particulas += explosao(self.rect.midbottom, [cor_a, cor_b], 2)
+        if inv["duracao"] <= 0 or bateu:
+            self.investida = None
+            self.deformar(1.25, 0.8)
+
+    # ------------------------------------------------------------------ desenho
     def desenhar_chefe(self, tela, camera, gfx, fonte):
-        """Desenho 16-bits customizado do chefe."""
-        pass
+        """Desenho 16-bits do chefe (arte em arte_chefes.py)."""
+        ox, oy = camera.offset
+        arte = ARTE.get(self.id_chefe)
+        if arte:
+            arte(self, tela, self.rect.centerx - ox, self.rect.bottom - oy, self.tempo_vida)
+
+    def _desenhar_alertas(self, tela, camera):
+        ox, oy = camera.offset
+        for a in self.alertas:
+            prog = 1 - a["t"] / max(0.01, a["total"])
+            pisca = int(a["t"] * 12) % 2 == 0
+            cor = (255, 60, 60) if pisca else (255, 200, 80)
+            px, py = round(a["pos"].x - ox), round(a["pos"].y - oy)
+            linha = a.get("linha")
+            if linha and linha[0] == "investida":
+                fim = a["pos"] + linha[1] * 120
+                pygame.draw.line(tela, cor, (px, py), (round(fim.x - ox), round(fim.y - oy)), 1 + round(prog * 2))
+                continue
+            if linha:
+                lateral, metade = linha
+                p1 = a["pos"] - lateral * metade
+                p2 = a["pos"] + lateral * metade
+                pygame.draw.line(tela, cor, (round(p1.x - ox), round(p1.y - oy)), (round(p2.x - ox), round(p2.y - oy)), 1)
+            if a["raio"] > 0:
+                raio = a["raio"]
+                camada = pygame.Surface((raio * 2 + 2, raio + 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(camada, (*cor, round(60 + prog * 90)), (0, 0, raio * 2 + 2, raio + 2))
+                tela.blit(camada, (px - raio - 1, py - raio // 2 - 1))
+                interno = max(1, round(raio * prog))
+                pygame.draw.ellipse(tela, (255, 240, 200), (px - interno, py - interno // 2, interno * 2, max(2, interno)), 1)
 
     def desenhar(self, tela, camera, gfx, fonte=None):
-        self.desenhar_sombra(tela, camera, gfx)
-        if self.piscar > 0 and int(self.piscar * 24) % 2 == 0:
-            # Efeito piscar de dano (flash branco/dourado)
-            return
-        self.desenhar_chefe(tela, camera, gfx, fonte)
+        ox, oy = camera.offset
+        self._desenhar_alertas(tela, camera)
 
+        # Aura elemental pulsante no chão
+        cor_aura = (255, 60, 70) if self.furia and int(self.tempo_vida * 6) % 2 == 0 else self.cor_aura
+        raio_aura = 20 + round(math.sin(self.tempo_vida * 4) * 2) + (4 if self.furia else 0)
+        aura = pygame.Surface((raio_aura * 2, raio_aura), pygame.SRCALPHA)
+        pygame.draw.ellipse(aura, (*cor_aura[:3], 70), aura.get_rect())
+        pygame.draw.ellipse(aura, (*cor_aura[:3], 140), aura.get_rect(), 1)
+        tela.blit(aura, (self.rect.centerx - ox - raio_aura, self.rect.bottom - oy - raio_aura // 2 - 1))
+        self.desenhar_sombra(tela, camera, gfx)
+
+        # Desenha a arte numa Surface própria para aplicar contorno, clarão e fúria
+        larg, alt = self.LARG_ARTE, self.ALT_ARTE
+        ax, ay = larg // 2, alt - 14
+        corpo = pygame.Surface((larg, alt), pygame.SRCALPHA)
+        self.desenhar_chefe(corpo, _CameraLocal((self.rect.centerx - ax, self.rect.bottom - ay)), gfx, fonte)
+        if self.direcao_olhar == "esquerda":
+            corpo = pygame.transform.flip(corpo, True, False)
+
+        mascara = pygame.mask.from_surface(corpo)
+        final = pygame.Surface((larg, alt), pygame.SRCALPHA)
+        contorno = mascara.to_surface(setcolor=(12, 8, 20, 255), unsetcolor=(0, 0, 0, 0))
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            final.blit(contorno, (dx, dy))
+        final.blit(corpo, (0, 0))
+
+        if self.piscar > 0:
+            branco = mascara.to_surface(setcolor=(255, 255, 255, 210), unsetcolor=(0, 0, 0, 0))
+            final.blit(branco, (0, 0))
+        elif self.furia and math.sin(self.tempo_vida * 10) > 0.3:
+            vermelho = mascara.to_surface(setcolor=(255, 40, 40, 70), unsetcolor=(0, 0, 0, 0))
+            final.blit(vermelho, (0, 0))
         if self.fantasma:
-            # Aura etérea púrpura se for versão fantasma do Boss Rush
-            ox, oy = camera.offset
-            pos_t = camera.aplicar(self.rect.inflate(12, 12))
-            aura = pygame.Surface(pos_t.size, pygame.SRCALPHA)
-            pygame.draw.ellipse(aura, (180, 50, 240, 85), aura.get_rect(), 2)
-            tela.blit(aura, pos_t)
+            roxo = mascara.to_surface(setcolor=(170, 60, 255, 90), unsetcolor=(0, 0, 0, 0))
+            final.blit(roxo, (0, 0))
+            final.set_alpha(215)
+        if self.morrendo:
+            final.set_alpha(max(40, round(255 * self.tempo_morte / 1.2)))
+
+        # Squash & stretch ancorado nos pés
+        sx, sy = getattr(self, "escala_x", 1.0), getattr(self, "escala_y", 1.0)
+        if abs(sx - 1) > 0.02 or abs(sy - 1) > 0.02:
+            final = pygame.transform.scale(final, (max(4, round(larg * sx)), max(4, round(alt * sy))))
+            ax, ay = round(ax * sx), round(ay * sy)
+        tela.blit(final, (self.rect.centerx - ox - ax, self.rect.bottom - oy - ay))
 
     def desenhar_barra_vida_hud(self, tela, fonte):
-        """Desenha barra de vida de chefe no topo da tela com moldura 16-bits."""
-        larg_barra = 160
-        alt_barra = 8
+        """Barra de vida do chefe com moldura 16-bits, dano recente e marcador da fúria."""
+        larg_barra = 170
+        alt_barra = 7
         x = (LARGURA - larg_barra) // 2
-        y = 6
+        y = 5
+        painel = pygame.Rect(x - 6, y - 3, larg_barra + 12, alt_barra + 20)
+        desenhar_painel(tela, painel, "perigo" if self.furia else "padrao", alfa=225, cantos=False)
 
-        # Fundo e moldura
-        pygame.draw.rect(tela, (14, 10, 22), (x - 2, y - 2, larg_barra + 4, alt_barra + 4))
-        pygame.draw.rect(tela, (215, 175, 65), (x - 2, y - 2, larg_barra + 4, alt_barra + 4), 1)
-
-        # Preenchimento de vida
+        pygame.draw.rect(tela, (12, 6, 14), (x - 1, y - 1, larg_barra + 2, alt_barra + 2))
         prop = max(0.0, min(1.0, self.vida / max(1, self.vida_max)))
+        prop_ex = max(prop, min(1.0, self.vida_exibida / max(1, self.vida_max)))
+        if prop_ex > prop:
+            pygame.draw.rect(tela, (255, 236, 170), (x, y, round(larg_barra * prop_ex), alt_barra))
         if prop > 0:
-            larg_preench = round((larg_barra) * prop)
-            cor_vida = (245, 65, 75) if prop < 0.3 else ((255, 180, 50) if prop < 0.6 else (225, 45, 65))
+            larg_preench = round(larg_barra * prop)
+            cor_vida = (225, 45, 65) if not self.furia else (255, 90, 40)
             pygame.draw.rect(tela, cor_vida, (x, y, larg_preench, alt_barra))
-            pygame.draw.line(tela, (255, 215, 160), (x, y + 1), (x + larg_preench - 1, y + 1))
+            pygame.draw.line(tela, (255, 190, 170), (x, y), (x + larg_preench - 1, y))
+            pygame.draw.line(tela, (120, 20, 30), (x, y + alt_barra - 1), (x + larg_preench - 1, y + alt_barra - 1))
+        # Marcador da metade (fúria)
+        meio = x + larg_barra // 2
+        pygame.draw.line(tela, (255, 220, 120), (meio, y - 1), (meio, y + alt_barra))
 
-        # Nome e título do chefe com indicador de nível escalonado
-        rotulo = f"👑 {self.nome} [Nv. {self.nivel_chefe}] - {self.titulo}"
-        desenhar_texto(tela, fonte, rotulo, (LARGURA // 2, y + alt_barra + 7), AMARELO, centro=True)
+        rotulo = f"{self.nome}  Nv{self.nivel_chefe}"
+        cor_rot = (255, 150, 120) if self.furia else (255, 230, 140)
+        desenhar_texto(tela, fonte, rotulo, (LARGURA // 2, y + alt_barra + 6), cor_rot, centro=True)
+        if self.anuncio_furia > 0 and int(self.anuncio_furia * 6) % 2 == 0:
+            desenhar_texto(tela, fonte, "FÚRIA!", (LARGURA // 2, y + alt_barra + 18), (255, 80, 60), centro=True)
 
 
 # =====================================================================
@@ -231,51 +588,6 @@ class ReiSlime(Chefe):
         elif dist > 8:
             self.mover(ate_j.normalize() * (self.velocidade_base * 0.6 * dt), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy - round(self.z)
-        onda = math.sin(self.fase_salto)
-        larg = 32 + round(onda * 4)
-        alt = 24 - round(onda * 4)
-
-        # Manto real de veludo na base
-        rect_manto = pygame.Rect(0, 0, larg + 6, 6)
-        rect_manto.midbottom = (cx, cy + 1)
-        pygame.draw.ellipse(tela, (130, 24, 40), rect_manto)
-        pygame.draw.ellipse(tela, (215, 180, 50), rect_manto, 1)
-
-        # Corpo do Slime Real
-        rect_corpo = pygame.Rect(0, 0, larg, alt)
-        rect_corpo.midbottom = (cx, cy)
-        cor_slime = (65, 145, 235) if not self.fantasma else (145, 65, 225)
-        cor_slime_esc = (35, 90, 180) if not self.fantasma else (90, 30, 160)
-        pygame.draw.ellipse(tela, (20, 16, 36), rect_corpo.inflate(4, 4))
-        pygame.draw.ellipse(tela, cor_slime_esc, rect_corpo)
-        pygame.draw.ellipse(tela, cor_slime, rect_corpo.inflate(-4, -4))
-        # Brilho de gelatina especular
-        pygame.draw.ellipse(tela, (180, 230, 255), (cx - larg // 3, cy - alt + 4, larg // 2, 6))
-
-        # Olhos reais com expressão majestosa
-        pygame.draw.circle(tela, (255, 255, 255), (cx - 6, cy - alt // 2), 3)
-        pygame.draw.circle(tela, (255, 255, 255), (cx + 6, cy - alt // 2), 3)
-        pygame.draw.circle(tela, (18, 22, 40), (cx - 5, cy - alt // 2), 1)
-        pygame.draw.circle(tela, (18, 22, 40), (cx + 7, cy - alt // 2), 1)
-
-        # Coroa dourada real com 3 rubis cintilantes
-        coroa_y = rect_corpo.top - 6
-        pts_coroa = [
-            (cx - 10, coroa_y + 5), (cx - 10, coroa_y - 4),
-            (cx - 5, coroa_y + 1), (cx, coroa_y - 7),
-            (cx + 5, coroa_y + 1), (cx + 10, coroa_y - 4),
-            (cx + 10, coroa_y + 5),
-        ]
-        pygame.draw.polygon(tela, (245, 215, 65), pts_coroa)
-        pygame.draw.polygon(tela, (40, 24, 12), pts_coroa, 1)
-        pygame.draw.circle(tela, (245, 45, 65), (cx - 7, coroa_y), 2)
-        pygame.draw.circle(tela, (255, 235, 120), (cx, coroa_y - 3), 2)
-        pygame.draw.circle(tela, (245, 45, 65), (cx + 7, coroa_y), 2)
-
-
 class GolemPedra(Chefe):
     """Chefe 2 (Câmara do Golem Ancestral): Titã de pedra com runas celestes e socos de terra."""
 
@@ -300,30 +612,6 @@ class GolemPedra(Chefe):
         if dist > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 28, 30)
-        r.midbottom = (cx, cy)
-        # Ombros de megálito e cabeça de pedra
-        pygame.draw.rect(tela, (25, 24, 32), r.inflate(4, 4))
-        pygame.draw.rect(tela, (95, 100, 115), r)
-        pygame.draw.rect(tela, (135, 142, 160), r.inflate(-4, -4))
-        # Ombreiras de pedra
-        pygame.draw.rect(tela, (75, 80, 95), (r.left - 4, r.top + 2, 5, 12))
-        pygame.draw.rect(tela, (75, 80, 95), (r.right - 1, r.top + 2, 5, 12))
-        # Musgo e fendas antigas
-        pygame.draw.rect(tela, (65, 125, 60), (r.left + 3, r.bottom - 8, 4, 3))
-        # Runas brilhantes esculpidas
-        cor_runa = (95, 235, 255) if not self.fantasma else (215, 95, 255)
-        pygame.draw.circle(tela, cor_runa, (cx, r.centery - 3), 4)
-        pygame.draw.line(tela, cor_runa, (cx, r.centery - 3), (cx, r.bottom - 4), 2)
-        pygame.draw.line(tela, cor_runa, (cx - 6, r.centery + 3), (cx + 6, r.centery + 3), 2)
-        # Olhos de energia rúnica
-        pygame.draw.rect(tela, cor_runa, (cx - 6, r.top + 6, 3, 2))
-        pygame.draw.rect(tela, cor_runa, (cx + 3, r.top + 6, 3, 2))
-
-
 class SerpenteDunas(Chefe):
     """Chefe 3 (Fosso das Dunas): Leviatã arenoso com baforada de fogo e areia abrasiva."""
 
@@ -347,24 +635,6 @@ class SerpenteDunas(Chefe):
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * 1.25 * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 26, 28)
-        r.midbottom = (cx, cy)
-        pygame.draw.ellipse(tela, (28, 20, 16), r.inflate(3, 3))
-        pygame.draw.ellipse(tela, (185, 115, 45), r)
-        pygame.draw.ellipse(tela, (235, 175, 85), r.inflate(-4, -4))
-        # Escamas de serpente ósseas
-        for sy in range(r.top + 4, r.bottom - 4, 5):
-            pygame.draw.arc(tela, (140, 80, 25), (r.left + 4, sy, 18, 6), 0, math.pi, 2)
-        # Olhos dourados reptilianos com fenda negra
-        pygame.draw.circle(tela, (255, 240, 90), (cx - 5, r.top + 8), 3)
-        pygame.draw.circle(tela, (255, 240, 90), (cx + 5, r.top + 8), 3)
-        pygame.draw.line(tela, (20, 14, 10), (cx - 5, r.top + 6), (cx - 5, r.top + 10), 1)
-        pygame.draw.line(tela, (20, 14, 10), (cx + 5, r.top + 6), (cx + 5, r.top + 10), 1)
-
-
 class ColossoSolar(Chefe):
     """Chefe 4 (Altar Solar das Chamas): Guerreiro dourado com feixe de chamas e disco solar."""
 
@@ -387,28 +657,6 @@ class ColossoSolar(Chefe):
         if ate_j.length() > 20:
             self.mover(ate_j.normalize() * (self.velocidade_base * 0.95 * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 26, 32)
-        r.midbottom = (cx, cy)
-        # Disco solar giratório às costas
-        ang_sol = self.tempo_vida * 2.0
-        for i in range(8):
-            a = ang_sol + i * (math.pi / 4)
-            px = cx + round(math.cos(a) * 16)
-            py = (r.centery - 4) + round(math.sin(a) * 16)
-            pygame.draw.line(tela, (255, 220, 60), (cx, r.centery - 4), (px, py), 2)
-
-        # Armadura dourada real
-        pygame.draw.rect(tela, (36, 24, 12), r.inflate(2, 2))
-        pygame.draw.rect(tela, (215, 160, 45), r)
-        pygame.draw.rect(tela, (255, 215, 95), r.inflate(-4, -4))
-        # Escudo solar central com gema incandescente
-        pygame.draw.circle(tela, (255, 80, 35), (cx, r.centery), 7)
-        pygame.draw.circle(tela, (255, 245, 140), (cx, r.centery), 4)
-
-
 class BruxaBrumas(Chefe):
     """Chefe 5 (Antro da Bruxa): Feiticeira com orbes venenosos e névoa espectral."""
 
@@ -429,24 +677,6 @@ class BruxaBrumas(Chefe):
 
         if ate_j.length() > 32:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
-
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 22, 28)
-        r.midbottom = (cx, cy)
-        # Névoa escura nos pés
-        nevoa_r = pygame.Rect(0, 0, 26, 6)
-        nevoa_r.midbottom = (cx, cy)
-        pygame.draw.ellipse(tela, (45, 20, 65), nevoa_r)
-        # Manto e chapéu pontudo de bruxa
-        pygame.draw.polygon(tela, (42, 18, 58), [(cx - 10, cy), (cx + 10, cy), (cx, r.top + 8)])
-        pygame.draw.polygon(tela, (26, 10, 36), [(cx - 11, r.top + 8), (cx + 11, r.top + 8), (cx, r.top - 7)])
-        pygame.draw.circle(tela, (215, 110, 255), (cx, r.top + 8), 3)
-        # Cajado de madeira com orbe venenoso
-        pygame.draw.line(tela, (110, 75, 45), (cx + 9, cy), (cx + 13, r.top - 4), 2)
-        pygame.draw.circle(tela, (110, 255, 150), (cx + 13, r.top - 6), 3)
-
 
 class CeifadorEspectral(Chefe):
     """Chefe 6 (Sepulcro Espectral): Espectro com foice das almas e lâminas cortantes."""
@@ -469,22 +699,6 @@ class CeifadorEspectral(Chefe):
         if ate_j.length() > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * 1.15 * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 24, 30)
-        r.midbottom = (cx, cy)
-        # Capuz e túnica rasgada
-        pygame.draw.polygon(tela, (16, 18, 28), [(cx - 12, cy), (cx + 12, cy), (cx, r.top)])
-        pygame.draw.polygon(tela, (28, 32, 48), [(cx - 9, cy - 2), (cx + 9, cy - 2), (cx, r.top + 3)])
-        # Olhos espectrais azul-celestes
-        pygame.draw.circle(tela, (110, 240, 255), (cx - 3, r.top + 8), 2)
-        pygame.draw.circle(tela, (110, 240, 255), (cx + 3, r.top + 8), 2)
-        # Foice espectral das almas
-        pygame.draw.line(tela, (90, 70, 50), (cx + 8, cy), (cx + 14, r.top - 6), 2)
-        pygame.draw.arc(tela, (120, 245, 255), (cx + 6, r.top - 12, 16, 16), 0, math.pi, 3)
-
-
 class LeviataAquatico(Chefe):
     """Chefe 7 (Abismo Aquático): Serpente marítima com jatos d'água perfurantes."""
 
@@ -504,24 +718,6 @@ class LeviataAquatico(Chefe):
 
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
-
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 30, 26)
-        r.midbottom = (cx, cy)
-        # Redemoinho de água na base
-        pygame.draw.ellipse(tela, (30, 80, 140, 150), (cx - 16, cy - 6, 32, 10))
-        # Corpo de dragão aquático
-        pygame.draw.ellipse(tela, (14, 28, 54), r.inflate(2, 2))
-        pygame.draw.ellipse(tela, (42, 115, 205), r)
-        pygame.draw.ellipse(tela, (85, 175, 255), r.inflate(-6, -6))
-        # Barbatanas dorsais luminosas
-        pygame.draw.polygon(tela, (110, 235, 255), [(cx, r.top - 4), (cx - 6, r.top + 4), (cx + 6, r.top + 4)])
-        # Olhos bioluminescentes
-        pygame.draw.circle(tela, (210, 250, 255), (cx - 6, r.top + 7), 2)
-        pygame.draw.circle(tela, (210, 250, 255), (cx + 6, r.top + 7), 2)
-
 
 class GuardiaoDiamante(Chefe):
     """Chefe 8 (Núcleo de Cristal): Prisma geométrico que refrata feixes laser."""
@@ -545,14 +741,6 @@ class GuardiaoDiamante(Chefe):
         if ate_j.length() > 22:
             self.mover(ate_j.normalize() * (self.velocidade_base * 0.85 * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        cristal = criar_cristal_3d(cx, cy - 12, z_base=6.0, raio=9.0, altura=13.0, cor=(140, 220, 255), cor_borda=(40, 80, 130))
-        cristal.atualizar(self.tempo_vida * 2.2)
-        cristal.desenhar(tela, 0, 0, self.tempo_vida)
-
-
 class TrollRochas(Chefe):
     """Chefe 9 (Covil do Troll): Gigante das cavernas com clava pesada e tremor de terra."""
 
@@ -574,23 +762,6 @@ class TrollRochas(Chefe):
         if ate_j.length() > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 30, 30)
-        r.midbottom = (cx, cy)
-        # Corpo corpulento de pedra e pelo
-        pygame.draw.rect(tela, (36, 24, 16), r.inflate(4, 4))
-        pygame.draw.rect(tela, (140, 95, 60), r)
-        pygame.draw.rect(tela, (175, 125, 85), r.inflate(-4, -4))
-        # Presas de javali e olhos coléricos
-        pygame.draw.circle(tela, (255, 60, 40), (cx - 5, r.top + 8), 2)
-        pygame.draw.circle(tela, (255, 60, 40), (cx + 5, r.top + 8), 2)
-        # Clava colossal com espinhos
-        pygame.draw.line(tela, (75, 45, 25), (cx + 13, cy - 2), (cx + 19, cy - 28), 4)
-        pygame.draw.circle(tela, (120, 120, 130), (cx + 19, cy - 28), 5)
-
-
 class YetiGlacial(Chefe):
     """Chefe 10 (Caverna Glacial do Yeti): Besta albina que congela o ar e atira estacas de gelo."""
 
@@ -611,23 +782,6 @@ class YetiGlacial(Chefe):
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 28, 30)
-        r.midbottom = (cx, cy)
-        # Pelagem branca volumosa
-        pygame.draw.ellipse(tela, (28, 45, 68), r.inflate(4, 4))
-        pygame.draw.ellipse(tela, (230, 242, 255), r)
-        pygame.draw.ellipse(tela, (255, 255, 255), r.inflate(-4, -4))
-        # Chifres congelados pontiagudos
-        pygame.draw.line(tela, (95, 205, 245), (cx - 8, r.top + 4), (cx - 15, r.top - 5), 3)
-        pygame.draw.line(tela, (95, 205, 245), (cx + 8, r.top + 4), (cx + 15, r.top - 5), 3)
-        # Olhos azuis brilhantes
-        pygame.draw.circle(tela, (70, 175, 255), (cx - 5, r.top + 8), 2)
-        pygame.draw.circle(tela, (70, 175, 255), (cx + 5, r.top + 8), 2)
-
-
 class ValquiriaCaida(Chefe):
     """Chefe 11 (Altar da Valquíria): Guerreira alada com lanças de luz sagrada."""
 
@@ -647,22 +801,6 @@ class ValquiriaCaida(Chefe):
 
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * 1.2 * dt * self.fator_poder), nivel)
-
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 24, 30)
-        r.midbottom = (cx, cy)
-        # Asas angelicais negras e douradas
-        bater_asa = math.sin(self.tempo_vida * 6.0) * 4
-        pygame.draw.polygon(tela, (36, 18, 45), [(cx - 4, r.top + 8), (cx - 22, r.top - 2 + bater_asa), (cx - 6, cy)])
-        pygame.draw.polygon(tela, (36, 18, 45), [(cx + 4, r.top + 8), (cx + 22, r.top - 2 + bater_asa), (cx + 6, cy)])
-        # Armadura e elmo com asas
-        pygame.draw.rect(tela, (215, 185, 80), r)
-        pygame.draw.rect(tela, (255, 235, 140), r.inflate(-4, -4))
-        # Lança radiante sagrada
-        pygame.draw.line(tela, (255, 245, 180), (cx + 10, cy), (cx + 15, r.top - 8), 2)
-
 
 class CavaleiroNegro(Chefe):
     """Chefe 12 (Arena do Cavaleiro): Guerreiro blindado com zweihander sombria."""
@@ -685,22 +823,6 @@ class CavaleiroNegro(Chefe):
         if ate_j.length() > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * 1.15 * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 26, 32)
-        r.midbottom = (cx, cy)
-        # Capa carmesim tremulando
-        pygame.draw.polygon(tela, (175, 28, 42), [(cx - 11, r.top + 6), (cx + 11, r.top + 6), (cx, cy + 3)])
-        # Armadura gótica negra
-        pygame.draw.rect(tela, (20, 16, 26), r.inflate(2, 2))
-        pygame.draw.rect(tela, (42, 36, 52), r)
-        # Viseira carmesim ardente
-        pygame.draw.line(tela, (255, 45, 65), (cx - 5, r.top + 8), (cx + 5, r.top + 8), 2)
-        # Zweihander sombria nas mãos
-        pygame.draw.line(tela, (180, 185, 205), (cx + 10, cy), (cx + 16, r.top - 10), 3)
-
-
 class QuimeraAbissal(Chefe):
     """Chefe 13 (Fosso da Quimera): Monstro tricéfalo com baforada de fogo e veneno."""
 
@@ -720,20 +842,6 @@ class QuimeraAbissal(Chefe):
 
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
-
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 28, 30)
-        r.midbottom = (cx, cy)
-        pygame.draw.ellipse(tela, (42, 18, 16), r.inflate(4, 4))
-        pygame.draw.ellipse(tela, (185, 65, 42), r)
-        # Cauda de escorpião articulada
-        pygame.draw.arc(tela, (130, 32, 22), (cx - 18, r.top - 10, 18, 22), 0, math.pi, 3)
-        # Chifres de cabra e juba draconiana
-        pygame.draw.line(tela, (65, 45, 35), (cx - 6, r.top + 4), (cx - 12, r.top - 4), 2)
-        pygame.draw.line(tela, (65, 45, 35), (cx + 6, r.top + 4), (cx + 12, r.top - 4), 2)
-
 
 class ArquimagoCorrompido(Chefe):
     """Chefe 14 (Observatório do Arquimago): Sábio das sombras com chuva de raios e esferas místicas."""
@@ -757,17 +865,6 @@ class ArquimagoCorrompido(Chefe):
         if ate_j.length() > 28:
             self.mover(ate_j.normalize() * (self.velocidade_base * 0.95 * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 24, 30)
-        r.midbottom = (cx, cy)
-        # Manto astral com estrelas
-        pygame.draw.polygon(tela, (32, 12, 48), [(cx - 11, cy), (cx + 11, cy), (cx, r.top)])
-        pygame.draw.circle(tela, (230, 130, 255), (cx + 12, cy - 15), 4)
-        pygame.draw.circle(tela, (130, 230, 255), (cx - 12, cy - 15), 4)
-
-
 class PaladinoJuizo(Chefe):
     """Chefe 15 (Tribunal do Paladino): Guardião divino profanado com martelo do juízo."""
 
@@ -790,19 +887,6 @@ class PaladinoJuizo(Chefe):
         if ate_j.length() > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        r = pygame.Rect(0, 0, 28, 32)
-        r.midbottom = (cx, cy)
-        # Auréola radiante
-        pygame.draw.circle(tela, (255, 235, 120), (cx, r.top - 3), 6, 2)
-        # Armadura reluzente
-        pygame.draw.rect(tela, (48, 38, 22), r.inflate(2, 2))
-        pygame.draw.rect(tela, (235, 205, 95), r)
-        # Martelo de guerra colossal
-        pygame.draw.line(tela, (140, 95, 45), (cx + 13, cy), (cx + 15, r.top - 8), 3)
-        pygame.draw.rect(tela, (255, 245, 170), (cx + 10, r.top - 12, 11, 7))
 
 
 # =====================================================================
@@ -854,39 +938,6 @@ class EntidadeMalignaChefe(Chefe):
         if dist > 24:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
 
-    def desenhar_chefe(self, tela, camera, gfx, fonte):
-        ox, oy = camera.offset
-        cx, cy = self.rect.centerx - ox, self.rect.bottom - oy
-        flutuacao = math.sin(self.tempo_vida * 3.5) * 3.5
-        cy_f = cy - round(flutuacao)
-
-        # 6 Asas demoníacas colossais
-        cor_asa = (24, 8, 34) if self.fase == 1 else (48, 12, 38)
-        for lado in (-1, 1):
-            bater = round(math.sin(self.tempo_vida * 4.5) * 6)
-            p1 = (cx + lado * 10, cy_f - 10)
-            p2 = (cx + lado * 42, cy_f - 24 + bater)
-            p3 = (cx + lado * 24, cy_f + 8)
-            pygame.draw.polygon(tela, cor_asa, [p1, p2, p3])
-            pygame.draw.line(tela, (235, 45, 95), p1, p2, 2)
-
-        # Torso e coroa sombria
-        r = pygame.Rect(0, 0, 34, 32)
-        r.midbottom = (cx, cy_f)
-        pygame.draw.rect(tela, (14, 6, 20), r.inflate(2, 2))
-        pygame.draw.rect(tela, (36, 12, 44), r)
-
-        # 3 Olhos flamejantes
-        pygame.draw.line(tela, (255, 45, 75), (cx - 7, r.top + 8), (cx - 3, r.top + 8), 2)
-        pygame.draw.line(tela, (255, 45, 75), (cx + 3, r.top + 8), (cx + 7, r.top + 8), 2)
-        if self.fase == 2:
-            # Terceiro olho escarlate ardente
-            pygame.draw.circle(tela, (255, 235, 120), (cx, r.top + 4), 3)
-
-        # Núcleo 3D de Cristal Negro no peito
-        cristal = criar_cristal_3d(cx, r.centery + 4, z_base=8.0, raio=7.0, altura=11.0, cor=(235, 35, 95), cor_borda=(85, 12, 40))
-        cristal.atualizar(self.tempo_vida * 2.2)
-        cristal.desenhar(tela, 0, 0, self.tempo_vida)
 
 
 # Catálogo com a fábrica de todos os chefes

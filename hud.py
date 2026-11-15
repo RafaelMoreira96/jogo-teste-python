@@ -48,6 +48,7 @@ def desenhar_hud(
     boss_rush_info=None,
     aviso_mapa=None,
     tempo_aviso_mapa=0.0,
+    bussola=None,
 ):
     # =========================================================================
     # 1. QUADRO SUPERIOR ESQUERDO: STATUS DO HERÓI
@@ -176,6 +177,12 @@ def desenhar_hud(
         desenhar_texto(tela, fonte, "Mapa", (x_t + 11, 36), CINZA)
 
     # =========================================================================
+    # 4b. BÚSSOLA DE OBJETIVO (canto inferior direito)
+    # =========================================================================
+    if bussola is not None:
+        desenhar_bussola(tela, fonte, bussola, tempo)
+
+    # =========================================================================
     # 5. BARRA DE VIDA DE CHEFE / BOSS RUSH
     # =========================================================================
     if chefe_ativo is not None and getattr(chefe_ativo, "vivo", False):
@@ -183,6 +190,39 @@ def desenhar_hud(
         if boss_rush_info:
             txt_rush = f"Onda {boss_rush_info['onda']}/{boss_rush_info['total']} - O Desafio das Sombras"
             desenhar_texto(tela, fonte, txt_rush, (LARGURA // 2, 24), (255, 120, 160), centro=True)
+
+
+def desenhar_bussola(tela, fonte, bussola, tempo):
+    """Rosa dos ventos 16-bits com agulha apontando o caminho e o nome do destino."""
+    import math
+
+    cx, cy, raio = LARGURA - 19, ALTURA - 20, 13
+    desenhar_painel(tela, (cx - raio - 4, cy - raio - 4, raio * 2 + 8, raio * 2 + 8), "dourado", alfa=220, cantos=False)
+    pygame.draw.circle(tela, (24, 20, 30), (cx, cy), raio)
+    pygame.draw.circle(tela, (200, 160, 80), (cx, cy), raio, 1)
+    for k in range(8):
+        a = k * math.pi / 4
+        r1 = raio - (3 if k % 2 == 0 else 2)
+        pygame.draw.line(tela, (150, 120, 70), (cx + round(math.cos(a) * r1), cy + round(math.sin(a) * r1)), (cx + round(math.cos(a) * (raio - 1)), cy + round(math.sin(a) * (raio - 1))))
+    desenhar_texto(tela, fonte, "N", (cx, cy - raio + 4), (230, 200, 140), centro=True)
+    ang = bussola["angulo"]
+    ponta = (cx + math.cos(ang) * (raio - 3), cy + math.sin(ang) * (raio - 3))
+    cauda = (cx - math.cos(ang) * (raio - 5), cy - math.sin(ang) * (raio - 5))
+    lado = (math.cos(ang + math.pi / 2) * 2.5, math.sin(ang + math.pi / 2) * 2.5)
+    pygame.draw.polygon(tela, (230, 60, 60), [ponta, (cx + lado[0], cy + lado[1]), (cx - lado[0], cy - lado[1])])
+    pygame.draw.polygon(tela, (220, 220, 230), [cauda, (cx + lado[0], cy + lado[1]), (cx - lado[0], cy - lado[1])])
+    pygame.draw.circle(tela, (255, 220, 120), (cx, cy), 2)
+
+    rotulo = bussola.get("rotulo")
+    if rotulo:
+        texto = limpar_texto(rotulo)
+        largura_max = 130
+        while texto and fonte.size(texto)[0] > largura_max:
+            texto = texto[:-1]
+        larg = fonte.size(texto)[0] + 10
+        x0 = cx - raio - 6 - larg
+        desenhar_painel(tela, (x0, ALTURA - 16, larg, 14), "padrao", alfa=205, cantos=False)
+        desenhar_texto(tela, fonte, texto, (x0 + 5, ALTURA - 14), (255, 226, 140))
 
 
 def desenhar_mensagem(tela, fonte, titulo, subtitulo):

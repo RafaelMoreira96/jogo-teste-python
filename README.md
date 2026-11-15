@@ -10,6 +10,10 @@
 - 🔮 **Magias Elementais & RPG**: Esfera de Fogo, Rajada Congelante, Lança de Trovão, Lâmina de Vento e Bênção de Luz, além de sistema de níveis, mana, atributos e árvore de habilidades (`[U]`).
 - 🚪 **Portais Místicos & 15 Guardiões Ancestrais**: Cada grande chefe possui uma arena isolada com entrada mística monumental e efeitos de partículas. Ao derrotar um guardião, seu portal se transforma em um selo espectral eterno e sua relíquia é liberada.
 - 💨 **Navegação & Vento Guia**: Nunca mais fique perdido! Invoque o **Vento Guia** (`[H]`) para que as brisas do mundo revelem a direção do próximo objetivo. Totens de madeira nas encruzilhadas apontam caminhos para vilas, templos e masmorras.
+- 👹 **Modo Chefões** (Menu principal): Enfrente qualquer um dos 16 chefes direto na arena dele, escolhendo o nível do herói e a dificuldade (Normal, Difícil ou Lendário), ou encare o **Desafio dos Guardiões** (todos em ondas no Coliseu das Eras). Cada vitória dá tempo, dano recebido, nota (S/A/B/C) e recorde salvo.
+- 🔥 **Covis Temáticos**: Cada Guardião mora numa arena própria (gosma, ruínas, dunas, altar solar, pântano, sepulcro, abismo marinho, cristal, caverna, gelo, céu, arena, lava, observatório astral e tribunal sagrado), com chão, líquidos, blocos, luz e partículas combinando com o chefe.
+- ⚔️ **Chefões com Fúria**: Arte 16-bits detalhada e animada para os 16 chefes. Na metade da vida eles entram em **Fúria** e alternam golpes especiais telegrafados (chuva de impactos, espirais, anéis, muralhas com brecha, investidas e orbes teleguiados).
+- 🧭 **Bússola de Objetivo**: Ponteiro no canto da tela e seta ao redor do herói mostrando a porta certa até o próximo Guardião, inclusive dentro de casas. Liga/desliga em Configurações.
 - 🗺️ **Atlas do Mundo & Badges de Chefes (`[M]`)**: Mapa geral detalhado indicando as regiões exploradas e o status de cada chefe (🔴 Ativo / 🟡 Pronto para lutar / ⚪ Conquistado).
 - 🌌 **Rede de Monólitos Astrais (Fast Travel)**: Encontre e sintonize monólitos nas 6 grandes regiões do continente para viajar instantaneamente entre eles através de feixes de luz celestiais.
 - 📜 **Missões & Conquistas**: Diário de missões secundárias, NPCs com diálogos e escolhas dinâmicas, e dezenas de conquistas desbloqueáveis com pop-ups animados.
@@ -96,7 +100,9 @@ O jogo conta com suporte total tanto para **Teclado** quanto para **Controles US
 ├── audio.py                    # Sintetizador procedural de áudio (BGM e SFX em tempo real)
 ├── caixa_dialogo.py            # Caixa de texto clássica com suporte a paginação e opções
 ├── camera.py                   # Câmera cinemática suave com amortecimento e tremores (shake)
-├── chefe.py                    # IA e estados dos 15 Chefões e Guardiões
+├── chefe.py                    # IA dos chefes: fúria, golpes especiais, projéteis elementais
+├── arte_chefes.py              # Arte procedural 16-bits animada de cada chefe
+├── temas.py                    # Temas dos covis (chão, líquido, blocos, luz, partículas)
 ├── conquistas.py               # Sistema de conquistas com persistência e alertas animados
 ├── efeitos.py                  # Partículas, iluminação, corações flutuantes e vasos quebráveis
 ├── enemy.py                    # Inimigos comuns (slimes, zumbis, arqueiros, morcegos)
@@ -116,6 +122,7 @@ O jogo conta com suporte total tanto para **Teclado** quanto para **Controles US
 ├── ui.py                       # Fonte bitmap proporcional 16-bits e componentes de menus
 └── cenas/                      # Telas e módulos de estado:
     ├── jogo.py                 # Ciclo principal do gameplay e mundo
+    ├── modo_chefes.py          # Seleção de chefes, preparo da luta e tela de resultado
     ├── menu.py                 # Tela de título e seleção de opções
     ├── mapa_mundo.py           # Atlas do mundo com sinalização de chefes
     ├── teleporte.py            # Viagem rápida entre Monólitos Astrais
@@ -127,6 +134,24 @@ O jogo conta com suporte total tanto para **Teclado** quanto para **Controles US
     ├── pausa.py                # Menu de pausa
     └── editor.py               # Editor in-game de fases e posicionamento de entidades
 ```
+
+---
+
+## 🔥 Temas dos Covis
+
+Qualquer mapa pode usar um tema visual na seção `[mapa]`:
+
+```
+[mapa]
+nome = Fosso da Quimera Abissal
+clima = noite
+tema = lava
+```
+
+Temas disponíveis: `gosma`, `ruinas`, `areia`, `solar`, `pantano`, `sepulcro`, `abismo_mar`, `cristal`,
+`caverna`, `gelo`, `celeste`, `arena`, `lava`, `astral`, `sagrado` e `coliseu`. No tema, `~` vira o líquido
+do tema (lava, gosma, abismo, nuvens...), `#` vira o bloco 3D temático e `W` as paredes. Líquidos como lava
+e abismo não deixam o herói nadar. Os temas ficam em `temas.py`.
 
 ---
 

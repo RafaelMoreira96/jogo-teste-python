@@ -93,7 +93,9 @@ class MenuPrincipal(Cena):
         self.t = 0.0
 
         from salvamento import existe_save
-        opcoes = ["Continuar", "Novo jogo", "Editor de jogo", "Configurações", "Sair"] if existe_save() else ["Novo jogo", "Editor de jogo", "Configurações", "Sair"]
+        opcoes = ["Novo jogo", "Modo Chefões", "Editor de jogo", "Configurações", "Sair"]
+        if existe_save():
+            opcoes.insert(0, "Continuar")
         self.menu = MenuLista(opcoes)
 
         if hasattr(app, "audio"):
@@ -187,6 +189,9 @@ class MenuPrincipal(Cena):
                 self.app.trocar(Jogo(self.app))
         elif escolha == "Novo jogo":
             self.app.trocar(Jogo(self.app))
+        elif escolha == "Modo Chefões":
+            from cenas.modo_chefes import SelecaoChefes
+            self.app.trocar(SelecaoChefes(self.app))
         elif escolha == "Editor de jogo":
             self.app.trocar(Editor(self.app))
         elif escolha == "Configurações":

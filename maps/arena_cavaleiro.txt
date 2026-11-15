@@ -1,26 +1,28 @@
-WWWWWWWWWWWWWWWWWWWWWWWW
-W......................W
-W......................W
-W......................W
-W...#..............#...W
-W......................W
-W......................W
-W......................W
-W......................W
-W......................W
-W......................W
-W...#..............#...W
-W......................W
-W......................W
-W...........P..........W
-WWWWWWWWWWWSSWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWW................WWWWW
+WWW....................WWW
+WW.....#..........#.....WW
+W........................W
+W........................W
+W..#..................#..W
+W........................W
+W........................W
+W..#..................#..W
+W........................W
+W........................W
+WW.....#..........#.....WW
+WWW....................WWW
+WWWWW........P.......WWWWW
+WWWWWW..............WWWWWW
+WWWWWWWWWWWWSSWWWWWWWWWWWW
 
 [mapa]
 nome = Arena do Cavaleiro Negro
 clima = noite
+tema = arena
 
 [chefes]
-cavaleiro_negro = 12, 6
+cavaleiro_negro = 13, 6
 
 [portas]
 S = castelo_patio.txt

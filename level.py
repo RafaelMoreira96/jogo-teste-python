@@ -21,6 +21,7 @@ from render3d import (
     gerar_objetos_3d_nivel,
 )
 from settings import ALTURA, LARGURA, TILE
+from temas import GraficosTema, desenhar_decoracao, obter_tema
 
 SIMBOLOS = {
     ",": "caminho",
@@ -47,6 +48,9 @@ class Nivel:
         linhas_grade, definicoes_npc, definicoes_porta, info_mapa, definicoes_chefe, definicoes_inimigo = self._ler_arquivo()
         self.nome = info_mapa.get("nome", self.caminho.stem.replace("_", " ").title())
         self.clima_padrao = info_mapa.get("clima", "dia")
+        # Tema visual do covil (chão, líquido, paredes, partículas e luz próprios)
+        self.tema = obter_tema(info_mapa.get("tema"))
+        self.gfx_tema = GraficosTema(self.tema) if self.tema else None
         largura = max(len(l) for l in linhas_grade)
         # Linhas mais curtas são completadas com árvores.
         self.grade = [list(l.ljust(largura, "T")) for l in linhas_grade]
@@ -382,7 +386,7 @@ class Nivel:
             "pantano": (40, 85, 55, 42),
             "arcano": (45, 30, 85, 36),
         }
-        cor_bioma = tintas_bioma.get(self.bioma)
+        cor_bioma = None if self.tema else tintas_bioma.get(self.bioma)
 
         for cy in range(self.linhas):
             for cx in range(self.colunas):
@@ -401,7 +405,10 @@ class Nivel:
                 if c == "~":
                     cor_margem = (186, 156, 104, 235)
                     cor_espuma = (210, 245, 255, 210)
-                    if cima == "#":
+                    if self.tema:
+                        cor_margem = (*self.tema["margem"], 235)
+                        cor_espuma = (*self.tema["liquido"][1], 200)
+                    if cima == "#" and (not self.tema or self.tema["anim"] == "agua"):
                         # Cachoeira desaguando da falésia de pedra superior
                         self.cachoeiras.append((px, py))
                     elif cima and cima != "~":
@@ -420,7 +427,7 @@ class Nivel:
                         pygame.draw.rect(det, cor_margem, (px + TILE - 2, py, 2, TILE))
                         pygame.draw.line(det, cor_espuma, (px + TILE - 3, py + 1), (px + TILE - 3, py + TILE - 2))
                     # Vitórias-régias (lilypads) com flor de lótus
-                    if h_val < 18 and cima != "#":
+                    if h_val < 18 and cima != "#" and not self.tema:
                         lx, ly = px + 5 + (h_val % 5), py + 5 + ((h_val // 3) % 5)
                         pygame.draw.circle(det, (44, 134, 62, 240), (lx, ly), 3)
                         pygame.draw.circle(det, (86, 178, 84, 240), (lx - 1, ly - 1), 2)
@@ -583,6 +590,11 @@ class Nivel:
                     if baixo != "R":
                         pygame.draw.rect(det, (104, 30, 26, 255), (px, py + TILE - 2, TILE, 2))
 
+                # 5a. Blocos temáticos dos covis: só ganham tochas/cristais combinando com o tema
+                elif c == "#" and self.tema:
+                    if baixo in (".", ",") and h_val < 18:
+                        fogo = self.tema["nome"] in ("lava", "solar", "arena", "caverna", "ruinas", "coliseu", "areia")
+                        self.tochas.append((px + TILE // 2, py + 10, "tocha" if fogo else "cristal"))
                 # 5. Muralhas e falésias de pedra (#) com face 3D, musgo/trepadeiras e tochas/cristais
                 elif c == "#":
                     if h_val % 4 == 0:
@@ -598,6 +610,8 @@ class Nivel:
                             self.tochas.append((px + TILE // 2, py + 10, "cristal" if eh_sombrio else "tocha"))
 
                 # 6. Micro-decorações naturais na grama (.) — cogumelos, pedrinhas, folhas de outono e postes
+                elif c == "." and self.tema:
+                    desenhar_decoracao(det, self.tema, px, py, h_val)
                 elif c == "." and not self.eh_interior:
                     if (esq == "," or dir_ == ",") and cima == "." and h_val < 12:
                         # Poste de lanterna de madeira à beira da estrada
@@ -635,12 +649,35 @@ class Nivel:
                     if esq in ("T", "#", "W", "R"):
                         pygame.draw.rect(det, (10, 16, 28, 44), (px, py, 4, TILE))
     def _desenhar_tile(self, cx, cy):
+        if self.tema:
+            self._desenhar_tile_tema(cx, cy)
+            return
         nome = SIMBOLOS.get(self.grade[cy][cx])
         if nome:
             img = self.gfx.tiles[nome]
         else:
             img = self.gfx.gramas[(cx * 7 + cy * 13) % len(self.gfx.gramas)]
         self.superficie.blit(img, (cx * TILE, cy * TILE))
+
+    def _desenhar_tile_tema(self, cx, cy):
+        c = self.grade[cy][cx]
+        g = self.gfx_tema
+        pos = (cx * TILE, cy * TILE)
+        variante = (cx * 7 + cy * 13 + (cx * cy) % 5) % len(g.pisos)
+        if c == "#":
+            self.superficie.blit(g.bloco, pos)
+        elif c == "W":
+            self.superficie.blit(g.paredes[cy % 2], pos)
+        elif c == "~":
+            self.superficie.blit(g.liquido[0], pos)
+        elif c == "D":
+            self.superficie.blit(self.gfx.tiles["porta"], pos)
+        else:
+            self.superficie.blit(g.pisos[variante], pos)
+            if c == ",":
+                sombra = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+                sombra.fill((0, 0, 0, 50))
+                self.superficie.blit(sombra, pos)
 
     def desenhar_cenario_vivo(self, tela, ox, oy, tempo):
         """Desenha o mapa com auto-tiling, sombras projetadas, água, vento e tochas/cristais."""
@@ -661,8 +698,9 @@ class Nivel:
                 sx = cx * TILE - ox
                 if c == "~":
                     fase = int(tempo * 3.6 + (cx * 3 + cy * 5) * 0.25) % 4
-                    tela.blit(animados["~"][fase], (sx, sy))
-                elif c == ".":
+                    quadros_liq = self.gfx_tema.liquido if self.tema else animados["~"]
+                    tela.blit(quadros_liq[fase], (sx, sy))
+                elif c == "." and not self.tema:
                     onda = math.sin(tempo * 2.6 - cx * 0.45 - cy * 0.25)
                     if onda > 0.55:
                         tela.blit(gramas_vento[(cx * 7 + cy * 13) % 4], (sx, sy))
@@ -679,7 +717,7 @@ class Nivel:
             sy = cy * TILE - oy
             for cx in range(cx_ini, cx_fim):
                 c = linha[cx]
-                if c in ("*", "T", "B"):
+                if c in ("*", "T", "B") and not self.tema:
                     sx = cx * TILE - ox
                     onda = math.sin(tempo * 2.6 - cx * 0.45 - cy * 0.25)
                     if onda > 0.45:
@@ -753,13 +791,16 @@ class Nivel:
         return 0 <= cx < self.colunas and 0 <= cy < self.linhas
 
     def eh_agua_em(self, x, y):
+        if self.tema and not self.tema["nadavel"]:
+            return False
         cx, cy = int(x) // TILE, int(y) // TILE
         return self.dentro(cx, cy) and self.grade[cy][cx] == "~"
 
     def solido(self, cx, cy, pode_nadar=False):
         if not self.dentro(cx, cy):
             return True
-        bloqueios = SOLIDOS_TERRA if pode_nadar else SOLIDOS
+        nadavel = not self.tema or self.tema["nadavel"]
+        bloqueios = SOLIDOS_TERRA if (pode_nadar and nadavel) else SOLIDOS
         return self.grade[cy][cx] in bloqueios
 
     def colisoes(self, rect, pode_nadar=False):

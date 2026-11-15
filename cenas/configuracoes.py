@@ -12,6 +12,7 @@ ITENS = [
     "tela_cheia",
     "escala",
     "velocidade_texto",
+    "bussola",
     "vibracao",
     "controles",
     "voltar",
@@ -50,6 +51,7 @@ class Configuracoes(Cena):
             f"Tela cheia: {sim_nao(c['tela_cheia'])}",
             f"Tamanho da janela: {escala}",
             f"Velocidade do texto: {NOMES_VELOCIDADE[c['velocidade_texto']]}",
+            f"Bússola de objetivo: {sim_nao(c.get('bussola', True))}",
             f"Vibração do controle: {sim_nao(c['vibracao'])}",
             "Ver controles",
             "Voltar",
@@ -108,6 +110,10 @@ class Configuracoes(Cena):
             nomes = list(VELOCIDADES_TEXTO)
             i = nomes.index(c["velocidade_texto"])
             c["velocidade_texto"] = nomes[(i + passo) % len(nomes)]
+        elif item == "bussola":
+            c["bussola"] = not c.get("bussola", True)
+            if audio:
+                audio.sfx("menu_confirmar")
         elif item == "vibracao":
             c["vibracao"] = not c["vibracao"]
             self.app.entrada.vibrar(0.6, 200)  # vibra para testar

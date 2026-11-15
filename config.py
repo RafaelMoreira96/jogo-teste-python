@@ -10,6 +10,8 @@ PADRAO = {
     "vibracao": True,
     "volume_bgm": 70,
     "volume_sfx": 80,
+    "bussola": True,
+    "recordes_chefes": {},
 }
 ESCALAS = [2, 3, 4, 5, 6]
 VELOCIDADES_TEXTO = {"lenta": 25, "normal": 50, "rapida": 120}  # letras por segundo

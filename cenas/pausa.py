@@ -24,6 +24,9 @@ class Pausa(Cena):
         self.jogo = jogo
         self.tempo_msg = 0.0
         self.msg_salvo = ""
+        if jogo is not None and getattr(jogo, "modo_chefe", None):
+            self.menu = MenuLista(["Continuar", "Reiniciar luta", "Escolher outro chefe", "Configurações", "Menu principal"])
+            return
         self.menu = MenuLista([
             "Continuar",
             "Salvar Jogo",
@@ -90,6 +93,16 @@ class Pausa(Cena):
                 if audio:
                     audio.sfx("menu_confirmar")
                 self.app.empilhar(CenaConquistas(self.app, self.jogo.conquistas))
+            elif escolha == "Reiniciar luta" and self.jogo is not None:
+                from cenas.jogo import Jogo
+                if audio:
+                    audio.sfx("menu_confirmar")
+                self.app.trocar(Jogo(self.app, dialogo_inicial=None, modo_chefe=dict(self.jogo.modo_chefe)))
+            elif escolha == "Escolher outro chefe" and self.jogo is not None:
+                from cenas.modo_chefes import SelecaoChefes
+                if audio:
+                    audio.sfx("menu_confirmar")
+                self.app.trocar(SelecaoChefes(self.app, self.jogo.modo_chefe.get("indice_selecao", 0)))
             elif escolha == "Configurações":
                 if audio:
                     audio.sfx("menu_confirmar")

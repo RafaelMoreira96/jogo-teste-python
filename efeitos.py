@@ -157,6 +157,11 @@ class AmbienteVivo:
                     "vel": rng.uniform(7.0, 13.0),
                 })
 
+            if getattr(nivel, "tema", None):
+                # Covis temáticos têm partículas próprias (temas.py): sem folhas, nuvens e borboletas
+                self.borboletas, self.folhas, self.nuvens = [], [], []
+                return
+
             # Vagalumes / espíritos da floresta (brilham à noite ou nas sombras)
             for _ in range(18):
                 self.vagalumes.append({
