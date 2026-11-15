@@ -18,7 +18,7 @@ nome = Galeria do Trono
 clima = trevas
 
 [npcs]
-1 = cavaleiro, guarda_galeria
+1 = guarda, guarda_galeria
 2 = placa, placa_galeria
 
 [portas]

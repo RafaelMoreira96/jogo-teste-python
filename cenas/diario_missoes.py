@@ -4,7 +4,7 @@ import pygame
 from cenas.base import Cena
 from missoes import CATALOGO_MISSOES
 from settings import ALTURA, LARGURA
-from ui import AMARELO, BRANCO, CINZA, desenhar_texto, escurecer
+from ui import AMARELO, BRANCO, CINZA, ajustar_texto, desenhar_painel, quebrar_linhas, desenhar_rodape, desenhar_texto, escurecer
 
 
 class CenaDiarioMissoes(Cena):
@@ -39,8 +39,7 @@ class CenaDiarioMissoes(Cena):
         fonte = self.app.fontes.normal
 
         painel = pygame.Rect(14, 10, LARGURA - 28, ALTURA - 20)
-        pygame.draw.rect(tela, (18, 22, 38), painel, border_radius=4)
-        pygame.draw.rect(tela, (215, 175, 65), painel, 1, border_radius=4)
+        desenhar_painel(tela, painel)
 
         desenhar_texto(tela, fonte, "DIÁRIO DE MISSÕES DO REINO", (22, 16), AMARELO)
         pygame.draw.line(tela, (65, 75, 110), (18, 28), (LARGURA - 18, 28))
@@ -77,7 +76,14 @@ class CenaDiarioMissoes(Cena):
             desenhar_texto(tela, fonte, info["titulo"], (24, y_pos + 4), BRANCO if (ativa or concluida) else CINZA)
             img_st = fonte.render(status_txt, False, cor_status)
             tela.blit(img_st, img_st.get_rect(topright=(LARGURA - 24, y_pos + 4)))
-            desenhar_texto(tela, fonte, info["desc"], (24, y_pos + 17), (195, 205, 225) if eh_sel else (140, 145, 165))
+            desenhar_texto(tela, fonte, ajustar_texto(fonte, info["desc"], LARGURA - 52), (24, y_pos + 17), (195, 205, 225) if eh_sel else (140, 145, 165))
+
+        # Descrição completa da missão selecionada
+        info_sel = CATALOGO_MISSOES[self.todas[self.indice]] if self.todas else None
+        if info_sel:
+            y_desc = base_y + len(self.todas) * 36
+            for li, linha in enumerate(quebrar_linhas(fonte, info_sel["desc"], LARGURA - 44)[:2]):
+                desenhar_texto(tela, fonte, linha, (22, y_desc + li * 10), (170, 190, 230))
 
         rodape = "Setas: Selecionar Missão | Esc / X: Voltar"
-        desenhar_texto(tela, fonte, rodape, (LARGURA // 2, ALTURA - 14), CINZA, centro=True)
+        desenhar_rodape(tela, fonte, rodape, CINZA)

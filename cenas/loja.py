@@ -3,7 +3,7 @@ import pygame
 
 from cenas.base import Cena
 from settings import ALTURA, LARGURA
-from ui import AMARELO, BRANCO, CINZA, desenhar_texto, escurecer
+from ui import AMARELO, BRANCO, CINZA, ajustar_texto, desenhar_painel, quebrar_linhas, desenhar_rodape, desenhar_texto, escurecer
 
 ITENS_LOJA = [
     {
@@ -158,13 +158,12 @@ class CenaLoja(Cena):
         fonte = self.app.fontes.normal
 
         painel = pygame.Rect(12, 8, LARGURA - 24, ALTURA - 16)
-        pygame.draw.rect(tela, (18, 22, 38), painel, border_radius=4)
-        pygame.draw.rect(tela, (215, 175, 65), painel, 1, border_radius=4)
+        desenhar_painel(tela, painel)
 
         # Topo com nome e carteira
         desenhar_texto(tela, fonte, "FORJA E MERCADO DA VILA", (20, 14), AMARELO)
         ouro_txt = f"Ouro: {self.jogo.rpg.ouro} G"
-        desenhar_texto(tela, fonte, ouro_txt, (LARGURA - 24, 14), (255, 230, 100), centro=False)
+        desenhar_texto(tela, fonte, ouro_txt, (LARGURA - 20 - fonte.size(ouro_txt)[0], 14), (255, 230, 100))
         pygame.draw.line(tela, (65, 75, 110), (16, 26), (LARGURA - 16, 26))
 
         # Lista de itens com scroll
@@ -190,17 +189,22 @@ class CenaLoja(Cena):
             # Nome e preço
             desenhar_texto(tela, fonte, item["nome"], (24, y_pos + 3), AMARELO if eh_sel else BRANCO)
             desenhar_texto(tela, fonte, f"{item['preco']} G", (LARGURA - 64, y_pos + 3), (255, 215, 80))
-            desenhar_texto(tela, fonte, item["desc"], (24, y_pos + 13), (190, 200, 220) if eh_sel else CINZA)
+            desenhar_texto(tela, fonte, ajustar_texto(fonte, item["desc"], LARGURA - 52), (24, y_pos + 13), (190, 200, 220) if eh_sel else CINZA)
 
         tela.set_clip(antigo_clip)
+
+        # Descrição completa do item selecionado
+        desc_sel = quebrar_linhas(fonte, ITENS_LOJA[self.indice]["desc"], LARGURA - 44)[:2]
+        for li, linha in enumerate(desc_sel):
+            desenhar_texto(tela, fonte, linha, (22, 142 + li * 10), (170, 190, 230))
 
         # Mensagem de feedback
         if self.timer_msg > 0 and self.msg:
             faixa = pygame.Surface((LARGURA - 40, 14), pygame.SRCALPHA)
             faixa.fill((16, 24, 46, 230))
             pygame.draw.rect(faixa, AMARELO, faixa.get_rect(), 1)
-            tela.blit(faixa, (20, ALTURA - 31))
-            desenhar_texto(tela, fonte, self.msg, (LARGURA // 2, ALTURA - 24), AMARELO, centro=True)
+            tela.blit(faixa, (20, ALTURA - 37))
+            desenhar_texto(tela, fonte, self.msg, (LARGURA // 2, ALTURA - 30), AMARELO, centro=True)
 
         rodape = "Enter / Espaço: Comprar | Esc / X: Voltar"
-        desenhar_texto(tela, fonte, rodape, (LARGURA // 2, ALTURA - 12), CINZA, centro=True)
+        desenhar_rodape(tela, fonte, rodape, CINZA)

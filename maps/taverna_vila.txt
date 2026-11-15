@@ -12,7 +12,7 @@ nome = Taverna do Javali Dourado
 clima = dia
 
 [npcs]
-1 = aldeao, taverneiro_vila
+1 = taverneiro, taverneiro_vila
 
 [portas]
 D = vila.txt

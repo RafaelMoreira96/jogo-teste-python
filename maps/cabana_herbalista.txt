@@ -12,7 +12,7 @@ nome = Cabana da Herbalista
 clima = dia
 
 [npcs]
-1 = aldea, herbalista_outono
+1 = herbalista, herbalista_outono
 
 [portas]
 D = bosque_outono.txt

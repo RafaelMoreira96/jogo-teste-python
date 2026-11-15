@@ -29,7 +29,7 @@ nome = Pico da Geada Eterna
 clima = chuva
 
 [npcs]
-1 = cavaleiro, sentinela_gelo
+1 = sentinela, sentinela_gelo
 2 = placa, placa_pico_congelado
 
 [portas]

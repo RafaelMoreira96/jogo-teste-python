@@ -30,7 +30,7 @@ nome = Pico dos Ventos
 clima = dia
 
 [npcs]
-1 = mago, eremita_montanha
+1 = eremita, eremita_montanha
 2 = placa, placa_montanha
 
 [portas]

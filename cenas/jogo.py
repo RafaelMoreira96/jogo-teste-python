@@ -5,6 +5,7 @@ import random
 import pygame
 
 from caixa_dialogo import CaixaDialogo
+from retratos import SEM_RETRATO, aparencia_por_nome
 from camera import Camera
 from cenas.base import Cena
 from cenas.prologo import CORES_FOGO, CORES_FUMACA, CORES_PODER, CenarioCidade
@@ -589,7 +590,8 @@ class Jogo(Cena):
         return None
 
     # ------------------------------------------------------------ história
-    def iniciar_dialogo(self, nome, opcional=False):
+    def iniciar_dialogo(self, nome, opcional=False, npc=None):
+        self.npc_falando = npc
         if nome == "inicio":
             self.em_abertura = True
             if hasattr(self.app, "audio"):
@@ -614,9 +616,18 @@ class Jogo(Cena):
             }
             conversa = Conversa(self.historia, nome, self.flags, acoes, diretor=self.executar_comando_cena)
         velocidade = VELOCIDADES_TEXTO[self.app.config["velocidade_texto"]]
-        self.dialogo = CaixaDialogo(conversa, self.app.fontes.normal, velocidade)
+        self.dialogo = CaixaDialogo(conversa, self.app.fontes.normal, velocidade, retratos=self.retrato_falante)
         if self.dialogo.terminou:  # diálogo sem nenhuma fala (só @marcar etc.)
             self.dialogo = None
+
+    def retrato_falante(self, nome):
+        """Escolhe o rosto de quem fala: pelo nome na fala ou pelo NPC com quem o herói conversa."""
+        aparencia = aparencia_por_nome(nome)
+        if aparencia is None and getattr(self, "npc_falando", None) is not None and nome not in SEM_RETRATO:
+            aparencia = self.npc_falando.aparencia
+        if aparencia is None or aparencia == "placa":
+            return None
+        return self.app.gfx.retrato(aparencia)
 
     def evento(self, nome):
         """Liga a marca `nome` e roda o diálogo 'ao_<nome>', se existir."""
@@ -932,7 +943,7 @@ class Jogo(Cena):
                 npc.olhar_para(jogador.rect)
                 if audio:
                     audio.sfx("menu_confirmar")
-                self.iniciar_dialogo(npc.dialogo)
+                self.iniciar_dialogo(npc.dialogo, npc=npc)
                 return
             estava_atacando = jogador.atacando
             jogador.atacar()
@@ -1520,7 +1531,7 @@ class Jogo(Cena):
             tela.blit(camada_fade, (0, 0))
 
         # Notificações de Conquistas em primeiro plano
-        self.conquistas.desenhar(tela, fonte)
+        self.conquistas.desenhar(tela, fonte, no_topo=self.dialogo is not None)
 
     def _desenhar_clima(self, tela):
         clima_atual = self.clima

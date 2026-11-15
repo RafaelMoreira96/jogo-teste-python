@@ -5,7 +5,7 @@ import pygame
 
 from cenas.base import Cena
 from settings import ALTURA, LARGURA, PASTA_BASE, TILE
-from ui import AMARELO, BRANCO, CINZA, desenhar_texto, escurecer
+from ui import AMARELO, BRANCO, CINZA, ajustar_texto, desenhar_painel, desenhar_rodape, desenhar_texto, escurecer
 
 # Coordenadas geográficas de cada região no Atlas do Mundo (x, y no painel de mapa)
 NOS_ATLAS = [
@@ -121,13 +121,29 @@ class MapaMundo(Cena):
         self.jogo = jogo
         self.t = 0.0
         self.modo_detalhe = False
-        self.nos = [n for n in NOS_ATLAS if (PASTA_BASE / "maps" / n["arq"]).exists()]
+        self.nos = [dict(n) for n in NOS_ATLAS if (PASTA_BASE / "maps" / n["arq"]).exists()]
+        self._encaixar_nos(pygame.Rect(14, 27, 192, 124).inflate(-16, -14))
         arq_atual = jogo.nivel.caminho.name
         self.indice = 0
         for i, n in enumerate(self.nos):
             if n["arq"] == arq_atual:
                 self.indice = i
                 break
+
+    def _encaixar_nos(self, area):
+        """Ajusta as posições do grafo para caberem inteiras dentro do quadro do Atlas."""
+        if not self.nos:
+            return
+        xs = [n["pos"][0] for n in self.nos]
+        ys = [n["pos"][1] for n in self.nos]
+        larg = max(1, max(xs) - min(xs))
+        alt = max(1, max(ys) - min(ys))
+        for n in self.nos:
+            x, y = n["pos"]
+            n["pos"] = (
+                area.x + round((x - min(xs)) / larg * area.width),
+                area.y + round((y - min(ys)) / alt * area.height),
+            )
 
     def _mover_selecao(self, dx, dy):
         atual = self.nos[self.indice]["pos"]
@@ -210,8 +226,7 @@ class MapaMundo(Cena):
         fonte = self.app.fontes.normal
 
         painel = pygame.Rect(8, 6, LARGURA - 16, ALTURA - 12)
-        pygame.draw.rect(tela, (18, 22, 40), painel)
-        pygame.draw.rect(tela, (215, 180, 75), painel, 1)
+        desenhar_painel(tela, painel)
 
         no_sel = self.nos[self.indice]
         caminho_sel = (PASTA_BASE / "maps" / no_sel["arq"]).resolve()
@@ -219,11 +234,13 @@ class MapaMundo(Cena):
         nivel_sel = dados_sel["nivel"]
         eh_atual = (self.jogo.nivel.caminho.resolve() == caminho_sel)
 
-        desenhar_texto(tela, fonte, "ATLAS DO MUNDO E VIAGEM RÁPIDA", (14, 11), AMARELO)
+        titulo_atlas = "ATLAS DO MUNDO"
+        desenhar_texto(tela, fonte, titulo_atlas, (14, 11), AMARELO)
         proximo = self.jogo.rpg.proximo_chefe()
         if proximo:
             id_pr, nome_pr, nv_pr, _, arq_orig, _, _ = proximo
-            txt_obj = f"Objetivo: {nome_pr} (Nv.{nv_pr})"
+            espaco_obj = LARGURA - 28 - fonte.size(titulo_atlas)[0] - 12
+            txt_obj = ajustar_texto(fonte, f"Objetivo: {nome_pr} (Nv.{nv_pr})", espaco_obj)
             larg_obj = fonte.size(txt_obj)[0]
             desenhar_texto(tela, fonte, txt_obj, (LARGURA - 14 - larg_obj, 11), (255, 220, 90))
         pygame.draw.line(tela, (65, 75, 115), (12, 23), (LARGURA - 12, 23))
@@ -361,4 +378,4 @@ class MapaMundo(Cena):
             )
 
         rodape = "Setas: Região | Enter: Viagem Rápida | E/R: Ampliar Mapa | M/Esc: Fechar"
-        desenhar_texto(tela, fonte, rodape, (LARGURA // 2, 162), CINZA, centro=True)
+        desenhar_rodape(tela, fonte, rodape, CINZA)

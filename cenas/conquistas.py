@@ -5,7 +5,7 @@ import pygame
 from cenas.base import Cena
 from conquistas import CONQUISTAS_DEF
 from settings import ALTURA, LARGURA
-from ui import AMARELO, BRANCO, CINZA, desenhar_texto, escurecer
+from ui import AMARELO, BRANCO, CINZA, ajustar_texto, desenhar_painel, desenhar_rodape, desenhar_texto, escurecer
 
 
 class CenaConquistas(Cena):
@@ -48,21 +48,19 @@ class CenaConquistas(Cena):
 
         # Painel central
         painel = pygame.Rect(12, 8, LARGURA - 24, ALTURA - 16)
-        pygame.draw.rect(tela, (16, 20, 36), painel, border_radius=4)
-        pygame.draw.rect(tela, (215, 175, 65), painel, 1, border_radius=4)
-        pygame.draw.rect(tela, (55, 65, 95), painel.inflate(-2, -2), 1, border_radius=3)
+        desenhar_painel(tela, painel)
 
         # Cabeçalho
         total_desbloq = len(self.mgr.desbloqueadas)
         total_geral = len(self.lista_chaves)
         desenhar_texto(tela, fonte, "GALERIA DE CONQUISTAS", (20, 14), AMARELO)
+        txt_total = f"{total_desbloq}/{total_geral} Desbloqueadas"
         desenhar_texto(
             tela,
             fonte,
-            f"{total_desbloq}/{total_geral} Desbloqueadas",
-            (LARGURA - 24, 14),
+            txt_total,
+            (LARGURA - 20 - fonte.size(txt_total)[0], 14),
             (110, 255, 140) if total_desbloq == total_geral else BRANCO,
-            centro=False,
         )
         pygame.draw.line(tela, (65, 75, 110), (16, 26), (LARGURA - 16, 26))
 
@@ -113,8 +111,8 @@ class CenaConquistas(Cena):
                 tit_texto = "??? Bloqueada"
                 desc_texto = conq["desc"] if eh_selecionado else "Requisito misterioso..."
 
-            desenhar_texto(tela, fonte, tit_texto, (42, y_pos + 4), cor_tit)
-            desenhar_texto(tela, fonte, desc_texto, (42, y_pos + 16), cor_desc)
+            desenhar_texto(tela, fonte, ajustar_texto(fonte, tit_texto, LARGURA - 66), (42, y_pos + 4), cor_tit)
+            desenhar_texto(tela, fonte, ajustar_texto(fonte, desc_texto, LARGURA - 66), (42, y_pos + 16), cor_desc)
 
         tela.set_clip(antigo_clip)
 
@@ -129,4 +127,4 @@ class CenaConquistas(Cena):
 
         # Rodapé
         rodape = "Setas: Navegar | Esc / X: Voltar"
-        desenhar_texto(tela, fonte, rodape, (LARGURA // 2, ALTURA - 12), CINZA, centro=True)
+        desenhar_rodape(tela, fonte, rodape, CINZA)

@@ -153,12 +153,16 @@ class NotificacaoConquista:
         if self.tempo >= self.DURACAO:
             self.ativa = False
 
-    def desenhar(self, tela, fonte):
+    def desenhar(self, tela, fonte, no_topo=False):
         larg_banner = 180
         alt_banner = 24
         x_banner = 116
         y_alvo = ALTURA - 30
         y_fora = ALTURA + 4
+        if no_topo:  # com diálogo aberto, o aviso desce do topo para não cobrir a caixa
+            x_banner = (LARGURA - larg_banner) // 2
+            y_alvo = 20
+            y_fora = -alt_banner - 4
 
         # Desliza suavemente a partir de baixo
         if self.tempo < 0.4:
@@ -249,6 +253,6 @@ class GerenciadorConquistas:
             if not notif.ativa:
                 self.notificacoes.remove(notif)
 
-    def desenhar(self, tela, fonte):
+    def desenhar(self, tela, fonte, no_topo=False):
         if self.notificacoes:
-            self.notificacoes[0].desenhar(tela, fonte)
+            self.notificacoes[0].desenhar(tela, fonte, no_topo)

@@ -490,13 +490,13 @@ MAGO_ROSTO_FRENTE = [
     "..aaaaaaaaaaaa..",
 ]
 MAGO_NUCA = [
-    "aaaaaaaaaaaaaaAA",
-    "aaaaaaaaaaaaaaAA",
-    "aAaaaaaaaaaaaAAA",
-    "aAaaAaaaaAaaaAAA",
-    ".aAaAAaaaAAaaAA.",
-    ".sAAaAaaAaAAAAs.",
-    "..SaaaaaaaaaaS..",
+    "hhihhhhhihhhhhHH",
+    "hihhHhhhihhHhhHH",
+    "hhhhHhhhhhhHhHHH",
+    "hHhhHhhhHhhHhHHH",
+    ".hHhHHhhHhHHhHH.",
+    ".sHHhHhhHhHHHHs.",
+    "..SHhHhhHhHhHS..",
 ]
 MAGO_ROSTO_LADO = [
     "AAaaaaaaaASSSSSS",
@@ -668,6 +668,203 @@ ESPADA_LADO = ["....n.", "....nM"] + ["....nM"] * 9 + [
 ]
 
 
+
+
+# ================================================================ 6. CAPUZ (Druida / Caçador / Eremita): capuz com rosto
+CAPUZ_FRENTE_TOPO = [
+    ".....cccccc.....",
+    "...ccvvccccCC...",
+    "..cvvccccccccC..",
+    ".cvccCCCCCCCCcC.",
+    ".cvcCSssssssSCcC",
+    ".cvcSssssssssCcC",
+]
+ROSTO_CAPUZ_JOVEM = [
+    ".cvcsewsssewsCcC",
+    ".cvcseessseesCcC",
+    ".cvcrsssssssrCcC",
+    ".ccCSssRRsssSCC.",
+    "..cCdSssssSdCC..",
+]
+ROSTO_CAPUZ_BARBA = [
+    ".cvcsewsssewsCcC",
+    ".cvcseessseesCcC",
+    ".cvcsaaaaaaasCcC",
+    ".ccaaaaaaaaaaaCC",
+    "..caaaaaaaaaaC..",
+]
+CAPUZ_COSTAS = [
+    ".....cccccc.....",
+    "...ccvvccccCC...",
+    "..cvvccccccccC..",
+    ".cvcccccccccccC.",
+    ".cvcccccccccccC.",
+    ".cvccccccccccCC.",
+    ".cvccccccccccCC.",
+    "..cvcccccccccC..",
+    "..cvccccccccCC..",
+    "...cvcccccccC...",
+    "....CCCCCCCC....",
+]
+CAPUZ_LADO_TOPO = [
+    ".....cccccc.....",
+    "...ccvvcccccC...",
+    "..cvvcccccccccC.",
+    ".cvccccccCCCCcC.",
+    ".cvcccccCSsssss.",
+    ".cvccccCSssssews",
+    ".cvccccCsssssess",
+]
+ROSTO_CAPUZ_LADO_JOVEM = [
+    ".cvccccCssssssrs",
+    ".ccccccCSssssRs.",
+    "..cCCCCCdSssSd..",
+    "....CCCCC.......",
+]
+ROSTO_CAPUZ_LADO_BARBA = [
+    ".cvccccCsaaaaaas",
+    ".ccccccCaaaaaaa.",
+    "..cCCCCCaaaaAa..",
+    "....CCCCaAaa....",
+]
+BARBA_MANTO_FRENTE = [
+    "...aaaaAaaaaa...",
+    "....aAaaaaAa....",
+    ".....aAaaAa.....",
+    "......aAAa......",
+]
+BARBA_MANTO_LADO = [
+    "........aaAa....",
+    ".........aA.....",
+]
+CAJADO_DRUIDA = [
+    ".g.g.",
+    "gGtgG",
+    ".gtG.",
+    "..tg.",
+    "..tT.",
+] + ["..tT."] * 16
+ARCO = [
+    "..tTa",
+    ".t..a",
+    "t...a",
+    "t...a",
+    "T...a",
+    "t...a",
+    "t...a",
+    ".t..a",
+    "..tTa",
+]
+ALJAVA = [
+    ".f.f",
+    ".a.a",
+    "bbbB",
+    "bbbB",
+    "bBbB",
+    "bbbB",
+    "BBBB",
+]
+
+
+# ================================================================ 7. FERREIRO (Careca, bandana, barba cheia, avental de couro e martelo)
+FERREIRO_FRENTE = [
+    "....SSssssSS....",
+    "...SsswwssssS...",
+    "..SsssssssssSS..",
+    ".fffffffffffffF.",
+    ".FFFFFFFFFFFFFF.",
+    ".SsHHHssssHHHsS.",
+    ".Sssewsssssewss.",
+    ".Ssseessssseess.",
+    ".hsrsssssssssrh.",
+    ".hhhhhRRRRhhhhh.",
+    ".hhhhhhhhhhhhhH.",
+    "..hhhHhhhhHhhH..",
+    "...HhhhhhhhhH...",
+]
+FERREIRO_COSTAS = [
+    "....SSssssSS....",
+    "...SssssssssS...",
+    "..SsssssssssSS..",
+    ".fffffffffffffF.",
+    ".FFFFFFFFFFFFFF.",
+    ".SsssssssssssSS.",
+    ".SssssssssssssS.",
+    ".SsssssssssssSS.",
+    ".SSsssssssssSSS.",
+    "..SSSssssssSSS..",
+    "..dSSSSSSSSSSd..",
+    "...dSSSSSSSSd...",
+    "....dddddddd....",
+]
+FERREIRO_LADO = [
+    "....SSsssss.....",
+    "...SsssssswsS...",
+    "..SsssssssssSs..",
+    ".fffffffffffffff",
+    ".FFFFFFFFFFFFFFf",
+    ".SSssssssssHHsss",
+    ".SSsssssssssewss",
+    ".SSsssssssssesss",
+    ".SShhssssssssrs.",
+    ".ShhhhhhhhhhRhh.",
+    "..hhhhhhhhhhhhh.",
+    "...HhhhhhhhhhH..",
+    "....HhhhhhhhH...",
+]
+AVENTAL_FRENTE = [
+    "....aabBBbaa....",
+    ".ssSabbbbbbaSss.",
+    ".sskbbbyybbbkSS.",
+    ".sskbbbbbbbbkSS.",
+    ".SSkbbbBbbbbkSS.",
+    ".ssBbbbbbbbbBss.",
+    ".SS.bbbbbbbb.SS.",
+    "...bbbbBbbbbb...",
+    "...BBBBBBBBBB...",
+]
+AVENTAL_COSTAS = [
+    "....aaaaaaaa....",
+    ".ssSaabaabaaSss.",
+    ".sskaabaabaakSS.",
+    ".sskaaabbaaakSS.",
+    ".SSkaaabbaaakSS.",
+    ".ssbbbbbbbbbbss.",
+    ".SS.aaaaaaaa.SS.",
+    "...ppppPPpppp...",
+    "...PPPPPPPPPP...",
+]
+AVENTAL_LADO = [
+    "....aaaaSs......",
+    "...aaaabbbbb....",
+    "...aaaabbbbbb...",
+    "...aasssbbbbb...",
+    "...aaSSSbbbbb...",
+    "...aasssbbbbb...",
+    "...aaaaabbbbb...",
+    "..aaaaabbbbbb...",
+    "..PPPPPBBBBBB...",
+]
+MARTELO = [
+    "mmmmM",
+    "mnnmM",
+    "MMMMM",
+    "..t..",
+    "..t..",
+    "..T..",
+    "..t..",
+    "..T..",
+]
+
+
+def _sobrepor(base, camada):
+    """Desenha `camada` por cima das primeiras linhas de `base` ('.' mantém o pixel original)."""
+    resultado = list(base)
+    for i, linha in enumerate(camada):
+        resultado[i] = "".join(c if c != "." else b for b, c in zip(base[i], linha))
+    return resultado
+
+
 # ================================================================ catálogo de personagens
 def _direcoes(frente, costas, lado, pernas_frente=PERNAS_FRENTE, extras=None):
     extras = extras or {}
@@ -747,7 +944,128 @@ PERSONAGENS = {
             },
         ),
     },
+    "ferreiro": {
+        "paleta": {
+            "h": (70, 42, 30), "H": (44, 26, 18), "i": (110, 70, 46),
+            "s": (240, 196, 158), "S": (204, 150, 110), "d": (168, 112, 80),
+            "b": (126, 76, 42), "B": (82, 48, 26),
+            "p": (70, 62, 78), "P": (46, 40, 54),
+        },
+        **_direcoes(
+            [corpo(AVENTAL_FRENTE), cabeca(FERREIRO_FRENTE)],
+            [corpo(AVENTAL_COSTAS), cabeca(FERREIRO_COSTAS)],
+            [corpo(AVENTAL_LADO), cabeca(FERREIRO_LADO)],
+            extras={
+                "baixo": [extra(MARTELO, 3, 18)],
+                "cima": [extra(MARTELO, 24, 18, atras=True)],
+                "direita": [extra(MARTELO, 18, 19)],
+            },
+        ),
+    },
+    "druida": {
+        "paleta": {
+            "c": (70, 128, 66), "C": (40, 82, 44), "v": (118, 178, 96),
+            "a": (236, 238, 230), "A": (184, 188, 196),
+            "g": (126, 214, 92), "G": (60, 146, 52),
+            "y": (214, 176, 86), "Y": (152, 116, 48),
+            "p": (92, 70, 46), "P": (62, 46, 30),
+        },
+        **_direcoes(
+            [corpo(_sobrepor(MANTO_FRENTE, BARBA_MANTO_FRENTE)), cabeca(CAPUZ_FRENTE_TOPO + ROSTO_CAPUZ_BARBA)],
+            [corpo(MANTO_COSTAS), cabeca(CAPUZ_COSTAS)],
+            [corpo(_sobrepor(MANTO_LADO, BARBA_MANTO_LADO)), cabeca(CAPUZ_LADO_TOPO + ROSTO_CAPUZ_LADO_BARBA)],
+            extras={
+                "baixo": [extra(CAJADO_DRUIDA, 4, 7)],
+                "cima": [extra(CAJADO_DRUIDA, 22, 7, atras=True)],
+                "direita": [extra(CAJADO_DRUIDA, 20, 7, atras=True)],
+            },
+        ),
+    },
+    "cacador": {
+        "paleta": {
+            "c": (78, 120, 58), "C": (46, 78, 38), "v": (122, 168, 84),
+            "f": (214, 66, 52), "F": (146, 38, 34),
+            "m": (150, 104, 62), "M": (104, 68, 38), "n": (190, 146, 96),
+            "p": (96, 74, 52), "P": (64, 48, 34),
+            "y": (196, 160, 82), "Y": (140, 108, 52),
+        },
+        **_direcoes(
+            [corpo(TUNICA_FRENTE), cabeca(CAPUZ_FRENTE_TOPO + ROSTO_CAPUZ_JOVEM)],
+            [corpo(TUNICA_COSTAS), cabeca(CAPUZ_COSTAS)],
+            [corpo(TUNICA_LADO), cabeca(CAPUZ_LADO_TOPO + ROSTO_CAPUZ_LADO_JOVEM)],
+            extras={
+                "baixo": [extra(ARCO, 22, 13, atras=True)],
+                "cima": [extra(ARCO, 6, 13), extra(ALJAVA, 18, 14)],
+                "direita": [extra(ALJAVA, 9, 15, atras=True)],
+            },
+        ),
+    },
 }
+
+# Variações de paleta: reaproveitam os desenhos com outras cores (roupas, cabelo, pele).
+_VARIACOES = {
+    "herbalista": ("aldea", {
+        "h": (118, 74, 42), "H": (78, 46, 24), "i": (164, 112, 66),
+        "c": (88, 152, 76), "C": (52, 104, 50), "v": (136, 198, 108),
+        "f": (236, 120, 168), "F": (176, 72, 118), "g": (255, 214, 96),
+    }),
+    "lenhador": ("aldeao", {
+        "c": (190, 54, 48), "C": (128, 30, 30), "v": (232, 98, 82),
+        "y": (36, 30, 40), "Y": (20, 16, 24),
+        "a": (204, 64, 56), "A": (140, 38, 36),
+        "h": (128, 66, 30), "H": (84, 40, 18), "i": (176, 104, 54),
+    }),
+    "taverneiro": ("aldeao", {
+        "c": (140, 92, 54), "C": (94, 58, 32), "v": (184, 130, 80),
+        "y": (226, 214, 190), "Y": (176, 164, 144),
+        "h": (40, 32, 36), "H": (22, 18, 22), "i": (74, 62, 66),
+        "b": (172, 58, 52), "B": (118, 34, 32),
+    }),
+    "nomade": ("aldeao", {
+        "c": (236, 214, 166), "C": (190, 160, 110), "v": (252, 240, 206),
+        "y": (204, 70, 54), "Y": (146, 44, 36),
+        "s": (222, 170, 122), "S": (186, 128, 88), "d": (150, 98, 64),
+        "a": (90, 150, 196), "A": (58, 104, 148),
+        "b": (196, 150, 86), "B": (140, 100, 52),
+        "h": (34, 28, 30), "H": (18, 14, 18), "i": (64, 54, 58),
+    }),
+    "sacerdote": ("mago", {
+        "c": (242, 236, 218), "C": (196, 182, 150), "v": (255, 252, 240),
+        "y": (248, 196, 62), "Y": (196, 132, 30),
+        "g": (255, 150, 60), "G": (214, 92, 30),
+        "h": (232, 196, 120), "H": (188, 148, 80), "i": (255, 232, 170),
+        "p": (226, 178, 72), "P": (170, 124, 44),
+    }),
+    "eremita": ("druida", {
+        "c": (128, 116, 102), "C": (86, 76, 66), "v": (170, 160, 146),
+        "g": (152, 214, 255), "G": (86, 150, 214),
+        "p": (100, 92, 84), "P": (68, 62, 56),
+    }),
+    "guarda": ("cavaleiro", {
+        "m": (214, 172, 96), "M": (150, 110, 56), "n": (252, 230, 164),
+        "f": (58, 120, 96), "F": (34, 80, 62),
+        "a": (58, 120, 96), "A": (34, 80, 62),
+        "c": (96, 82, 62), "C": (64, 54, 40), "v": (132, 116, 92),
+    }),
+    "sentinela": ("cavaleiro", {
+        "m": (206, 230, 248), "M": (132, 164, 204), "n": (255, 255, 255),
+        "f": (70, 136, 220), "F": (40, 86, 166),
+        "a": (70, 136, 220), "A": (40, 86, 166),
+        "y": (180, 236, 255), "Y": (110, 176, 220),
+    }),
+    "espirito": ("cavaleiro", {
+        "m": (170, 214, 236), "M": (104, 150, 196), "n": (236, 252, 255),
+        "f": (120, 150, 230), "F": (78, 96, 176),
+        "a": (120, 150, 230), "A": (78, 96, 176),
+        "c": (96, 130, 200), "C": (62, 84, 150), "v": (150, 180, 240),
+        "y": (200, 236, 255), "Y": (130, 180, 230),
+        "o": (90, 120, 170), "O": (60, 82, 128), "p": (120, 156, 206), "P": (84, 110, 160),
+        "b": (86, 110, 170), "B": (60, 76, 130), "S": (150, 230, 255), "e": (210, 250, 255), "w": (255, 255, 255),
+    }),
+}
+for _nome, (_base, _cores) in _VARIACOES.items():
+    PERSONAGENS[_nome] = {**PERSONAGENS[_base], "paleta": {**PERSONAGENS[_base]["paleta"], **_cores}}
+PERSONAGENS["espirito"]["alfa"] = 175
 
 
 # ================================================================ montagem
@@ -808,21 +1126,61 @@ def _desenhar(surf, parte, paleta, dy=0, direcao="baixo", quadro=0):
 
 
 def _contornar(surf):
-    """Pinta de escuro todo pixel vazio encostado no desenho."""
+    """Contorno seletivo 16-bits ("sel-out").
+
+    Cada pixel vazio encostado no desenho vira contorno. Em vez de um preto
+    chapado, o contorno herda um tom bem escuro da cor vizinha, o que deixa
+    roupas e cabelos com bordas mais ricas. A base (pés) e o lado direito,
+    longe da luz, ficam com o contorno mais escuro para dar volume.
+    """
     largura, altura = surf.get_size()
     mascara = pygame.mask.from_surface(surf)
+    pintar = []
     for y in range(altura):
         for x in range(largura):
             if mascara.get_at((x, y)):
                 continue
-            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            vizinho = None
+            for dx, dy in ((0, 1), (-1, 0), (1, 0), (0, -1)):
                 nx, ny = x + dx, y + dy
                 if 0 <= nx < largura and 0 <= ny < altura and mascara.get_at((nx, ny)):
-                    surf.set_at((x, y), CONTORNO)
+                    vizinho = (nx, ny, dx, dy)
                     break
+            if vizinho is None:
+                continue
+            nx, ny, dx, dy = vizinho
+            r, g, b, _ = surf.get_at((nx, ny))
+            # Lado iluminado (topo/esquerda) recebe um pouco mais da cor; sombra fica quase preta.
+            peso = 0.30 if dy > 0 or dx > 0 else 0.18
+            if y >= altura - 3:
+                peso = 0.12
+            cor = (
+                round(CONTORNO[0] * (1 - peso) + r * peso * 0.55),
+                round(CONTORNO[1] * (1 - peso) + g * peso * 0.55),
+                round(CONTORNO[2] * (1 - peso) + b * peso * 0.55),
+            )
+            pintar.append((x, y, cor))
+    for x, y, cor in pintar:
+        surf.set_at((x, y), cor)
+
+
+def _luz_de_borda(surf):
+    """Realça de leve os pixels do topo de cada forma (luz vinda de cima)."""
+    largura, altura = surf.get_size()
+    for x in range(largura):
+        for y in range(1, altura):
+            cor = surf.get_at((x, y))
+            if cor.a == 0:
+                continue
+            acima = surf.get_at((x, y - 1))
+            if acima.a == 0 or sum(acima[:3]) < 120:
+                if sum(cor[:3]) > 150:
+                    surf.set_at((x, y), (min(255, cor.r + 18), min(255, cor.g + 18), min(255, cor.b + 14), cor.a))
+                break
 
 
 def montar_quadro(definicao, direcao, quadro, paleta):
+    """Monta um quadro 32x32: extras de trás, pernas, corpo, cabeça e extras da frente."""
     surf = pygame.Surface((QUADRO, QUADRO), pygame.SRCALPHA)
     d = definicao[direcao]
     dy_corpo = (0, 1, 0, 0, 1, 0, -1, 0, 0, 1, 1)[quadro]
@@ -839,7 +1197,11 @@ def montar_quadro(definicao, direcao, quadro, paleta):
     for e in d["extras"]:
         if not e["atras"]:
             _desenhar(surf, e, paleta, dy_extra, direcao, quadro)
+    _luz_de_borda(surf)
     _contornar(surf)
+    alfa = definicao.get("alfa")
+    if alfa:
+        surf.fill((255, 255, 255, alfa), special_flags=pygame.BLEND_RGBA_MULT)
     return surf
 
 

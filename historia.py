@@ -32,7 +32,7 @@ def _fala(linha):
         return ("fala", "", linha[1:].strip())
     nome, sep, texto = linha.partition(":")
     nome = nome.strip()
-    if sep and 0 < len(nome) <= 20 and not any(c in nome for c in "\"'“”"):
+    if sep and 0 < len(nome) <= 28 and not any(c in nome for c in "\"'“”"):
         return ("fala", nome, texto.strip())
     return ("fala", "", linha)
 

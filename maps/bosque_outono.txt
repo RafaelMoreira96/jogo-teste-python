@@ -28,7 +28,7 @@ nome = Bosque do Crepúsculo
 clima = dia
 
 [npcs]
-1 = aldea, druida_outono
+1 = druida, druida_outono
 2 = placa, placa_bosque_outono
 
 [portas]

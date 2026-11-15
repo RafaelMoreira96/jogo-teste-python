@@ -12,7 +12,7 @@ nome = Cabana do Guardião
 clima = dia
 
 [npcs]
-1 = cavaleiro, guardiao_bosque_int
+1 = cacador, guardiao_bosque_int
 
 [portas]
 D = bosque_outono.txt

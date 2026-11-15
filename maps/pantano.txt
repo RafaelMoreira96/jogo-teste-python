@@ -30,7 +30,7 @@ nome = Pântano Nebuloso
 clima = chuva
 
 [npcs]
-1 = cavaleiro, cacador_pantano
+1 = cacador, cacador_pantano
 2 = placa, placa_pantano
 
 [portas]

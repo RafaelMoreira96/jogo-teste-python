@@ -29,7 +29,7 @@ nome = Templo Solar de Helion
 clima = dia
 
 [npcs]
-1 = mago, sacerdote_sol
+1 = sacerdote, sacerdote_sol
 2 = placa, placa_templo_sol
 
 [portas]

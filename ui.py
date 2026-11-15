@@ -1,4 +1,7 @@
-"""Peças de interface reutilizáveis: fonte pixel 16-bits proporcional, texto sombreado e menus."""
+"""Peças de interface reutilizáveis: fonte pixel 16-bits proporcional, painéis, ícones e menus."""
+import math
+import unicodedata
+
 import pygame
 
 AMARELO = (255, 225, 95)
@@ -140,7 +143,42 @@ GLIFOS_16BITS = {
     "@": (".....", ".###.", "#...#", "#.###", "#.#.#", "#....", ".###.", "....."),
     "•": ("...", "...", "...", ".#.", "...", "...", "...", "..."),
     "★": (".....", "..#..", "#####", ".###.", "##.##", "#...#", ".....", "....."),
+    "✓": (".....", ".....", "....#", "...#.", "#.#..", ".#...", ".....", "....."),
+    "←": (".....", ".....", ".#...", "#####", ".#...", ".....", ".....", "....."),
+    "→": (".....", ".....", "...#.", "#####", "...#.", ".....", ".....", "....."),
+    "↑": (".....", "..#..", ".###.", "#.#.#", "..#..", "..#..", "..#..", "....."),
+    "↓": (".....", "..#..", "..#..", "..#..", "#.#.#", ".###.", "..#..", "....."),
+    "♥": (".....", ".....", "##.##", "#####", "#####", ".###.", "..#..", "....."),
+    "♦": (".....", "..#..", ".###.", "#####", ".###.", "..#..", ".....", "....."),
+    "“": ("....", "#.#.", "#.#.", "....", "....", "....", "....", "...."),
+    "”": ("....", ".#.#", ".#.#", "....", "....", "....", "....", "...."),
+    "ª": ("...", "##.", ".##", "###", "...", "###", "...", "..."),
+    "º": ("...", ".#.", "#.#", ".#.", "...", "###", "...", "..."),
 }
+
+# Emojis viram símbolos da fonte (ou somem) em vez de aparecer como "?".
+TROCAS_EMOJI = {
+    "✨": "*", "⭐": "★", "🌟": "★", "🔴": "•", "🟡": "•", "⚪": "•",
+}
+
+
+def limpar_texto(texto):
+    """Troca/remove caracteres que a fonte bitmap não tem (emojis, acentos raros)."""
+    saida = []
+    for ch in str(texto):
+        if ch in GLIFOS_16BITS or ch.upper() in GLIFOS_16BITS:
+            saida.append(ch)
+        elif ch in TROCAS_EMOJI:
+            saida.append(TROCAS_EMOJI[ch])
+        elif ord(ch) >= 0x2190 or unicodedata.category(ch) in ("Mn", "Cf", "So"):
+            continue  # emoji, seletor de variação, símbolo sem desenho
+        else:
+            base = unicodedata.normalize("NFD", ch)[0]
+            saida.append(base if base in GLIFOS_16BITS else "?")
+    resultado = "".join(saida)
+    while "  " in resultado:
+        resultado = resultado.replace("  ", " ")
+    return resultado.strip() if resultado != str(texto) else resultado
 
 
 class Fonte16Bits:
@@ -154,13 +192,14 @@ class Fonte16Bits:
         return GLIFOS_16BITS.get(ch, GLIFOS_16BITS.get(ch.upper(), GLIFOS_16BITS["?"]))
 
     def size(self, texto):
+        texto = limpar_texto(texto)
         if not texto:
             return (0, 8 * self.escala)
         larg = sum(len(self._glifo(ch)[0]) + 1 for ch in str(texto)) - 1
         return ((larg + 2) * self.escala, 10 * self.escala)
 
     def render(self, texto, _antialias, cor):
-        texto = str(texto)
+        texto = limpar_texto(texto)
         cor_tupla = tuple(cor[:3])
         chave = (texto, cor_tupla, self.escala)
         if chave in self._cache:
@@ -240,10 +279,171 @@ def quebrar_linhas(fonte, texto, largura):
     return linhas or [""]
 
 
+def ajustar_texto(fonte, texto, largura):
+    """Corta o texto com '..' se ele passar de `largura` pixels."""
+    texto = limpar_texto(texto)
+    if fonte.size(texto)[0] <= largura:
+        return texto
+    while texto and fonte.size(texto + "..")[0] > largura:
+        texto = texto[:-1]
+    return texto.rstrip() + ".."
+
+
+def desenhar_rodape(tela, fonte, texto, cor=CINZA):
+    """Barra de dicas de controle no pé da tela; encurta as dicas se não couberem."""
+    largura_tela, altura_tela = tela.get_size()
+    texto = limpar_texto(texto)
+    if fonte.size(texto)[0] > largura_tela - 8:
+        texto = texto.replace(" | ", "  ").replace("Setas: ", "").replace(" / X", "").replace(" / B", "")
+    texto = ajustar_texto(fonte, texto, largura_tela - 8)
+    faixa = pygame.Surface((largura_tela, 12), pygame.SRCALPHA)
+    faixa.fill((6, 8, 18, 235))
+    pygame.draw.line(faixa, (120, 100, 60, 255), (0, 0), (largura_tela, 0))
+    tela.blit(faixa, (0, altura_tela - 12))
+    desenhar_texto(tela, fonte, texto, (largura_tela // 2, altura_tela - 6), cor, centro=True)
+
+
 def escurecer(tela, alpha=150):
     camada = pygame.Surface(tela.get_size(), pygame.SRCALPHA)
     camada.fill((0, 0, 0, alpha))
     tela.blit(camada, (0, 0))
+
+
+# ------------------------------------------------------------------ painéis
+ESTILOS_PAINEL = {
+    # topo do gradiente, base do gradiente, borda clara, borda escura, cantos
+    "padrao": ((34, 42, 82), (14, 16, 38), (150, 164, 214), (54, 62, 110), (255, 214, 96)),
+    "dourado": ((52, 40, 30), (20, 14, 16), (236, 196, 104), (120, 84, 40), (255, 240, 170)),
+    "perigo": ((70, 22, 32), (26, 8, 16), (236, 110, 110), (120, 40, 50), (255, 190, 120)),
+    "magico": ((40, 26, 76), (14, 10, 34), (184, 150, 255), (80, 56, 140), (140, 240, 255)),
+}
+_cache_painel = {}
+
+
+def desenhar_painel(tela, rect, estilo="padrao", alfa=235, cantos=True):
+    """Painel 16-bits: gradiente vertical, borda dupla chanfrada e cantos dourados."""
+    rect = pygame.Rect(rect)
+    if rect.width < 6 or rect.height < 6:
+        return
+    chave = (rect.size, estilo, alfa, cantos)
+    surf = _cache_painel.get(chave)
+    if surf is None:
+        topo, base, clara, escura, cor_canto = ESTILOS_PAINEL.get(estilo, ESTILOS_PAINEL["padrao"])
+        w, h = rect.size
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        for y in range(h):
+            f = y / max(1, h - 1)
+            cor = tuple(round(topo[i] * (1 - f) + base[i] * f) for i in range(3))
+            pygame.draw.line(surf, (*cor, alfa), (1, y), (w - 2, y))
+        # Contorno externo escuro com cantos arredondados (1px)
+        contorno = (8, 8, 18, 255)
+        pygame.draw.line(surf, contorno, (1, 0), (w - 2, 0))
+        pygame.draw.line(surf, contorno, (1, h - 1), (w - 2, h - 1))
+        pygame.draw.line(surf, contorno, (0, 1), (0, h - 2))
+        pygame.draw.line(surf, contorno, (w - 1, 1), (w - 1, h - 2))
+        # Borda chanfrada: clara em cima/esquerda, escura embaixo/direita
+        pygame.draw.line(surf, (*clara, 255), (2, 1), (w - 3, 1))
+        pygame.draw.line(surf, (*clara, 255), (1, 2), (1, h - 3))
+        pygame.draw.line(surf, (*escura, 255), (2, h - 2), (w - 3, h - 2))
+        pygame.draw.line(surf, (*escura, 255), (w - 2, 2), (w - 2, h - 3))
+        # Brilho especular na quina superior esquerda
+        surf.set_at((2, 2), (255, 255, 255, 200))
+        if cantos and w >= 14 and h >= 14:
+            for cx, cy in ((2, 2), (w - 4, 2), (2, h - 4), (w - 4, h - 4)):
+                pygame.draw.rect(surf, (*cor_canto, 255), (cx, cy, 2, 2))
+                surf.set_at((cx, cy), (255, 255, 255, 255))
+        if len(_cache_painel) > 200:
+            _cache_painel.clear()
+        _cache_painel[chave] = surf
+    tela.blit(surf, rect.topleft)
+
+
+def desenhar_barra(tela, rect, proporcao, cor, cor_fundo=(12, 14, 28), brilho=True):
+    """Barra de status com fundo afundado, preenchimento em dois tons e borda."""
+    rect = pygame.Rect(rect)
+    pygame.draw.rect(tela, (6, 6, 14), rect.inflate(2, 2))
+    pygame.draw.rect(tela, cor_fundo, rect)
+    cheio = round(rect.width * max(0.0, min(1.0, proporcao)))
+    if cheio > 0:
+        pygame.draw.rect(tela, cor, (rect.x, rect.y, cheio, rect.height))
+        if brilho and rect.height >= 3:
+            clara = tuple(min(255, c + 70) for c in cor)
+            escura = tuple(max(0, c - 60) for c in cor)
+            pygame.draw.line(tela, clara, (rect.x, rect.y), (rect.x + cheio - 1, rect.y))
+            pygame.draw.line(tela, escura, (rect.x, rect.bottom - 1), (rect.x + cheio - 1, rect.bottom - 1))
+
+
+# ------------------------------------------------------------------ ícones 7x7
+ICONES = {
+    "moeda": (
+        "..###..", ".#yyy#.", "#yYyyy#", "#yYyyy#", "#yyyYy#", ".#yyy#.", "..###..",
+    ),
+    "bomba": (
+        "....#y.", "...#...", "..###..", ".#bbb#.", "#bwbbb#", "#bbbbb#", ".#####.",
+    ),
+    "chave": (
+        ".###...", "#y.y#..", "#y.y#..", ".###...", "..y....", "..yy...", "..yyy..",
+    ),
+    "escudo": (
+        "#######", "#cCcCc#", "#ccccc#", "#cCcCc#", ".#ccc#.", "..#c#..", "...#...",
+    ),
+    "gota": (
+        "...#...", "..#g#..", ".#ggg#.", "#ggwgg#", "#ggggg#", ".#ggg#.", "..###..",
+    ),
+    "estrela": (
+        "...#...", "..#y#..", "##yyy##", "#yyyyy#", ".#yyy#.", "#y#.#y#", "#.....#",
+    ),
+    "coracao": (
+        ".##.##.", "#rr#rr#", "#rrrrr#", "#rrrrr#", ".#rrr#.", "..#r#..", "...#...",
+    ),
+    "caveira": (
+        ".#####.", "#wwwww#", "#w#w#w#", "#wwwww#", ".#w#w#.", ".#####.", ".......",
+    ),
+}
+CORES_ICONE = {
+    "#": (14, 12, 24), "y": (255, 216, 72), "Y": (255, 250, 200), "b": (58, 58, 78),
+    "w": (236, 240, 255), "c": (90, 150, 240), "C": (170, 210, 255), "g": (80, 180, 255),
+    "r": (232, 52, 72),
+}
+_cache_icone = {}
+
+
+def icone(nome):
+    if nome not in _cache_icone:
+        grade = ICONES[nome]
+        surf = pygame.Surface((7, 7), pygame.SRCALPHA)
+        for y, linha in enumerate(grade):
+            for x, c in enumerate(linha):
+                if c != ".":
+                    surf.set_at((x, y), CORES_ICONE[c])
+        _cache_icone[nome] = surf
+    return _cache_icone[nome]
+
+
+def desenhar_icone(tela, nome, pos):
+    tela.blit(icone(nome), pos)
+
+
+def desenhar_tecla(tela, fonte, rotulo, pos):
+    """Pequena 'tecla' 16-bits (ex.: [F]) para dicas de controle."""
+    largura = max(9, fonte.size(rotulo)[0] + 2)
+    r = pygame.Rect(pos[0], pos[1], largura, 10)
+    pygame.draw.rect(tela, (8, 8, 16), r)
+    pygame.draw.rect(tela, (70, 76, 110), r.inflate(-2, -2))
+    pygame.draw.line(tela, (150, 158, 196), (r.x + 1, r.y + 1), (r.right - 2, r.y + 1))
+    pygame.draw.line(tela, (34, 36, 58), (r.x + 1, r.bottom - 2), (r.right - 2, r.bottom - 2))
+    desenhar_texto(tela, fonte, rotulo, (r.centerx + 1, r.centery), (255, 255, 255), centro=True)
+    return r.width
+
+
+def desenhar_cursor(tela, x, y, cor=AMARELO, t=None):
+    """Seta de seleção que 'respira' horizontalmente."""
+    if t is None:
+        t = pygame.time.get_ticks() / 1000
+    dx = round(math.sin(t * 8) * 1.2)
+    pts = [(x + dx, y), (x + dx + 4, y + 3), (x + dx, y + 6)]
+    pygame.draw.polygon(tela, (8, 8, 16), [(px + 1, py + 1) for px, py in pts])
+    pygame.draw.polygon(tela, cor, pts)
 
 
 class MenuLista:
@@ -264,9 +464,25 @@ class MenuLista:
                 return resultado
         return None
 
-    def desenhar(self, tela, fonte, centro_x, y, espaco=14):
+    def desenhar(self, tela, fonte, centro_x, y, espaco=14, largura=None):
+        """Desenha as opções centralizadas; a selecionada ganha faixa luminosa e cursor."""
+        if largura is None:
+            largura = max(fonte.size(t)[0] for t in self.opcoes) + 28
+        t = pygame.time.get_ticks() / 1000
         for i, texto in enumerate(self.opcoes):
+            cy = y + i * espaco
             if i == self.indice:
-                desenhar_texto(tela, fonte, f"> {texto} <", (centro_x, y + i * espaco), AMARELO, centro=True)
+                faixa = pygame.Surface((largura, 11), pygame.SRCALPHA)
+                for fx in range(largura):
+                    borda = min(fx, largura - 1 - fx) / (largura / 2)
+                    a = round(150 * min(1.0, borda * 2.2))
+                    pygame.draw.line(faixa, (255, 200, 80, a // 3), (fx, 0), (fx, 10))
+                pygame.draw.line(faixa, (255, 226, 130, 140), (largura // 6, 0), (largura * 5 // 6, 0))
+                pygame.draw.line(faixa, (255, 226, 130, 140), (largura // 6, 10), (largura * 5 // 6, 10))
+                tela.blit(faixa, (centro_x - largura // 2, cy - 5))
+                pulso = int(230 + 25 * math.sin(t * 5.0))
+                desenhar_texto(tela, fonte, texto, (centro_x, cy), (255, pulso, 110), centro=True)
+                larg_txt = fonte.size(texto)[0]
+                desenhar_cursor(tela, centro_x - larg_txt // 2 - 9, cy - 3, t=t)
             else:
-                desenhar_texto(tela, fonte, texto, (centro_x, y + i * espaco), CINZA, centro=True)
+                desenhar_texto(tela, fonte, texto, (centro_x, cy), CINZA, centro=True)

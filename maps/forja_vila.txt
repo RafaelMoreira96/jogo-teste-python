@@ -12,7 +12,7 @@ nome = Oficina do Ferreiro
 clima = dia
 
 [npcs]
-1 = cavaleiro, ferreiro_vila
+1 = ferreiro, ferreiro_vila
 
 [portas]
 D = vila.txt

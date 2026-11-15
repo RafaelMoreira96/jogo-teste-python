@@ -789,3 +789,14 @@ class Graficos:
             "B": [_arbusto(v).convert() for v in (-1, 0, 1)],
         }
         self.heroi_dormindo = _heroi_dormindo(self.tiles["cama"], self.jogador["baixo"][0])
+        self._retratos = {}
+
+    def retrato(self, aparencia):
+        """Rosto ampliado 2x do personagem (36x36) para a caixa de diálogo."""
+        if aparencia not in self._retratos:
+            quadros = self.npcs.get(aparencia)
+            if quadros is None:
+                return None
+            rosto = quadros["baixo"][2].subsurface((7, 1, 18, 18)).copy()
+            self._retratos[aparencia] = pygame.transform.scale(rosto, (36, 36))
+        return self._retratos[aparencia]

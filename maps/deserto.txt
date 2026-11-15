@@ -28,7 +28,7 @@ nome = Oásis Dourado
 clima = dia
 
 [npcs]
-1 = aldeao, nomade_deserto
+1 = nomade, nomade_deserto
 2 = placa, placa_deserto
 
 [portas]

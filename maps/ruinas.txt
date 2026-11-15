@@ -31,7 +31,7 @@ nome = Ruínas Antigas
 clima = dia
 
 [npcs]
-1 = cavaleiro, guarda_ruinas
+1 = guarda, guarda_ruinas
 2 = placa, placa_ruinas
 
 [portas]

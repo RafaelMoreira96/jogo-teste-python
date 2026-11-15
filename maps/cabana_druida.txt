@@ -12,7 +12,7 @@ nome = Refúgio do Druida
 clima = dia
 
 [npcs]
-1 = mago, druida_interior
+1 = druida, druida_interior
 
 [portas]
 D = bosque_outono.txt

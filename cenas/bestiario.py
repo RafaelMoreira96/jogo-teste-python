@@ -4,7 +4,7 @@ import pygame
 
 from cenas.base import Cena
 from settings import ALTURA, LARGURA
-from ui import AMARELO, BRANCO, CINZA, desenhar_texto, escurecer
+from ui import AMARELO, BRANCO, CINZA, ajustar_texto, desenhar_painel, desenhar_rodape, desenhar_texto, escurecer
 
 ENTRADAS_BESTIARIO = [
     {
@@ -238,8 +238,7 @@ class CenaBestiario(Cena):
 
         # Painel base
         painel = pygame.Rect(10, 8, LARGURA - 20, ALTURA - 16)
-        pygame.draw.rect(tela, (16, 20, 36), painel, border_radius=4)
-        pygame.draw.rect(tela, (215, 175, 65), painel, 1, border_radius=4)
+        desenhar_painel(tela, painel)
 
         desenhar_texto(tela, fonte, "BESTIÁRIO DO REINO", (18, 14), AMARELO)
         pygame.draw.line(tela, (65, 75, 110), (14, 26), (LARGURA - 14, 26))
@@ -316,4 +315,4 @@ class CenaBestiario(Cena):
 
         # Rodapé
         rodape = "Setas: Escolher Criatura | Esc / X: Voltar"
-        desenhar_texto(tela, fonte, rodape, (LARGURA // 2, ALTURA - 12), CINZA, centro=True)
+        desenhar_rodape(tela, fonte, rodape, CINZA)

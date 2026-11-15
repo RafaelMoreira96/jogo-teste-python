@@ -10,7 +10,17 @@ import pygame
 
 from cenas.mapa_mundo import desenhar_miniatura_nivel
 from settings import ALTURA, LARGURA
-from ui import AMARELO, BRANCO, CINZA, desenhar_texto, escurecer
+from ui import (
+    CINZA,
+    desenhar_barra,
+    desenhar_icone,
+    desenhar_painel,
+    desenhar_tecla,
+    desenhar_texto,
+    escurecer,
+    limpar_texto,
+    quebrar_linhas,
+)
 
 TAGS_PODERES = {
     "esfera_fogo": "Fogo",
@@ -40,18 +50,18 @@ def desenhar_hud(
     tempo_aviso_mapa=0.0,
 ):
     # =========================================================================
-    # 1. QUADRO SUPERIOR ESQUERDO: STATUS DO HERÓI (COMPACTO: 76 x 33 px)
+    # 1. QUADRO SUPERIOR ESQUERDO: STATUS DO HERÓI
     # =========================================================================
-    larg_box_heroi = 76
-    alt_box_heroi = 33
-    painel_status = pygame.Surface((larg_box_heroi, alt_box_heroi), pygame.SRCALPHA)
-    pygame.draw.rect(painel_status, (14, 18, 32, 215), (0, 0, larg_box_heroi, alt_box_heroi))
-    pygame.draw.rect(painel_status, (55, 70, 105, 230), (0, 0, larg_box_heroi, alt_box_heroi), 1)
-    tela.blit(painel_status, (3, 3))
+    max_coracoes = vida_maxima // 2
+    linhas_coracoes = 1 if max_coracoes <= 6 else 2
+    y_barras = 15 + (linhas_coracoes - 1) * 8
+    larg_box = 86
+    alt_box = (y_barras + 22) if rpg is not None else (y_barras + 2)
+    desenhar_painel(tela, (2, 2, larg_box, alt_box), alfa=215)
 
-    # 1.1 Corações de Vida (até 5 por linha, cabem perfeitamente em 45px)
-    max_corações = vida_maxima // 2
-    for i in range(max_corações):
+    # 1.1 Corações (com leve pulso quando a vida está baixa)
+    vida_baixa = vida <= 2 and vida > 0
+    for i in range(max_coracoes):
         resto = vida - i * 2
         if resto >= 2:
             img = gfx.coracao_cheio
@@ -59,63 +69,64 @@ def desenhar_hud(
             img = gfx.coracao_metade
         else:
             img = gfx.coracao_vazio
-        col = i % 5
-        lin = i // 5
-        tela.blit(img, (6 + col * 9, 6 + lin * 8))
+        col = i % 6
+        lin = i // 6
+        dy = -1 if vida_baixa and i == (vida - 1) // 2 and int(tempo * 6) % 2 == 0 else 0
+        tela.blit(img, (7 + col * 9, 6 + lin * 8 + dy))
 
-    # 1.2 Barras de Mana e XP + Nível
     if rpg is not None:
-        y_barras = 16 if max_corações <= 5 else 22
-        larg_barra = 34
+        # 1.2 Nível (selo dourado à direita dos corações)
+        txt_nv = f"Nv{rpg.nivel}"
+        larg_nv = fonte.size(txt_nv)[0] + 4
+        selo = pygame.Rect(larg_box - larg_nv - 2, 5, larg_nv, 10)
+        pygame.draw.rect(tela, (8, 8, 16), selo.inflate(2, 2))
+        pygame.draw.rect(tela, (120, 84, 30), selo)
+        pygame.draw.line(tela, (236, 190, 90), selo.topleft, (selo.right - 1, selo.top))
+        desenhar_texto(tela, fonte, txt_nv, selo.center, (255, 236, 150), centro=True)
+        if rpg.pontos_habilidade > 0 and int(tempo * 2.5) % 2 == 0:
+            desenhar_texto(tela, fonte, f"+{rpg.pontos_habilidade}", (selo.x - 1, selo.bottom + 1), (120, 255, 150))
 
-        # Barra de Mana (Azul)
-        pygame.draw.rect(tela, (10, 14, 26), (6, y_barras, larg_barra, 4))
-        prop_mp = max(0.0, min(1.0, rpg.mana / max(1.0, rpg.mana_maxima)))
-        if prop_mp > 0:
-            pygame.draw.rect(tela, (65, 175, 255), (6, y_barras, round(larg_barra * prop_mp), 4))
-        pygame.draw.rect(tela, (110, 205, 255), (6, y_barras, larg_barra, 4), 1)
+        # 1.3 Mana (gota + barra) e XP (barra fina dourada)
+        desenhar_icone(tela, "gota", (6, y_barras))
+        prop_mp = rpg.mana / max(1.0, rpg.mana_maxima)
+        desenhar_barra(tela, (15, y_barras + 1, 44, 4), prop_mp, (64, 160, 255))
+        prop_xp = rpg.xp / max(1, rpg.xp_proximo)
+        desenhar_barra(tela, (15, y_barras + 7, 44, 2), prop_xp, (246, 206, 70), brilho=False)
+        desenhar_texto(tela, fonte, "XP", (62, y_barras + 2), (200, 180, 120))
 
-        # Barra de XP (Dourada)
-        pygame.draw.rect(tela, (10, 14, 26), (6, y_barras + 5, larg_barra, 2))
-        prop_xp = max(0.0, min(1.0, rpg.xp / max(1, rpg.xp_proximo)))
-        if prop_xp > 0:
-            pygame.draw.rect(tela, (245, 215, 70), (6, y_barras + 5, round(larg_barra * prop_xp), 2))
-
-        # Nível e PH
-        txt_nv = f"Nv.{rpg.nivel}"
-        if rpg.pontos_habilidade > 0:
-            txt_nv += f"+{rpg.pontos_habilidade}U"
-        cor_nv = (110, 255, 140) if rpg.pontos_habilidade > 0 else AMARELO
-        desenhar_texto(tela, fonte, txt_nv, (43, y_barras - 1), cor_nv)
-
-        # 1.3 Feitiço equipado
+        # 1.4 Feitiço equipado: tecla [F] + nome na cor do poder
         poder = rpg.poder_atual
         if poder is not None:
             tem_mana = rpg.mana >= poder["custo_mana"]
             cor_p = poder["cor"] if tem_mana else CINZA
-            tag_poder = TAGS_PODERES.get(poder["id"], poder["nome"][:5])
-            txt_poder = f"[F] {tag_poder}"
-            desenhar_texto(tela, fonte, txt_poder, (6, 25), cor_p)
+            tag_poder = TAGS_PODERES.get(poder["id"], poder["nome"][:6])
+            y_p = y_barras + 11
+            larg_t = desenhar_tecla(tela, fonte, "F", (6, y_p))
+            pygame.draw.rect(tela, (8, 8, 16), (8 + larg_t, y_p + 2, 6, 6))
+            pygame.draw.rect(tela, cor_p, (9 + larg_t, y_p + 3, 4, 4))
+            desenhar_texto(tela, fonte, tag_poder, (17 + larg_t, y_p), cor_p)
+            custo = f"{poder['custo_mana']}"
+            desenhar_texto(tela, fonte, custo, (larg_box - fonte.size(custo)[0] - 3, y_p), (110, 190, 255) if tem_mana else CINZA)
 
     # =========================================================================
-    # 2. CENTRO SUPERIOR: PÍLULA ELEGANTE (REGIÃO OU ALVO RECOMENDADO)
+    # 2. CENTRO SUPERIOR: FAIXA DE REGIÃO / OBJETIVO
     # =========================================================================
-    # Nunca colide: largura controlada entre X=85 e X=260
     if chefe_ativo is None:
         if tempo_aviso_mapa > 0 and aviso_mapa:
-            # Letreiro de Chegada na Região
-            larg_aviso = min(150, fonte.size(aviso_mapa)[0] + 16)
-            faixa_r = pygame.Surface((larg_aviso, 13), pygame.SRCALPHA)
-            alfa = int(min(1.0, tempo_aviso_mapa * 2.0) * 225)
-            faixa_r.fill((14, 18, 34, alfa))
-            pygame.draw.rect(faixa_r, (255, 220, 100, alfa), (0, 0, larg_aviso, 13), 1)
-            tela.blit(faixa_r, (LARGURA // 2 - larg_aviso // 2, 4))
-            desenhar_texto(tela, fonte, aviso_mapa, (LARGURA // 2, 6), (255, 240, 150), centro=True)
+            texto = limpar_texto(aviso_mapa)
+            larg_max = 2 * (LARGURA // 2 - 91)  # entre o painel de status e o minimapa
+            larg_aviso = min(larg_max, fonte.size(texto)[0] + 12)
+            linhas = quebrar_linhas(fonte, texto, larg_aviso - 10) if fonte.size(texto)[0] > larg_aviso - 10 else [texto]
+            alt_aviso = 4 + 10 * len(linhas)
+            # Sobe suavemente para fora da tela nos últimos instantes
+            y0 = 3 - round((1 - min(1.0, tempo_aviso_mapa / 0.25)) * (alt_aviso + 6))
+            desenhar_painel(tela, (LARGURA // 2 - larg_aviso // 2, y0, larg_aviso, alt_aviso + 2), "dourado", alfa=225, cantos=False)
+            for i, linha in enumerate(linhas):
+                desenhar_texto(tela, fonte, linha, (LARGURA // 2, y0 + 6 + i * 10), (255, 240, 160), centro=True)
         elif rpg is not None and hasattr(rpg, "proximo_chefe"):
             proximo = rpg.proximo_chefe()
             if proximo:
                 _, nome_p, nv_p, _, _, _, _ = proximo
-                # Formato enxuto: "[Alvo: Golem de Pedra | Nv.2]"
                 nome_curto = (
                     nome_p.replace(" Ancestral", "")
                     .replace(" Coroado", "")
@@ -124,54 +135,34 @@ def desenhar_hud(
                     .replace(" das Dunas", "")
                     .replace(" das Cavernas", "")
                 )
-                txt_obj = f"Alvo: {nome_curto} | Nv.{nv_p}"
-                larg_obj = min(154, fonte.size(txt_obj)[0] + 12)
-                faixa_obj = pygame.Surface((larg_obj, 13), pygame.SRCALPHA)
-                faixa_obj.fill((14, 18, 34, 195))
-                pygame.draw.rect(faixa_obj, (215, 180, 75, 210), (0, 0, larg_obj, 13), 1)
-                tela.blit(faixa_obj, (LARGURA // 2 - larg_obj // 2, 4))
-                desenhar_texto(tela, fonte, txt_obj, (LARGURA // 2, 6), (255, 235, 130), centro=True)
+                txt_obj = f"{nome_curto}"
+                txt_nv = f"Nv{nv_p}"
+                cor_nv = (120, 255, 150) if rpg.nivel >= nv_p else (255, 120, 110)
+                larg_obj = min(150, fonte.size(txt_obj)[0] + fonte.size(txt_nv)[0] + 26)
+                x0 = LARGURA // 2 - larg_obj // 2
+                desenhar_painel(tela, (x0, 3, larg_obj, 14), "padrao", alfa=200, cantos=False)
+                desenhar_icone(tela, "caveira", (x0 + 4, 6))
+                desenhar_texto(tela, fonte, txt_obj, (x0 + 13, 5), (255, 235, 140))
+                desenhar_texto(tela, fonte, txt_nv, (x0 + larg_obj - fonte.size(txt_nv)[0] - 3, 5), cor_nv)
 
     # =========================================================================
-    # 3. QUADRO INFERIOR ESQUERDO: INVENTÁRIO DINÂMICO DE RECURSOS
+    # 3. QUADRO INFERIOR ESQUERDO: RECURSOS COM ÍCONES
     # =========================================================================
     if rpg is not None:
-        str_ouro = f"{rpg.ouro}G"
-        str_bomba = f"B:{rpg.bombas}"
-        str_chave = f"K:{rpg.chaves}" if rpg.chaves > 0 else ""
-        str_escudo = "[E]Def" if rpg.escudo_equipado != "nenhum" else ""
-
-        w_ouro = fonte.size(str_ouro)[0]
-        w_bomba = fonte.size(str_bomba)[0]
-        w_chave = fonte.size(str_chave)[0] if str_chave else 0
-        w_escudo = fonte.size(str_escudo)[0] if str_escudo else 0
-
-        # Largura exata com margens seguras
-        larg_rec = 10 + w_ouro + 8 + w_bomba
-        if str_chave:
-            larg_rec += 8 + w_chave
-        if str_escudo:
-            larg_rec += 8 + w_escudo
-        larg_rec += 6
-
-        painel_rec = pygame.Surface((larg_rec, 14), pygame.SRCALPHA)
-        pygame.draw.rect(painel_rec, (14, 18, 32, 215), (0, 0, larg_rec, 14))
-        pygame.draw.rect(painel_rec, (55, 70, 105, 230), (0, 0, larg_rec, 14), 1)
-        tela.blit(painel_rec, (3, ALTURA - 17))
-
-        cur_x = 7
-        desenhar_texto(tela, fonte, str_ouro, (cur_x, ALTURA - 15), AMARELO)
-        cur_x += w_ouro + 8
-
-        desenhar_texto(tela, fonte, str_bomba, (cur_x, ALTURA - 15), (255, 165, 85))
-        cur_x += w_bomba + 8
-
-        if str_chave:
-            desenhar_texto(tela, fonte, str_chave, (cur_x, ALTURA - 15), (120, 230, 255))
-            cur_x += w_chave + 8
-
-        if str_escudo:
-            desenhar_texto(tela, fonte, str_escudo, (cur_x, ALTURA - 15), (140, 210, 255))
+        itens = [("moeda", str(rpg.ouro), (255, 222, 110)), ("bomba", str(rpg.bombas), (255, 170, 100))]
+        if rpg.chaves > 0:
+            itens.append(("chave", str(rpg.chaves), (140, 230, 255)))
+        if rpg.escudo_equipado != "nenhum":
+            itens.append(("escudo", "", (140, 210, 255)))
+        larg_rec = 6 + sum(9 + (fonte.size(v)[0] + 5 if v else 0) for _, v, _ in itens)
+        desenhar_painel(tela, (2, ALTURA - 16, larg_rec, 14), alfa=215, cantos=False)
+        cur_x = 6
+        for nome_ic, valor, cor in itens:
+            desenhar_icone(tela, nome_ic, (cur_x, ALTURA - 12))
+            cur_x += 9
+            if valor:
+                desenhar_texto(tela, fonte, valor, (cur_x, ALTURA - 14), cor)
+                cur_x += fonte.size(valor)[0] + 5
 
     # =========================================================================
     # 4. QUADRO SUPERIOR DIREITO: MINIMAPA EMOLDURADO
@@ -179,7 +170,10 @@ def desenhar_hud(
     if dados_mapa is not None and not dados_mapa["nivel"].eh_interior:
         rect_mini = pygame.Rect(LARGURA - 52, 3, 49, 31)
         desenhar_miniatura_nivel(tela, dados_mapa, rect_mini, jogador_rect=jogador_rect, t=tempo)
-        desenhar_texto(tela, fonte, "[M] Mapa", (LARGURA - 27, 36), CINZA, centro=True)
+        larg_t = fonte.size("Mapa")[0] + 12
+        x_t = LARGURA - 3 - larg_t
+        desenhar_tecla(tela, fonte, "M", (x_t, 36))
+        desenhar_texto(tela, fonte, "Mapa", (x_t + 11, 36), CINZA)
 
     # =========================================================================
     # 5. BARRA DE VIDA DE CHEFE / BOSS RUSH
@@ -193,5 +187,7 @@ def desenhar_hud(
 
 def desenhar_mensagem(tela, fonte, titulo, subtitulo):
     escurecer(tela)
-    desenhar_texto(tela, fonte, titulo, (LARGURA // 2, ALTURA // 2 - 8), centro=True)
-    desenhar_texto(tela, fonte, subtitulo, (LARGURA // 2, ALTURA // 2 + 8), CINZA, centro=True)
+    largura = max(fonte.size(titulo)[0], fonte.size(subtitulo)[0]) + 30
+    desenhar_painel(tela, (LARGURA // 2 - largura // 2, ALTURA // 2 - 18, largura, 36), "dourado")
+    desenhar_texto(tela, fonte, titulo, (LARGURA // 2, ALTURA // 2 - 6), (255, 236, 150), centro=True)
+    desenhar_texto(tela, fonte, subtitulo, (LARGURA // 2, ALTURA // 2 + 7), CINZA, centro=True)

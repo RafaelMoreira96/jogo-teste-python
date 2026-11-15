@@ -12,7 +12,7 @@ nome = Bazar de Especiarias
 clima = dia
 
 [npcs]
-1 = aldeao, mercador_oasis
+1 = nomade, mercador_oasis
 
 [portas]
 D = oasis.txt

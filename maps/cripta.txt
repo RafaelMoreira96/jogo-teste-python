@@ -29,7 +29,7 @@ nome = Cripta dos Reis Antigos
 clima = trevas
 
 [npcs]
-1 = cavaleiro, espirito_rei
+1 = espirito, espirito_rei
 2 = placa, placa_cripta
 
 [portas]

@@ -6,7 +6,7 @@ import pygame
 from cenas.base import Cena
 from rpg import RAMOS_HABILIDADES
 from settings import ALTURA, LARGURA
-from ui import AMARELO, BRANCO, CINZA, desenhar_texto, escurecer
+from ui import AMARELO, BRANCO, CINZA, ajustar_texto, desenhar_painel, desenhar_rodape, desenhar_texto, escurecer
 
 
 class ArvoreHabilidades(Cena):
@@ -71,8 +71,7 @@ class ArvoreHabilidades(Cena):
 
         # Moldura principal
         painel = pygame.Rect(8, 6, LARGURA - 16, ALTURA - 12)
-        pygame.draw.rect(tela, (16, 20, 38), painel)
-        pygame.draw.rect(tela, (215, 180, 75), painel, 1)
+        desenhar_painel(tela, painel)
 
         # Cabeçalho com status de RPG do herói
         desenhar_texto(tela, fonte, "HABILIDADES", (14, 10), AMARELO)
@@ -151,8 +150,8 @@ class ArvoreHabilidades(Cena):
 
         titulo_hab = f"{hab_sel['nome']}  {estado_txt}"
         desenhar_texto(tela, fonte, titulo_hab, (14, 136), cor_est)
-        desenhar_texto(tela, fonte, hab_sel["desc"], (14, 148), BRANCO)
+        desenhar_texto(tela, fonte, ajustar_texto(fonte, hab_sel["desc"], LARGURA - 28), (14, 148), BRANCO)
 
         rodape = self.mensagem if self.tempo_msg > 0 else "Setas: Mover | Enter: Aprender/Equipar | F: Magia | Esc: Sair"
         cor_rodape = AMARELO if self.tempo_msg > 0 else CINZA
-        desenhar_texto(tela, fonte, rodape, (LARGURA // 2, 165), cor_rodape, centro=True)
+        desenhar_rodape(tela, fonte, rodape, cor_rodape)

@@ -1,30 +1,28 @@
-"""Caixa de diálogo com efeito de máquina de escrever e escolhas."""
+"""Caixa de diálogo com efeito de máquina de escrever, retrato do personagem e escolhas."""
+import math
+
 import pygame
 
 from settings import ALTURA, LARGURA
-from ui import AMARELO, BRANCO, desenhar_texto, quebrar_linhas
+from ui import AMARELO, BRANCO, desenhar_cursor, desenhar_painel, desenhar_texto, quebrar_linhas
 
 CAIXA = pygame.Rect(6, ALTURA - 52, LARGURA - 12, 46)
 MARGEM = 7
 ALTURA_LINHA = 12
 LINHAS_POR_PAGINA = 3
-COR_CAIXA = (16, 20, 44)
-COR_BORDA_INTERNA = (90, 100, 150)
-
-
-def _moldura(tela, rect):
-    pygame.draw.rect(tela, COR_CAIXA, rect)
-    pygame.draw.rect(tela, BRANCO, rect, 1)
-    pygame.draw.rect(tela, COR_BORDA_INTERNA, rect.inflate(-4, -4), 1)
+TAM_RETRATO = 38
 
 
 class CaixaDialogo:
-    def __init__(self, conversa, fonte, letras_por_segundo):
+    def __init__(self, conversa, fonte, letras_por_segundo, retratos=None):
+        """`retratos(nome)` devolve a Surface do rosto de quem fala (ou None)."""
         self.conversa = conversa
         self.fonte = fonte
         self.velocidade = letras_por_segundo
+        self.retratos = retratos
         self.terminou = False
         self.nome = ""
+        self.retrato = None
         self.paginas = []
         self.pagina = []
         self.visiveis = 0.0
@@ -43,6 +41,10 @@ class CaixaDialogo:
     def total(self):
         return sum(len(l) for l in self.pagina)
 
+    @property
+    def x_texto(self):
+        return CAIXA.x + MARGEM + (TAM_RETRATO + 6 if self.retrato is not None else 0)
+
     def _avancar(self):
         self.tempo_espera = 0.0
         self.condicao_espera = None
@@ -59,8 +61,11 @@ class CaixaDialogo:
             else:
                 self.tempo_espera = float(alvo)
         elif no[0] == "fala":
+            if no[1] != self.nome or self.retrato is None:
+                self.retrato = self.retratos(no[1]) if (self.retratos and no[1]) else None
             self.nome = no[1]
-            linhas = quebrar_linhas(self.fonte, no[2], CAIXA.width - MARGEM * 2)
+            largura_texto = CAIXA.right - MARGEM - self.x_texto
+            linhas = quebrar_linhas(self.fonte, no[2], largura_texto)
             self.paginas = [
                 linhas[i : i + LINHAS_POR_PAGINA] for i in range(0, len(linhas), LINHAS_POR_PAGINA)
             ]
@@ -106,6 +111,7 @@ class CaixaDialogo:
             else:
                 self._avancar()
 
+    # ------------------------------------------------------------------ desenho
     def desenhar(self, tela):
         if self.em_espera or not self.pagina:
             return
@@ -114,38 +120,65 @@ class CaixaDialogo:
         if abertura < 1.0:
             altura_atual = max(8, round(CAIXA.height * abertura))
             rect_anim = pygame.Rect(CAIXA.x, CAIXA.centery - altura_atual // 2, CAIXA.width, altura_atual)
-            _moldura(tela, rect_anim)
+            desenhar_painel(tela, rect_anim, cantos=False)
             return
-        _moldura(tela, CAIXA)
+        desenhar_painel(tela, CAIXA, alfa=240)
+
+        if self.retrato is not None:
+            self._desenhar_retrato(tela)
 
         if self.nome:
-            largura = self.fonte.size(self.nome)[0] + 10
-            aba = pygame.Rect(CAIXA.x + 6, CAIXA.y - 12, largura, 14)
-            pygame.draw.rect(tela, COR_CAIXA, aba)
-            pygame.draw.rect(tela, BRANCO, aba, 1)
-            desenhar_texto(tela, self.fonte, self.nome, (aba.x + 5, aba.y + 2), AMARELO)
+            largura = self.fonte.size(self.nome)[0] + 12
+            x_aba = self.x_texto - 4
+            aba = pygame.Rect(x_aba, CAIXA.y - 11, largura, 14)
+            desenhar_painel(tela, aba, "dourado", alfa=250, cantos=False)
+            desenhar_texto(tela, self.fonte, self.nome, (aba.x + 6, aba.y + 2), (255, 232, 140))
 
         restante = int(self.visiveis)
         for i, linha in enumerate(self.pagina):
             parte = linha[: max(0, restante)]
             restante -= len(linha)
-            desenhar_texto(tela, self.fonte, parte, (CAIXA.x + MARGEM, CAIXA.y + 6 + i * ALTURA_LINHA))
+            desenhar_texto(tela, self.fonte, parte, (self.x_texto, CAIXA.y + 6 + i * ALTURA_LINHA), BRANCO)
 
         if self.opcoes:
             self._desenhar_opcoes(tela)
-        elif self.visiveis >= self.total and int(self.t * 3) % 2 == 0:
-            x, y = CAIXA.right - 11, CAIXA.bottom - 9
+        elif self.visiveis >= self.total:
+            # Indicador "continuar" quicando suavemente
+            x = CAIXA.right - 12
+            y = CAIXA.bottom - 10 + round(math.sin(self.t * 7) * 1.5)
+            pygame.draw.polygon(tela, (8, 8, 16), [(x, y + 1), (x + 7, y + 1), (x + 3, y + 5)])
             pygame.draw.polygon(tela, AMARELO, [(x, y), (x + 6, y), (x + 3, y + 3)])
 
+    def _desenhar_retrato(self, tela):
+        moldura = pygame.Rect(CAIXA.x + 4, CAIXA.y + 4, TAM_RETRATO, TAM_RETRATO)
+        pygame.draw.rect(tela, (8, 8, 16), moldura)
+        fundo = moldura.inflate(-2, -2)
+        # Fundo em gradiente radial suave atrás do rosto
+        for y in range(fundo.height):
+            f = y / max(1, fundo.height - 1)
+            cor = (round(60 - 36 * f), round(74 - 44 * f), round(130 - 70 * f))
+            pygame.draw.line(tela, cor, (fundo.x, fundo.y + y), (fundo.right - 1, fundo.y + y))
+        img = self.retrato
+        # Leve "fala": o retrato balança 1px enquanto o texto está sendo escrito
+        falando = self.visiveis < self.total and int(self.t * 10) % 2 == 0
+        tela.blit(img, img.get_rect(midbottom=(fundo.centerx, fundo.bottom + (1 if falando else 0))))
+        pygame.draw.rect(tela, (236, 196, 104), moldura, 1)
+        pygame.draw.rect(tela, (120, 84, 40), moldura.inflate(-2, -2), 1)
+        for cx, cy in (moldura.topleft, (moldura.right - 2, moldura.y), (moldura.x, moldura.bottom - 2), (moldura.right - 2, moldura.bottom - 2)):
+            pygame.draw.rect(tela, (255, 240, 170), (cx, cy, 2, 2))
+
     def _desenhar_opcoes(self, tela):
-        largura = max(self.fonte.size(t)[0] for t, _ in self.opcoes) + 22
+        largura = max(self.fonte.size(t)[0] for t, _ in self.opcoes) + 24
         altura = len(self.opcoes) * ALTURA_LINHA + 8
         rect = pygame.Rect(0, 0, largura, altura)
         rect.bottomright = (CAIXA.right, CAIXA.top - 2)
-        _moldura(tela, rect)
+        desenhar_painel(tela, rect, alfa=245)
         for i, (texto, _) in enumerate(self.opcoes):
             y = rect.y + 5 + i * ALTURA_LINHA
             if i == self.cursor:
-                desenhar_texto(tela, self.fonte, ">", (rect.x + 6, y), AMARELO)
+                faixa = pygame.Surface((rect.width - 6, 11), pygame.SRCALPHA)
+                faixa.fill((255, 210, 90, 48))
+                tela.blit(faixa, (rect.x + 3, y - 1))
+                desenhar_cursor(tela, rect.x + 6, y + 1, t=self.t)
             cor = AMARELO if i == self.cursor else BRANCO
-            desenhar_texto(tela, self.fonte, texto, (rect.x + 14, y), cor)
+            desenhar_texto(tela, self.fonte, texto, (rect.x + 15, y), cor)

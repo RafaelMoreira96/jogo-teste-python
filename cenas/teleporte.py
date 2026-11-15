@@ -6,7 +6,7 @@ import pygame
 
 from cenas.base import Cena
 from settings import ALTURA, LARGURA, PASTA_BASE
-from ui import AMARELO, BRANCO, CINZA, desenhar_texto, escurecer
+from ui import AMARELO, BRANCO, CINZA, ajustar_texto, desenhar_painel, desenhar_rodape, desenhar_texto, escurecer
 
 
 MONOLITOS_REDE = [
@@ -124,8 +124,7 @@ class CenaTeleporte(Cena):
         larg_p = 280
         alt_p = 158
         painel = pygame.Rect((LARGURA - larg_p) // 2, (ALTURA - alt_p) // 2, larg_p, alt_p)
-        pygame.draw.rect(tela, (14, 18, 34), painel)
-        pygame.draw.rect(tela, (90, 205, 255), painel, 1)
+        desenhar_painel(tela, painel)
 
         # Barra decorativa de título
         pygame.draw.rect(tela, (24, 32, 58), (painel.x + 2, painel.y + 2, larg_p - 4, 18))
@@ -173,4 +172,4 @@ class CenaTeleporte(Cena):
 
         # Rodapé com instruções
         pygame.draw.line(tela, (45, 65, 110), (painel.x + 8, painel.bottom - 17), (painel.right - 8, painel.bottom - 17))
-        desenhar_texto(tela, fonte, "Setas: Escolher Destino | Enter: Teleportar | Esc: Fechar", (LARGURA // 2, painel.bottom - 11), CINZA, centro=True)
+        desenhar_rodape(tela, fonte, "Setas: Escolher Destino | Enter: Teleportar | Esc: Fechar")

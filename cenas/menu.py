@@ -15,7 +15,7 @@ import pygame
 
 from cenas.base import Cena
 from settings import ALTURA, LARGURA, TITULO
-from ui import CINZA, MenuLista, desenhar_texto
+from ui import CINZA, MenuLista, desenhar_cursor, desenhar_painel, desenhar_texto
 
 
 class ParticulaVento:
@@ -126,14 +126,6 @@ class MenuPrincipal(Cena):
         # Partículas de vento
         self.particulas = [ParticulaVento() for _ in range(22)]
 
-        # Sombra suave sob o menu à direita para contraste impecável
-        self.sombra_menu = pygame.Surface((155, 105), pygame.SRCALPHA)
-        for mx in range(155):
-            for my in range(105):
-                dist_x = mx / 155.0
-                dist_y = my / 105.0
-                alpha = int(145 * dist_x * (0.65 + 0.35 * dist_y))
-                self.sombra_menu.set_at((mx, my), (6, 5, 12, alpha))
 
     def _gerar_gradiente_ceu(self):
         cor_topo = (14, 10, 28)
@@ -216,7 +208,7 @@ class MenuPrincipal(Cena):
         self.meteoro.desenhar(tela)
 
         # 4. Lua Mística Gigante com halo pulsante
-        mx, my = 230, 42
+        mx, my = 284, 30
         pulsar_halo = math.sin(self.t * 1.8) * 2.0
         halo = pygame.Surface((64, 64), pygame.SRCALPHA)
         for r in range(28 + int(pulsar_halo), 14, -2):
@@ -254,7 +246,7 @@ class MenuPrincipal(Cena):
             pygame.draw.line(tela, (85, 42, 65), p1, p2, 1)
 
         # 7. A Cidadela Ancestral / Castelo Proibido na colina (x=175 a 225)
-        cx = 190
+        cx = 128
         # Torre central mais alta
         pygame.draw.polygon(tela, (22, 14, 28), [(cx + 10, 58), (cx + 7, 72), (cx + 13, 72)])
         pygame.draw.rect(tela, (22, 14, 28), (cx + 7, 72, 6, 26))
@@ -327,8 +319,6 @@ class MenuPrincipal(Cena):
         for p in self.particulas:
             pygame.draw.rect(tela, p.cor, (int(p.x), int(p.y), p.tamanho, p.tamanho))
 
-        # 12. Sombra elegante sob o menu à direita
-        tela.blit(self.sombra_menu, (165, 65))
 
         # 13. Brasão Heráldico Superior (Asas douradas e joia ciano)
         w_center_x = LARGURA // 2
@@ -359,17 +349,22 @@ class MenuPrincipal(Cena):
         desenhar_texto(tela, fontes.titulo, TITULO, (w_center_x, 32), cor_titulo, centro=True)
         desenhar_texto(tela, fontes.normal, "- CRÔNICAS DO REINO ESQUECIDO -", (w_center_x, 48), (210, 185, 150), centro=True)
 
-        # 15. Menu de Opções
-        menu_base_y = 74
+        # 15. Menu de Opções em painel 16-bits
+        espaco = 15
+        painel = pygame.Rect(194, 64, 112, len(self.menu.opcoes) * espaco + 10)
+        desenhar_painel(tela, painel, alfa=205)
+        menu_base_y = painel.y + 10
         for i, opc in enumerate(self.menu.opcoes):
-            y_pos = menu_base_y + i * 16
+            y_pos = menu_base_y + i * espaco
             if i == self.menu.indice:
-                # Efeito pulsar suave no item selecionado
+                faixa = pygame.Surface((painel.width - 8, 11), pygame.SRCALPHA)
+                faixa.fill((255, 200, 90, 46))
+                tela.blit(faixa, (painel.x + 4, y_pos - 5))
                 pulsar_sel = int(230 + 25 * math.sin(self.t * 5.0))
-                cor_sel = (255, pulsar_sel, 110)
-                desenhar_texto(tela, fontes.normal, f">  {opc}  <", (236, y_pos), cor_sel, centro=True)
+                desenhar_texto(tela, fontes.normal, opc, (painel.centerx + 4, y_pos), (255, pulsar_sel, 110), centro=True)
+                desenhar_cursor(tela, painel.x + 7, y_pos - 3, t=self.t)
             else:
-                desenhar_texto(tela, fontes.normal, opc, (236, y_pos), (170, 175, 195), centro=True)
+                desenhar_texto(tela, fontes.normal, opc, (painel.centerx + 4, y_pos), (170, 175, 195), centro=True)
 
         # 16. Rodapé com indicação de controles
         controle = self.app.entrada.nome_controle()

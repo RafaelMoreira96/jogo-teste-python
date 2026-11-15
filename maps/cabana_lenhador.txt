@@ -12,7 +12,7 @@ nome = Cabana do Lenhador
 clima = dia
 
 [npcs]
-1 = aldeao, lenhador_outono
+1 = lenhador, lenhador_outono
 
 [portas]
 D = bosque_outono.txt

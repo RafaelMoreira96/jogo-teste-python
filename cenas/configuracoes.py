@@ -1,8 +1,10 @@
+import pygame
+
 import config
 from cenas.base import Cena
 from config import ESCALAS, NOMES_VELOCIDADE, VELOCIDADES_TEXTO
 from settings import ALTURA, LARGURA
-from ui import AMARELO, CINZA, MenuLista, desenhar_texto
+from ui import AMARELO, CINZA, MenuLista, desenhar_painel, desenhar_texto
 
 ITENS = [
     "volume_bgm",
@@ -133,7 +135,11 @@ class Configuracoes(Cena):
             desenhar_texto(tela, fontes.normal, "Voltar: Esc / B", (LARGURA // 2, ALTURA - 12), CINZA, centro=True)
             return
 
-        desenhar_texto(tela, fontes.normal, "Configurações", (LARGURA // 2, 18), AMARELO, centro=True)
-        self.menu.desenhar(tela, fontes.normal, LARGURA // 2, 40, espaco=14)
+        painel = pygame.Rect(LARGURA // 2 - 115, 26, 230, len(self.menu.opcoes) * 14 + 12)
+        desenhar_painel(tela, painel)
+        cabecalho = pygame.Rect(LARGURA // 2 - 50, 12, 100, 15)
+        desenhar_painel(tela, cabecalho, "dourado", cantos=False)
+        desenhar_texto(tela, fontes.normal, "Configurações", cabecalho.center, (255, 236, 150), centro=True)
+        self.menu.desenhar(tela, fontes.normal, LARGURA // 2, painel.y + 12, espaco=14, largura=painel.width - 12)
         dica = "Esquerda / direita: mudar    Esc / B: voltar"
         desenhar_texto(tela, fontes.normal, dica, (LARGURA // 2, ALTURA - 10), CINZA, centro=True)
