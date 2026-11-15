@@ -1,192 +1,269 @@
-"""Menu Principal de A Lenda Perdida.
+"""Tela de título e Menu Principal de A Lenda Perdida.
 
-Apresenta uma cena panorâmica épica em 16-bits com paralaxe em camadas:
-- Céu de crepúsculo animado com estrelas cintilantes e estrelas cadentes periódicas;
-- Lua gigante com halo místico pulsante;
-- Nuvens de crepúsculo em múltiplas profundidades deslizando pelo vento;
-- Cordilheira sombria e a Cidadela Ancestral com beacon de cristal mágico pulsante;
-- Penhasco varrido pelo vento com a silhueta do Herói e sua capa esvoaçante ao vento;
-- Partículas de poeira mágica dourada e folhas levadas pela brisa;
-- Brasão de asas heráldicas douradas e o título 'A LENDA PERDIDA' com brilho especular itinerante.
+Inspirada nas aberturas clássicas de RPG e aventura dos anos 90:
+1. Abertura: o céu clareia, o brasão e o título descem com um clarão.
+2. Tela de título: paisagem viva em camadas (aurora, montanhas, castelo,
+   lago espelhado, herói com uma fada-guia) e "Pressione Enter".
+3. Menu: janela clássica com cursor de mão e um painel de "Aventura"
+   com o resumo do jogo salvo e a descrição da opção escolhida.
 """
+import json
 import math
 import random
+
 import pygame
 
 from cenas.base import Cena
-from settings import ALTURA, LARGURA, TITULO
-from ui import CINZA, MenuLista, desenhar_cursor, desenhar_painel, desenhar_texto
+from settings import ALTURA, LARGURA, PASTA_BASE
+from ui import CINZA, desenhar_icone, desenhar_painel, desenhar_texto, limpar_texto
+
+DESCRICOES = {
+    "Continuar": "Retome sua jornada de onde parou.",
+    "Novo jogo": "Comece uma nova lenda desde o despertar do herói.",
+    "Modo Chefões": "Enfrente qualquer Guardião direto na arena dele.",
+    "Editor de jogo": "Crie e edite mapas e cenas no próprio jogo.",
+    "Configurações": "Som, vídeo, texto, bússola e controles.",
+    "Sair": "Até a próxima aventura!",
+}
+TOTAL_CHEFES = 16
+
+# Mão apontando (cursor clássico de menu de RPG)
+MAO = (
+    "..##.....",
+    ".#ww#....",
+    ".#www####",
+    ".#wwwwwww#",
+    "#wwwwwwww#",
+    "#wwwwwww#.",
+    ".#wwwww#..",
+    "..#####...",
+)
 
 
-class ParticulaVento:
-    """Partículas douradas de poeira estelar e folhas levadas pelo vento."""
-    def __init__(self):
-        self.reset(random.uniform(0, LARGURA))
-
-    def reset(self, x=None):
-        self.x = -10 if x is None else x
-        self.y = random.uniform(20, ALTURA - 15)
-        self.vx = random.uniform(28, 55)
-        self.vy = random.uniform(-6, 8)
-        self.ondulacao = random.uniform(2.0, 5.0)
-        self.fase = random.uniform(0, math.tau)
-        self.tamanho = random.choice([1, 1, 2])
-        self.cor = random.choice([
-            (255, 235, 140),  # Ouro brilhante
-            (240, 190, 80),   # Âmbar místico
-            (220, 110, 60),   # Folha de outono
-            (180, 240, 255),  # Centelha celeste
-        ])
-
-    def atualizar(self, dt, t):
-        self.x += self.vx * dt
-        self.y += math.sin(t * self.ondulacao + self.fase) * 0.45 + self.vy * dt * 0.2
-        if self.x > LARGURA + 10 or self.y < 10 or self.y > ALTURA:
-            self.reset()
+def _misturar(a, b, f):
+    return tuple(round(a[i] + (b[i] - a[i]) * f) for i in range(3))
 
 
-class EstrelaCadente:
-    """Meteoro que corta o céu do crepúsculo periodicamente."""
-    def __init__(self):
-        self.ativa = False
-        self.tempo_espera = random.uniform(4.0, 9.0)
-        self.x = 0
-        self.y = 0
-        self.vx = 0
-        self.vy = 0
-        self.vida = 0.0
-
-    def atualizar(self, dt):
-        if not self.ativa:
-            self.tempo_espera -= dt
-            if self.tempo_espera <= 0:
-                self.ativa = True
-                self.x = random.randint(60, 260)
-                self.y = random.randint(10, 45)
-                self.vx = random.uniform(160, 240)
-                self.vy = random.uniform(70, 120)
-                self.vida = random.uniform(0.35, 0.55)
-                self.tempo_espera = random.uniform(7.0, 14.0)
-        else:
-            self.vida -= dt
-            self.x += self.vx * dt
-            self.y += self.vy * dt
-            if self.vida <= 0:
-                self.ativa = False
-
-    def desenhar(self, tela):
-        if not self.ativa:
-            return
-        # Rastro do meteoro
-        for i in range(5):
-            fator = 1.0 - (i / 5.0)
-            px = int(self.x - self.vx * 0.025 * i)
-            py = int(self.y - self.vy * 0.025 * i)
-            if 0 <= px < LARGURA and 0 <= py < ALTURA:
-                cor = (int(255 * fator), int(245 * fator), int(200 * fator))
-                pygame.draw.line(tela, cor, (px, py), (px + 1, py), 1)
+def _cordilheira(largura, base, amplitude, semente, rugosidade=0.55):
+    """Perfil de montanhas por deslocamento de ponto médio (tileável na horizontal)."""
+    rng = random.Random(semente)
+    n = 64
+    alturas = [0.0] * (n + 1)
+    passo, escala = n, amplitude
+    alturas[0] = alturas[n] = rng.uniform(-amplitude, amplitude) * 0.3
+    while passo > 1:
+        meio = passo // 2
+        for i in range(meio, n, passo):
+            alturas[i] = (alturas[i - meio] + alturas[i + meio]) / 2 + rng.uniform(-escala, escala)
+        escala *= rugosidade
+        passo = meio
+    return [(round(i * largura / n), round(base - alturas[i])) for i in range(n + 1)]
 
 
 class MenuPrincipal(Cena):
-    def __init__(self, app):
-        super().__init__(app)
-        self.t = 0.0
+    LARG_PARALAXE = 640
+    _abertura_vista = False
 
+    def __init__(self, app, pular_abertura=False):
+        super().__init__(app)
         from salvamento import existe_save
-        opcoes = ["Novo jogo", "Modo Chefões", "Editor de jogo", "Configurações", "Sair"]
+
+        # A abertura cinematográfica só roda na primeira vez; ao voltar do jogo o menu já abre pronto
+        pular_abertura = pular_abertura or MenuPrincipal._abertura_vista
+        MenuPrincipal._abertura_vista = True
+        self.t = 3.0 if pular_abertura else 0.0
+        self.estado = "titulo" if pular_abertura else "abertura"
+        self.menu_aberto = pular_abertura
+        self.transicao = 1.0 if pular_abertura else 0.0  # 0 = título, 1 = menu aberto
+        self.opcoes = ["Novo jogo", "Modo Chefões", "Editor de jogo", "Configurações", "Sair"]
         if existe_save():
-            opcoes.insert(0, "Continuar")
-        self.menu = MenuLista(opcoes)
+            self.opcoes.insert(0, "Continuar")
+        self.indice = 0
+        self.resumo_save = self._ler_resumo_save()
 
         if hasattr(app, "audio"):
             app.audio.tocar_bgm("menu")
 
-        # Superfície pré-renderizada do gradiente de céu
-        self.surf_ceu = pygame.Surface((LARGURA, 125))
-        self._gerar_gradiente_ceu()
+        rng = random.Random(7)
+        self.estrelas = [(rng.randrange(LARGURA), rng.randrange(0, 100), rng.uniform(1.5, 4.5), rng.uniform(0, math.tau)) for _ in range(70)]
+        self.vagalumes = [[rng.uniform(0, LARGURA), rng.uniform(120, 175), rng.uniform(0, math.tau)] for _ in range(16)]
+        self.passaros = None
+        self.tempo_passaros = 4.0
+        self.meteoro = None
+        self.tempo_meteoro = 6.0
 
-        # Estrelas cintilantes de fundo
-        random.seed(42)
-        self.estrelas = [
-            (random.randint(4, LARGURA - 4), random.randint(4, 75), random.uniform(1.5, 4.0), random.uniform(0, math.tau))
-            for _ in range(32)
+        self._gerar_camadas()
+        self.logo = self._gerar_logo()
+
+    # ------------------------------------------------------------ dados do save
+    def _ler_resumo_save(self):
+        from salvamento import ARQUIVO_SAVE
+
+        try:
+            dados = json.loads(ARQUIVO_SAVE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        rpg = dados.get("rpg", {})
+        nome_mapa = "Lugar desconhecido"
+        try:
+            texto_mapa = (PASTA_BASE / dados.get("mapa", "")).read_text(encoding="utf-8")
+            for linha in texto_mapa.splitlines():
+                if linha.strip().startswith("nome") and "=" in linha:
+                    nome_mapa = linha.split("=", 1)[1].strip()
+                    break
+        except OSError:
+            pass
+        return {
+            "local": nome_mapa,
+            "nivel": rpg.get("nivel", 1),
+            "vida": dados.get("vida", 6),
+            "vida_maxima": dados.get("vida_maxima", 6),
+            "chefes": len(rpg.get("chefes_derrotados", [])),
+            "reliquias": len(rpg.get("reliquias_coletadas", [])),
+            "ouro": rpg.get("ouro", 0),
+        }
+
+    # ------------------------------------------------------------ arte pré-renderizada
+    def _gerar_camadas(self):
+        # Céu do amanhecer: noite profunda -> violeta -> horizonte alaranjado
+        self.ceu = pygame.Surface((LARGURA, ALTURA))
+        cores = [(0, (8, 10, 34)), (0.38, (40, 26, 84)), (0.58, (118, 58, 108)), (0.68, (236, 128, 96)), (0.72, (255, 196, 120)), (1.0, (255, 214, 150))]
+        for y in range(ALTURA):
+            f = y / (ALTURA - 1)
+            for (f0, c0), (f1, c1) in zip(cores, cores[1:]):
+                if f0 <= f <= f1:
+                    self.ceu.fill(_misturar(c0, c1, (f - f0) / (f1 - f0)), (0, y, LARGURA, 1))
+                    break
+
+        largura = self.LARG_PARALAXE
+        self.camadas = []
+        definicoes = [
+            # base, amplitude, semente, cor, cor do topo/neve, velocidade
+            (100, 30, 11, (104, 74, 136), (236, 220, 246), 2.0),
+            (110, 22, 23, (70, 48, 104), (150, 110, 160), 5.0),
+            (118, 14, 37, (44, 32, 74), (96, 70, 120), 9.0),
         ]
-        random.seed()
+        for base, amp, semente, cor, cor_topo, vel in definicoes:
+            surf = pygame.Surface((largura, ALTURA), pygame.SRCALPHA)
+            perfil = _cordilheira(largura, base, amp, semente)
+            pygame.draw.polygon(surf, cor, perfil + [(largura, ALTURA), (0, ALTURA)])
+            # Luz do amanhecer na encosta e neve nos picos mais altos
+            for (x0, y0), (x1, y1) in zip(perfil, perfil[1:]):
+                pygame.draw.line(surf, cor_topo if y0 < base - amp * 0.55 else _misturar(cor, (255, 170, 120), 0.35), (x0, y0), (x1, y1))
+            # Névoa na base de cada cordilheira
+            for k in range(10):
+                pygame.draw.line(surf, (*_misturar(cor, (255, 190, 160), 0.25), 120 - k * 12), (0, base + 6 + k), (largura, base + 6 + k))
+            self.camadas.append((surf, vel))
 
-        # Estrela cadente
-        self.meteoro = EstrelaCadente()
+        # Castelo sobre a colina (direita)
+        self.castelo = pygame.Surface((70, 70), pygame.SRCALPHA)
+        c = (30, 22, 50)
+        pygame.draw.polygon(self.castelo, c, [(0, 70), (10, 52), (60, 50), (70, 70)])
+        for x, larg, alt, ponta in ((14, 8, 30, 10), (30, 10, 42, 14), (48, 8, 28, 10), (24, 6, 22, 0), (40, 6, 24, 0)):
+            pygame.draw.rect(self.castelo, c, (x, 54 - alt, larg, alt))
+            if ponta:
+                pygame.draw.polygon(self.castelo, (52, 30, 70), [(x - 1, 54 - alt), (x + larg // 2, 54 - alt - ponta), (x + larg, 54 - alt)])
+        for x in range(12, 60, 4):
+            pygame.draw.rect(self.castelo, c, (x, 30, 2, 3))
 
-        # Nuvens de crepúsculo (2 camadas de profundidade)
-        self.nuvens = [
-            {"x": 20, "y": 38, "vel": 4.5, "tam": (48, 12), "cor": (55, 28, 52)},
-            {"x": 160, "y": 24, "vel": 3.8, "tam": (64, 14), "cor": (48, 24, 46)},
-            {"x": 270, "y": 48, "vel": 5.2, "tam": (52, 11), "cor": (65, 32, 58)},
-            {"x": 80, "y": 62, "vel": 7.0, "tam": (70, 16), "cor": (88, 42, 60)},
-            {"x": 220, "y": 68, "vel": 8.0, "tam": (58, 15), "cor": (95, 45, 62)},
-        ]
+        # Primeiro plano: colina gramada com luz de contorno
+        self.colina = pygame.Surface((LARGURA, ALTURA), pygame.SRCALPHA)
+        pts = [(0, 150), (40, 142), (78, 138), (110, 143), (140, 156), (170, 170), (200, ALTURA), (0, ALTURA)]
+        pygame.draw.polygon(self.colina, (18, 34, 30), pts)
+        pygame.draw.lines(self.colina, (236, 150, 92), False, pts[:6], 1)
+        pts2 = [(LARGURA, 158), (290, 160), (262, 168), (240, ALTURA), (LARGURA, ALTURA)]
+        pygame.draw.polygon(self.colina, (14, 26, 24), pts2)
+        pygame.draw.lines(self.colina, (200, 120, 90), False, pts2[:4], 1)
 
-        # Partículas de vento
-        self.particulas = [ParticulaVento() for _ in range(22)]
+    def _gerar_logo(self):
+        """Título em letras douradas com gradiente, contorno e sombra (3x)."""
+        fonte = self.app.fontes.normal
+        texto = "A LENDA PERDIDA"
+        base = fonte.render(texto, False, (255, 255, 255))
+        grande = pygame.transform.scale(base, (base.get_width() * 3, base.get_height() * 3))
+        gradiente = pygame.Surface(grande.get_size())
+        for y in range(grande.get_height()):
+            f = y / grande.get_height()
+            cor = _misturar((255, 248, 196), (255, 196, 60), min(1, f * 1.6)) if f < 0.62 else _misturar((255, 196, 60), (196, 92, 30), (f - 0.62) / 0.38)
+            gradiente.fill(cor, (0, y, grande.get_width(), 1))
+        grande.blit(gradiente, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+        logo = pygame.Surface((grande.get_width() + 4, grande.get_height() + 4), pygame.SRCALPHA)
+        sombra = pygame.mask.from_surface(grande).to_surface(setcolor=(40, 10, 30, 200), unsetcolor=(0, 0, 0, 0))
+        logo.blit(sombra, (3, 3))
+        logo.blit(grande, (0, 0))
+        return logo
 
-
-    def _gerar_gradiente_ceu(self):
-        cor_topo = (14, 10, 28)
-        cor_meio = (48, 20, 42)
-        cor_horiz = (130, 60, 48)
-        for y in range(125):
-            fator = y / 125.0
-            if fator < 0.5:
-                sub = fator * 2.0
-                r = int(cor_topo[0] * (1 - sub) + cor_meio[0] * sub)
-                g = int(cor_topo[1] * (1 - sub) + cor_meio[1] * sub)
-                b = int(cor_topo[2] * (1 - sub) + cor_meio[2] * sub)
-            else:
-                sub = (fator - 0.5) * 2.0
-                r = int(cor_meio[0] * (1 - sub) + cor_horiz[0] * sub)
-                g = int(cor_meio[1] * (1 - sub) + cor_horiz[1] * sub)
-                b = int(cor_meio[2] * (1 - sub) + cor_horiz[2] * sub)
-            pygame.draw.line(self.surf_ceu, (r, g, b), (0, y), (LARGURA, y))
-
+    # ------------------------------------------------------------ lógica
     def atualizar(self, dt):
         from cenas.configuracoes import Configuracoes
         from cenas.editor import Editor
         from cenas.jogo import Jogo
 
-        if hasattr(self.app, "audio"):
-            self.app.audio.tocar_bgm("menu")
-
         self.t += dt
+        entrada = self.app.entrada
+        audio = getattr(self.app, "audio", None)
 
-        # Atualiza meteoro e nuvens
-        self.meteoro.atualizar(dt)
-        for n in self.nuvens:
-            n["x"] += n["vel"] * dt
-            if n["x"] > LARGURA + 30:
-                n["x"] = -n["tam"][0] - 10
+        # Pássaros e estrelas cadentes de vez em quando
+        self.tempo_passaros -= dt
+        if self.tempo_passaros <= 0:
+            self.tempo_passaros = random.uniform(9, 16)
+            self.passaros = {"x": -20.0, "y": random.uniform(40, 80), "vel": random.uniform(22, 32)}
+        if self.passaros:
+            self.passaros["x"] += self.passaros["vel"] * dt
+            if self.passaros["x"] > LARGURA + 30:
+                self.passaros = None
+        self.tempo_meteoro -= dt
+        if self.tempo_meteoro <= 0:
+            self.tempo_meteoro = random.uniform(5, 11)
+            self.meteoro = {"x": random.uniform(40, 260), "y": random.uniform(6, 40), "vida": 0.6}
+        if self.meteoro:
+            self.meteoro["x"] += 220 * dt
+            self.meteoro["y"] += 90 * dt
+            self.meteoro["vida"] -= dt
+            if self.meteoro["vida"] <= 0:
+                self.meteoro = None
+        for v in self.vagalumes:
+            v[2] += dt
+            v[0] = (v[0] + math.sin(v[2] * 0.7) * 6 * dt + 4 * dt) % LARGURA
 
-        # Atualiza partículas de vento
-        for p in self.particulas:
-            p.atualizar(dt, self.t)
+        alvo = 1.0 if self.menu_aberto else 0.0
+        self.transicao += (alvo - self.transicao) * min(1.0, dt * 7)
 
-        ant = self.menu.indice
-        res = self.menu.atualizar(self.app.entrada)
-        if self.menu.indice != ant and hasattr(self.app, "audio"):
-            self.app.audio.sfx("menu_mover")
-
-        if res != "confirmar":
+        if self.estado == "abertura":
+            if self.t > 2.6 or entrada.apertou("confirmar") or entrada.apertou("acao"):
+                self.estado = "titulo"
+                self.t = max(self.t, 2.6)
             return
 
-        if hasattr(self.app, "audio"):
-            self.app.audio.sfx("menu_confirmar")
+        if not self.menu_aberto:
+            if entrada.apertou("confirmar") or entrada.apertou("acao") or entrada.apertou("pausa"):
+                self.menu_aberto = True
+                if audio:
+                    audio.sfx("menu_confirmar")
+            return
 
-        escolha = self.menu.opcoes[self.menu.indice]
+        ant = self.indice
+        if entrada.apertou("cima"):
+            self.indice = (self.indice - 1) % len(self.opcoes)
+        if entrada.apertou("baixo"):
+            self.indice = (self.indice + 1) % len(self.opcoes)
+        if self.indice != ant and audio:
+            audio.sfx("menu_mover")
+        if entrada.apertou("voltar"):
+            self.menu_aberto = False
+            if audio:
+                audio.sfx("menu_voltar")
+            return
+        if not entrada.apertou("confirmar"):
+            return
+        if audio:
+            audio.sfx("menu_confirmar")
+
+        escolha = self.opcoes[self.indice]
         if escolha == "Continuar":
             from salvamento import carregar_jogo
             salvo = carregar_jogo(self.app)
-            if salvo:
-                self.app.trocar(salvo)
-            else:
-                self.app.trocar(Jogo(self.app))
+            self.app.trocar(salvo if salvo else Jogo(self.app))
         elif escolha == "Novo jogo":
             self.app.trocar(Jogo(self.app))
         elif escolha == "Modo Chefões":
@@ -199,179 +276,278 @@ class MenuPrincipal(Cena):
         elif escolha == "Sair":
             self.app.sair()
 
+    # ------------------------------------------------------------ desenho
     def desenhar(self, tela):
-        # 1. Céu em gradiente de crepúsculo
-        tela.blit(self.surf_ceu, (0, 0))
+        t = self.t
+        tela.blit(self.ceu, (0, 0))
+        self._desenhar_ceu_vivo(tela, t)
 
-        # 2. Estrelas cintilantes
-        for ex, ey, freq, fase in self.estrelas:
-            brilho = int(140 + 115 * math.sin(self.t * freq + fase))
-            cor_est = (brilho, brilho, int(brilho * 0.9))
-            tela.set_at((ex, ey), cor_est)
+        # Sol nascendo atrás do castelo
+        sol = (250, 112)
+        brilho = pygame.Surface((120, 60), pygame.SRCALPHA)
+        for r in range(60, 0, -6):
+            pygame.draw.circle(brilho, (255, 210, 140, round(70 * (1 - r / 60)) + 6), (60, 60), r)
+        tela.blit(brilho, (sol[0] - 60, sol[1] - 60))
+        pygame.draw.circle(tela, (255, 236, 180), sol, 13)
+        pygame.draw.circle(tela, (255, 250, 220), sol, 9)
 
-        # 3. Estrela cadente
-        self.meteoro.desenhar(tela)
+        # Montanhas em paralaxe
+        for surf, vel in self.camadas:
+            desloc = round(t * vel) % self.LARG_PARALAXE
+            tela.blit(surf, (-desloc, 0))
+            tela.blit(surf, (self.LARG_PARALAXE - desloc, 0))
 
-        # 4. Lua Mística Gigante com halo pulsante
-        mx, my = 284, 30
-        pulsar_halo = math.sin(self.t * 1.8) * 2.0
-        halo = pygame.Surface((64, 64), pygame.SRCALPHA)
-        for r in range(28 + int(pulsar_halo), 14, -2):
-            alpha = int(16 * (1.0 - (r - 14) / 16.0))
-            pygame.draw.circle(halo, (255, 235, 180, alpha), (32, 32), r)
-        tela.blit(halo, (mx - 32, my - 32))
-        
-        # Disco da lua
-        pygame.draw.circle(tela, (250, 242, 215), (mx, my), 15)
-        # Crateras e sombreamento
-        pygame.draw.circle(tela, (225, 212, 185), (mx - 4, my - 3), 3)
-        pygame.draw.circle(tela, (225, 212, 185), (mx + 5, my + 4), 4)
-        pygame.draw.circle(tela, (215, 200, 175), (mx - 2, my + 6), 2)
-        # Sombra de crescente
-        sombra_lua = pygame.Surface((30, 30), pygame.SRCALPHA)
-        pygame.draw.circle(sombra_lua, (30, 18, 38, 110), (10, 15), 14)
-        tela.blit(sombra_lua, (mx - 15, my - 15))
+        # Castelo com janelas acesas e farol de cristal
+        cx, cy = 214, 64
+        tela.blit(self.castelo, (cx, cy))
+        for wx, wy in ((cx + 18, cy + 32), (cx + 34, cy + 22), (cx + 35, cy + 30), (cx + 51, cy + 36), (cx + 27, cy + 40)):
+            if math.sin(t * 3 + wx) > -0.6:
+                tela.set_at((wx, wy), (255, 214, 120))
+        farol = (cx + 35, cy - 2)
+        pulso = 0.5 + 0.5 * math.sin(t * 3)
+        feixe = pygame.Surface((14, 60), pygame.SRCALPHA)
+        pygame.draw.polygon(feixe, (140, 230, 255, round(30 + 30 * pulso)), [(5, 60), (9, 60), (14, 0), (0, 0)])
+        tela.blit(feixe, (farol[0] - 7, farol[1] - 60))
+        pygame.draw.circle(tela, (140, 230, 255), farol, 2)
+        tela.set_at(farol, (255, 255, 255))
 
-        # 5. Nuvens de crepúsculo em paralaxe
-        for n in self.nuvens:
-            nx, ny = int(n["x"]), int(n["y"])
-            w, h = n["tam"]
-            pygame.draw.ellipse(tela, n["cor"], (nx, ny, w, h))
-            # Borda iluminada superior
-            cor_borda = (min(255, n["cor"][0] + 35), min(255, n["cor"][1] + 20), min(255, n["cor"][2] + 25))
-            pygame.draw.arc(tela, cor_borda, (nx, ny, w, h), 0, math.pi, 1)
+        self._desenhar_lago(tela, t)
+        tela.blit(self.colina, (0, 0))
+        self._desenhar_heroi(tela, t)
 
-        # 6. Cordilheira 1 (Montanhas distantes roxas)
-        montanhas_1 = [
-            (0, 110), (35, 82), (75, 105), (115, 78), (160, 98),
-            (200, 72), (245, 96), (285, 76), (320, 102), (320, 130), (0, 130)
-        ]
-        pygame.draw.polygon(tela, (36, 18, 36), montanhas_1)
-        for p1, p2 in [((35, 82), (55, 100)), ((115, 78), (135, 92)), ((200, 72), (220, 88)), ((285, 76), (300, 92))]:
-            pygame.draw.line(tela, (85, 42, 65), p1, p2, 1)
+        # Vagalumes / pólen dourado
+        for x, y, fase in self.vagalumes:
+            if math.sin(fase * 3) > -0.2:
+                tela.set_at((round(x), round(y + math.sin(fase) * 3)), (255, 236, 150))
 
-        # 7. A Cidadela Ancestral / Castelo Proibido na colina (x=175 a 225)
-        cx = 128
-        # Torre central mais alta
-        pygame.draw.polygon(tela, (22, 14, 28), [(cx + 10, 58), (cx + 7, 72), (cx + 13, 72)])
-        pygame.draw.rect(tela, (22, 14, 28), (cx + 7, 72, 6, 26))
-        # Farol de cristal mágico pulsante no topo
-        brilho_cristal = int(200 + 55 * math.sin(self.t * 4.0))
-        pygame.draw.circle(tela, (0, brilho_cristal, 255), (cx + 10, 56), 2)
-        tela.set_at((cx + 10, 56), (255, 255, 255))
+        self._desenhar_logo(tela, t)
 
-        # Torres laterais e baluartes
-        pygame.draw.polygon(tela, (22, 14, 28), [(cx - 2, 68), (cx - 5, 78), (cx + 1, 78)])
-        pygame.draw.rect(tela, (22, 14, 28), (cx - 5, 78, 6, 20))
-        pygame.draw.polygon(tela, (22, 14, 28), [(cx + 22, 68), (cx + 19, 78), (cx + 25, 78)])
-        pygame.draw.rect(tela, (22, 14, 28), (cx + 19, 78, 6, 20))
-        pygame.draw.rect(tela, (22, 14, 28), (cx - 4, 82, 28, 18))
-        
-        # Janelas acesas piscando suavemente
-        for wx, wy in [(cx + 9, 78), (cx + 9, 85), (cx - 2, 86), (cx + 21, 86), (cx + 5, 92), (cx + 14, 92)]:
-            flicker = 220 + int(35 * math.sin(self.t * 5.0 + wx))
-            tela.set_at((wx, wy), (flicker, flicker - 30, 90))
+        if self.estado == "abertura":
+            # Fade do preto com clarão quando o logo chega
+            alfa = max(0, round(255 * (1 - t / 1.6)))
+            if alfa:
+                preto = pygame.Surface((LARGURA, ALTURA), pygame.SRCALPHA)
+                preto.fill((0, 0, 0, alfa))
+                tela.blit(preto, (0, 0))
+            if 1.6 < t < 2.2:
+                flash = pygame.Surface((LARGURA, ALTURA), pygame.SRCALPHA)
+                flash.fill((255, 250, 230, round(160 * (1 - (t - 1.6) / 0.6))))
+                tela.blit(flash, (0, 0))
+            return
 
-        # 8. Cordilheira 2 (Colinas próximas e pinheiros em silhueta)
-        montanhas_2 = [
-            (0, 126), (40, 114), (90, 122), (140, 108), (180, 116),
-            (230, 106), (270, 118), (320, 112), (320, 180), (0, 180)
-        ]
-        pygame.draw.polygon(tela, (20, 15, 28), montanhas_2)
-        for tx in [45, 52, 60, 125, 132, 155, 240, 248, 256, 305, 312]:
-            ty = 114 if tx < 100 else (110 if tx < 200 else 112)
-            pygame.draw.polygon(tela, (14, 10, 20), [(tx, ty - 6), (tx - 3, ty), (tx + 3, ty)])
-            pygame.draw.line(tela, (14, 10, 20), (tx, ty), (tx, ty + 2), 1)
+        if self.transicao < 0.5:
+            if int(self.t * 2.2) % 2 == 0:
+                txt = "PRESSIONE ENTER"
+                desenhar_texto(tela, self.app.fontes.normal, txt, (LARGURA // 2, 132), (255, 244, 210), centro=True)
+            desenhar_texto(tela, self.app.fontes.normal, "Versão 2.0  •  2026", (LARGURA // 2, ALTURA - 8), (200, 170, 190), centro=True)
+        if self.transicao > 0.02:
+            self._desenhar_menu(tela)
 
-        # 9. Penhasco em primeiro plano à esquerda
-        pontos_penhasco = [
-            (0, 132), (32, 128), (56, 125), (78, 128), (92, 136), (82, 150),
-            (90, 168), (80, 180), (0, 180)
-        ]
-        pygame.draw.polygon(tela, (15, 12, 22), pontos_penhasco)
-        pygame.draw.lines(tela, (38, 48, 32), False, [(0, 132), (32, 128), (56, 125), (78, 128), (92, 136)], 2)
-        for p1, p2 in [((30, 130), (25, 155)), ((60, 127), (55, 160)), ((80, 135), (72, 165))]:
-            pygame.draw.line(tela, (28, 22, 36), p1, p2, 1)
+    def _desenhar_ceu_vivo(self, tela, t):
+        for x, y, freq, fase in self.estrelas:
+            b = 0.5 + 0.5 * math.sin(t * freq + fase)
+            if y > 80:
+                b *= 0.4
+            if b > 0.15:
+                c = round(150 + 105 * b)
+                tela.set_at((x, y), (c, c, min(255, c + 20)))
+        # Aurora: cortinas de luz ondulando
+        aurora = pygame.Surface((LARGURA, 70), pygame.SRCALPHA)
+        for faixa, (cor, fase, alt) in enumerate((((90, 255, 190), 0.0, 22), ((140, 160, 255), 1.7, 16))):
+            for x in range(0, LARGURA, 2):
+                y = 20 + faixa * 10 + math.sin(x * 0.025 + t * 0.6 + fase) * 8 + math.sin(x * 0.07 + t * 1.3) * 3
+                a = round(26 + 22 * math.sin(x * 0.05 + t + fase))
+                pygame.draw.line(aurora, (*cor, max(0, a)), (x, round(y)), (x, round(y + alt)), 2)
+        tela.blit(aurora, (0, 0))
+        if self.meteoro:
+            m = self.meteoro
+            for i in range(6):
+                f = 1 - i / 6
+                tela.set_at((round(m["x"] - i * 3), round(m["y"] - i * 1.2)), _misturar((60, 60, 100), (255, 250, 220), f))
+        if self.passaros:
+            p = self.passaros
+            for i, (dx, dy) in enumerate(((0, 0), (-7, 4), (-7, -4), (-14, 8), (-13, -7))):
+                bx, by = round(p["x"] + dx), round(p["y"] + dy)
+                asa = 1 if math.sin(t * 12 + i) > 0 else -1
+                pygame.draw.line(tela, (40, 26, 60), (bx - 2, by + asa), (bx, by))
+                pygame.draw.line(tela, (40, 26, 60), (bx, by), (bx + 2, by + asa))
 
-        # 10. Silhueta do Herói solitário com capa esvoaçante ao vento
-        hx, hy = 58, 125
-        # Pernas e armadura
-        pygame.draw.line(tela, (10, 8, 16), (hx - 2, hy), (hx - 3, hy - 8), 2)
-        pygame.draw.line(tela, (10, 8, 16), (hx + 2, hy), (hx + 2, hy - 8), 2)
-        pygame.draw.rect(tela, (12, 10, 18), (hx - 4, hy - 16, 7, 9))
-        pygame.draw.circle(tela, (12, 10, 18), (hx, hy - 19), 3)
+    def _desenhar_lago(self, tela, t):
+        topo = 124
+        lago = pygame.Surface((LARGURA, ALTURA - topo), pygame.SRCALPHA)
+        for y in range(ALTURA - topo):
+            espelho = self.ceu.get_at((0, max(0, topo - 1 - y * 2)))
+            cor = _misturar(espelho, (30, 40, 80), 0.45 + y / (ALTURA - topo) * 0.4)
+            lago.fill((*cor, 255), (0, y, LARGURA, 1))
+        # Reflexo do sol e brilhos ondulando
+        for k in range(14):
+            y = 2 + k * 3
+            larg = max(2, 26 - k * 2 + round(math.sin(t * 3 + k) * 3))
+            pygame.draw.line(lago, (255, 220, 150, 170 - k * 10), (250 - larg // 2, y), (250 + larg // 2, y))
+        for k in range(18):
+            x = (k * 47 + round(t * 9)) % LARGURA
+            y = 4 + (k * 13) % (ALTURA - topo - 6)
+            if math.sin(t * 4 + k) > 0.3:
+                pygame.draw.line(lago, (210, 200, 255, 120), (x, y), (x + 4, y))
+        tela.blit(lago, (0, topo))
+        pygame.draw.line(tela, (255, 220, 170), (0, topo), (LARGURA, topo))
 
-        # Capa vermelha real balançando dinamicamente com o vento
-        onda_capa1 = math.sin(self.t * 7.5) * 3.0
-        onda_capa2 = math.cos(self.t * 6.5) * 2.5
-        cape_pts = [
-            (hx - 4, hy - 14),
-            (hx - 14 + int(onda_capa1 * 0.5), hy - 12 + int(onda_capa2)),
-            (hx - 19 + int(onda_capa1), hy - 7 + int(onda_capa2 * 0.7)),
-            (hx - 10, hy - 5),
-            (hx - 2, hy - 8),
-        ]
-        pygame.draw.polygon(tela, (140, 32, 45), cape_pts)
-        pygame.draw.polygon(tela, (185, 45, 60), [(p[0], p[1] - 1) for p in cape_pts[:3]] + [(hx - 4, hy - 14)])
+    def _desenhar_heroi(self, tela, t):
+        """O herói de costas na colina, olhando o castelo, com a fada-guia em volta."""
+        quadro = self.app.gfx.jogador["cima"][6 if math.sin(t * 2.8) > 0.35 else 2]
+        hx, hy = 70, 140
+        tela.blit(quadro, quadro.get_rect(midbottom=(hx, hy + 1)))
+        # Cachecol ao vento
+        for i in range(4):
+            px = hx + 3 + i * 3
+            py = hy - 17 + round(math.sin(t * 8 - i) * 1.5) + i // 2
+            pygame.draw.rect(tela, (220, 50, 56) if i % 2 == 0 else (160, 28, 40), (px, py, 3, 2))
+        # Fada-guia
+        ang = t * 2.2
+        fx = hx + math.cos(ang) * 14
+        fy = hy - 20 + math.sin(ang * 1.3) * 6
+        halo = pygame.Surface((14, 14), pygame.SRCALPHA)
+        pygame.draw.circle(halo, (170, 230, 255, 70), (7, 7), 7)
+        pygame.draw.circle(halo, (220, 245, 255, 140), (7, 7), 4)
+        tela.blit(halo, (round(fx) - 7, round(fy) - 7))
+        pygame.draw.circle(tela, (255, 255, 255), (round(fx), round(fy)), 1)
+        for i in range(1, 5):
+            a = ang - i * 0.18
+            tela.set_at((round(hx + math.cos(a) * 14), round(hy - 20 + math.sin(a * 1.3) * 6)), (150 + i * 20, 220, 255))
+        # Grama alta balançando
+        for i, gx in enumerate(range(4, 150, 5)):
+            base_y = 150 - (gx // 40) + (4 if gx > 110 else 0) + (gx - 110) // 3 * (1 if gx > 110 else 0)
+            balanco = round(math.sin(t * 2.5 + gx * 0.2) * 2)
+            pygame.draw.line(tela, (34, 70, 46), (gx, base_y), (gx + balanco, base_y - 5 - i % 3))
 
-        # Espada Sagrada cravada ou empunhada (com brilho especular na ponta)
-        pygame.draw.line(tela, (200, 230, 255), (hx + 4, hy - 4), (hx + 4, hy - 22), 1)
-        pygame.draw.line(tela, (255, 215, 0), (hx + 2, hy - 8), (hx + 6, hy - 8), 1)
-        brilho_espada = int(220 + 35 * math.sin(self.t * 6.0))
-        tela.set_at((hx + 4, hy - 23), (brilho_espada, brilho_espada, 255))
+    def _desenhar_logo(self, tela, t):
+        fonte = self.app.fontes.normal
+        if self.estado == "abertura":
+            prog = max(0.0, min(1.0, (t - 0.8) / 0.8))
+        else:
+            prog = 1.0
+        queda = (1 - prog) ** 2
+        y_logo = round(30 - queda * 60)
+        cx = LARGURA // 2
 
-        # 11. Partículas de poeira dourada e folhas levadas pelo vento
-        for p in self.particulas:
-            pygame.draw.rect(tela, p.cor, (int(p.x), int(p.y), p.tamanho, p.tamanho))
+        # Brasão acima do título: asas abertas, anel rúnico e cristal; a espada atravessa o título
+        brasao_y = y_logo - 13
+        for lado in (-1, 1):
+            for p in range(4):
+                comp = 30 - p * 6
+                y_pena = brasao_y - 3 + p * 2
+                ponta = (cx + lado * (9 + comp), y_pena - 7 + p * 3)
+                pygame.draw.line(tela, (60, 30, 20), (cx + lado * 8, y_pena + 1), (ponta[0], ponta[1] + 1), 2)
+                pygame.draw.line(tela, _misturar((255, 240, 180), (220, 150, 60), p / 4), (cx + lado * 8, y_pena), ponta, 2)
+        for k in range(12):
+            a = t * 0.6 + k * math.tau / 12
+            px, py = cx + round(math.cos(a) * 11), brasao_y + round(math.sin(a) * 4)
+            tela.set_at((px, py), (255, 220, 140) if k % 2 else (140, 230, 255))
+        espada_topo = brasao_y - 4
+        pygame.draw.polygon(tela, (40, 30, 50), [(cx - 3, espada_topo), (cx + 3, espada_topo), (cx + 2, y_logo + 24), (cx, y_logo + 28), (cx - 2, y_logo + 24)])
+        pygame.draw.polygon(tela, (214, 226, 246), [(cx - 2, espada_topo + 1), (cx + 2, espada_topo + 1), (cx + 1, y_logo + 23), (cx, y_logo + 26), (cx - 1, y_logo + 23)])
+        pygame.draw.line(tela, (255, 255, 255), (cx - 1, espada_topo + 1), (cx - 1, y_logo + 22))
+        pygame.draw.rect(tela, (220, 170, 60), (cx - 8, espada_topo - 2, 17, 3))
+        pygame.draw.rect(tela, (120, 70, 40), (cx - 1, espada_topo - 9, 3, 7))
+        halo_c = pygame.Surface((12, 12), pygame.SRCALPHA)
+        pygame.draw.circle(halo_c, (120, 230, 255, 90), (6, 6), 6)
+        tela.blit(halo_c, (cx - 6 + 1, espada_topo - 16))
+        pygame.draw.circle(tela, (90, 230, 255), (cx + 1, espada_topo - 10), 2)
 
+        # Título
+        tela.blit(self.logo, self.logo.get_rect(center=(cx, y_logo + 8)))
+        # Brilho que percorre as letras
+        ciclo = (t % 4.0) / 1.2
+        r_logo = self.logo.get_rect(center=(cx, y_logo + 8))
+        if 0 <= ciclo <= 1 and tela.get_rect().contains(r_logo):
+            x_brilho = round(cx - 120 + ciclo * 240)
+            faixa = pygame.Surface((8, 30), pygame.SRCALPHA)
+            pygame.draw.polygon(faixa, (255, 255, 255, 90), [(3, 0), (8, 0), (5, 30), (0, 30)])
+            r = self.logo.get_rect(center=(cx, y_logo + 8))
+            alvo = tela.subsurface(r).copy()
+            mascara = pygame.mask.from_surface(self.logo)
+            brilho = pygame.Surface(r.size, pygame.SRCALPHA)
+            brilho.blit(faixa, (x_brilho - r.x, 0))
+            brilho.blit(mascara.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0)), (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            alvo.blit(brilho, (0, 0))
+            tela.blit(alvo, r)
 
-        # 13. Brasão Heráldico Superior (Asas douradas e joia ciano)
-        w_center_x = LARGURA // 2
-        w_y = 15
-        pontos_asa_esq = [(w_center_x - 8, w_y), (w_center_x - 35, w_y - 4), (w_center_x - 55, w_y + 2), (w_center_x - 25, w_y + 3)]
-        pontos_asa_dir = [(w_center_x + 8, w_y), (w_center_x + 35, w_y - 4), (w_center_x + 55, w_y + 2), (w_center_x + 25, w_y + 3)]
-        pygame.draw.polygon(tela, (215, 160, 40), pontos_asa_esq)
-        pygame.draw.polygon(tela, (255, 230, 110), [(p[0], p[1] - 1) for p in pontos_asa_esq])
-        pygame.draw.polygon(tela, (215, 160, 40), pontos_asa_dir)
-        pygame.draw.polygon(tela, (255, 230, 110), [(p[0], p[1] - 1) for p in pontos_asa_dir])
-        pygame.draw.polygon(tela, (0, 240, 255), [(w_center_x, w_y - 4), (w_center_x + 5, w_y), (w_center_x, w_y + 4), (w_center_x - 5, w_y)])
-        tela.set_at((w_center_x, w_y), (255, 255, 255))
+        # Fita com o subtítulo
+        fita_y = y_logo + 26
+        largura_fita = 170
+        pygame.draw.polygon(tela, (110, 30, 40), [(cx - largura_fita // 2 - 10, fita_y + 2), (cx - largura_fita // 2, fita_y - 2), (cx - largura_fita // 2, fita_y + 10), (cx - largura_fita // 2 - 10, fita_y + 12), (cx - largura_fita // 2 - 5, fita_y + 7)])
+        pygame.draw.polygon(tela, (110, 30, 40), [(cx + largura_fita // 2 + 10, fita_y + 2), (cx + largura_fita // 2, fita_y - 2), (cx + largura_fita // 2, fita_y + 10), (cx + largura_fita // 2 + 10, fita_y + 12), (cx + largura_fita // 2 + 5, fita_y + 7)])
+        pygame.draw.rect(tela, (170, 44, 54), (cx - largura_fita // 2, fita_y - 3, largura_fita, 13))
+        pygame.draw.line(tela, (230, 110, 110), (cx - largura_fita // 2, fita_y - 3), (cx + largura_fita // 2, fita_y - 3))
+        pygame.draw.line(tela, (230, 180, 90), (cx - largura_fita // 2, fita_y + 9), (cx + largura_fita // 2, fita_y + 9))
+        desenhar_texto(tela, fonte, "Crônicas do Reino Esquecido", (cx, fita_y + 3), (255, 236, 200), centro=True)
 
-        # 14. Título Principal Majestoso: 'A LENDA PERDIDA' com brilho especular itinerante
-        fontes = self.app.fontes
-        
-        # O brilho especular percorre o título a cada 3.5 segundos
-        ciclo_brilho = (self.t % 3.5) / 1.2
-        cor_titulo = (255, 235, 130)
-        if 0.0 <= ciclo_brilho <= 1.0:
-            # Pulso de brilho suave dourado/branco
-            intensidade = math.sin(ciclo_brilho * math.pi)
-            r = min(255, int(255 + 20 * intensidade))
-            g = min(255, int(235 + 20 * intensidade))
-            b = min(255, int(130 + 125 * intensidade))
-            cor_titulo = (r, g, b)
+    def _desenhar_menu(self, tela):
+        fonte = self.app.fontes.normal
+        f = self.transicao
+        # Escurece o pé da tela atrás das janelas
+        sombra = pygame.Surface((LARGURA, 90), pygame.SRCALPHA)
+        for y in range(90):
+            sombra.fill((6, 4, 18, round(min(200, y * 4) * f)), (0, y, LARGURA, 1))
+        tela.blit(sombra, (0, ALTURA - 90))
 
-        desenhar_texto(tela, fontes.titulo, TITULO, (w_center_x, 32), cor_titulo, centro=True)
-        desenhar_texto(tela, fontes.normal, "- CRÔNICAS DO REINO ESQUECIDO -", (w_center_x, 48), (210, 185, 150), centro=True)
+        desliza = round((1 - f) * 70)
+        # Janela de opções com cursor de mão
+        janela = pygame.Rect(14, 74 + desliza, 116, len(self.opcoes) * 14 + 12)
+        desenhar_painel(tela, janela, alfa=round(235 * f))
+        for i, op in enumerate(self.opcoes):
+            y = janela.y + 8 + i * 14
+            sel = i == self.indice
+            if sel:
+                faixa = pygame.Surface((janela.width - 8, 12), pygame.SRCALPHA)
+                faixa.fill((255, 220, 120, 40))
+                tela.blit(faixa, (janela.x + 4, y - 1))
+                mx = janela.x + 3 + round(math.sin(self.t * 8) * 1.5)
+                self._desenhar_mao(tela, mx, y + 1)
+            cor = (255, 240, 170) if sel else (206, 210, 230)
+            desenhar_texto(tela, fonte, op, (janela.x + 17, y), cor)
 
-        # 15. Menu de Opções em painel 16-bits
-        espaco = 15
-        painel = pygame.Rect(194, 64, 112, len(self.menu.opcoes) * espaco + 10)
-        desenhar_painel(tela, painel, alfa=205)
-        menu_base_y = painel.y + 10
-        for i, opc in enumerate(self.menu.opcoes):
-            y_pos = menu_base_y + i * espaco
-            if i == self.menu.indice:
-                faixa = pygame.Surface((painel.width - 8, 11), pygame.SRCALPHA)
-                faixa.fill((255, 200, 90, 46))
-                tela.blit(faixa, (painel.x + 4, y_pos - 5))
-                pulsar_sel = int(230 + 25 * math.sin(self.t * 5.0))
-                desenhar_texto(tela, fontes.normal, opc, (painel.centerx + 4, y_pos), (255, pulsar_sel, 110), centro=True)
-                desenhar_cursor(tela, painel.x + 7, y_pos - 3, t=self.t)
-            else:
-                desenhar_texto(tela, fontes.normal, opc, (painel.centerx + 4, y_pos), (170, 175, 195), centro=True)
-
-        # 16. Rodapé com indicação de controles
+        # Janela "Aventura" com resumo do save + descrição da opção
+        info = pygame.Rect(138, 74 + desliza, LARGURA - 152, janela.height)
+        desenhar_painel(tela, info, "magico", alfa=round(235 * f))
+        y = info.y + 6
+        escolha = self.opcoes[self.indice]
+        if self.resumo_save and escolha in ("Continuar", "Novo jogo"):
+            r = self.resumo_save
+            desenhar_texto(tela, fonte, "Sua aventura", (info.x + 8, y), (255, 226, 140))
+            desenhar_texto(tela, fonte, f"Nv {r['nivel']}", (info.right - 8 - fonte.size(f"Nv {r['nivel']}")[0], y), (190, 210, 255))
+            y += 12
+            local = limpar_texto(r["local"])
+            while fonte.size(local)[0] > info.width - 16:
+                local = local[:-1]
+            desenhar_texto(tela, fonte, local, (info.x + 8, y), (220, 224, 240))
+            y += 12
+            for k in range(min(10, r["vida_maxima"] // 2)):
+                cor = self.app.gfx.coracao_cheio if r["vida"] >= (k + 1) * 2 else (self.app.gfx.coracao_metade if r["vida"] == k * 2 + 1 else self.app.gfx.coracao_vazio)
+                tela.blit(cor, (info.x + 8 + k * 9, y + 1))
+            y += 12
+            desenhar_icone(tela, "caveira", (info.x + 8, y + 1))
+            desenhar_texto(tela, fonte, f"{r['chefes']}/{TOTAL_CHEFES}", (info.x + 18, y), (255, 200, 140))
+            desenhar_icone(tela, "estrela", (info.x + 54, y + 1))
+            desenhar_texto(tela, fonte, f"{r['reliquias']}/6", (info.x + 64, y), (255, 236, 150))
+            desenhar_icone(tela, "moeda", (info.x + 94, y + 1))
+            desenhar_texto(tela, fonte, str(r["ouro"]), (info.x + 104, y), (255, 222, 110))
+            y += 14
+        elif escolha in ("Continuar", "Novo jogo"):
+            desenhar_texto(tela, fonte, "Nenhuma aventura salva.", (info.x + 8, y), CINZA)
+            y += 14
+        # Descrição da opção (quebrada em linhas)
+        from ui import quebrar_linhas
+        for linha in quebrar_linhas(fonte, DESCRICOES.get(escolha, ""), info.width - 16)[:3]:
+            desenhar_texto(tela, fonte, linha, (info.x + 8, y), (200, 206, 230))
+            y += 11
         controle = self.app.entrada.nome_controle()
-        rodape = f"Controle: {controle}" if controle else "Enter / Espaço: escolher"
-        desenhar_texto(tela, fontes.normal, rodape, (w_center_x, ALTURA - 11), CINZA, centro=True)
+        rodape = f"{controle}: A confirma, B volta" if controle else "Enter: confirmar   Esc: voltar"
+        desenhar_texto(tela, fonte, rodape, (LARGURA // 2, ALTURA - 7), (190, 180, 210), centro=True)
+
+    def _desenhar_mao(self, tela, x, y):
+        cores = {"#": (30, 24, 40), "w": (255, 255, 255)}
+        for dy, linha in enumerate(MAO):
+            for dx, c in enumerate(linha):
+                if c in cores:
+                    tela.set_at((x + dx, y + dy), cores[c])

@@ -10,6 +10,9 @@
 - 🔮 **Magias Elementais & RPG**: Esfera de Fogo, Rajada Congelante, Lança de Trovão, Lâmina de Vento e Bênção de Luz, além de sistema de níveis, mana, atributos e árvore de habilidades (`[U]`).
 - 🚪 **Portais Místicos & 15 Guardiões Ancestrais**: Cada grande chefe possui uma arena isolada com entrada mística monumental e efeitos de partículas. Ao derrotar um guardião, seu portal se transforma em um selo espectral eterno e sua relíquia é liberada.
 - 💨 **Navegação & Vento Guia**: Nunca mais fique perdido! Invoque o **Vento Guia** (`[H]`) para que as brisas do mundo revelem a direção do próximo objetivo. Totens de madeira nas encruzilhadas apontam caminhos para vilas, templos e masmorras.
+- 🌅 **Abertura Cinematográfica**: Tela de título com paisagem viva em camadas (aurora, montanhas em paralaxe, castelo com farol, lago espelhado, herói com fada-guia), brasão animado, "Pressione Enter" e menu em janela clássica com cursor de mão e resumo da sua aventura salva.
+- 🗺️ **Mapa do Reino Ilustrado (`[M]`)**: Mapa-múndi em pergaminho com litoral, biomas pintados, estradas, ícones de cada lugar, névoa nas regiões inexploradas, alfinete do herói e rota até o próximo objetivo.
+- 🧑‍🌾 **Moradores com Personalidade**: Bardo, Vovó Celina, Fazendeiro Bento e outros NPCs com visuais, retratos e falas próprias.
 - 👹 **Modo Chefões** (Menu principal): Enfrente qualquer um dos 16 chefes direto na arena dele, escolhendo o nível do herói e a dificuldade (Normal, Difícil ou Lendário), ou encare o **Desafio dos Guardiões** (todos em ondas no Coliseu das Eras). Cada vitória dá tempo, dano recebido, nota (S/A/B/C) e recorde salvo.
 - 🔥 **Covis Temáticos**: Cada Guardião mora numa arena própria (gosma, ruínas, dunas, altar solar, pântano, sepulcro, abismo marinho, cristal, caverna, gelo, céu, arena, lava, observatório astral e tribunal sagrado), com chão, líquidos, blocos, luz e partículas combinando com o chefe.
 - ⚔️ **Chefões com Fúria**: Arte 16-bits detalhada e animada para os 16 chefes. Na metade da vida eles entram em **Fúria** e alternam golpes especiais telegrafados (chuva de impactos, espirais, anéis, muralhas com brecha, investidas e orbes teleguiados).
@@ -103,6 +106,7 @@ O jogo conta com suporte total tanto para **Teclado** quanto para **Controles US
 ├── chefe.py                    # IA dos chefes: fúria, golpes especiais, projéteis elementais
 ├── arte_chefes.py              # Arte procedural 16-bits animada de cada chefe
 ├── temas.py                    # Temas dos covis (chão, líquido, blocos, luz, partículas)
+├── mapa_mundi.py               # Mapa-múndi ilustrado em pergaminho (gerado proceduralmente)
 ├── conquistas.py               # Sistema de conquistas com persistência e alertas animados
 ├── efeitos.py                  # Partículas, iluminação, corações flutuantes e vasos quebráveis
 ├── enemy.py                    # Inimigos comuns (slimes, zumbis, arqueiros, morcegos)

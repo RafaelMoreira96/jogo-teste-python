@@ -4,6 +4,7 @@ import math
 import pygame
 
 from cenas.base import Cena
+from mapa_mundi import desenhar_nevoa, gerar_mapa_mundi
 from settings import ALTURA, LARGURA, PASTA_BASE, TILE
 from ui import AMARELO, BRANCO, CINZA, ajustar_texto, desenhar_painel, desenhar_rodape, desenhar_texto, escurecer
 
@@ -234,7 +235,7 @@ class MapaMundo(Cena):
         nivel_sel = dados_sel["nivel"]
         eh_atual = (self.jogo.nivel.caminho.resolve() == caminho_sel)
 
-        titulo_atlas = "ATLAS DO MUNDO"
+        titulo_atlas = "MAPA DO REINO"
         desenhar_texto(tela, fonte, titulo_atlas, (14, 11), AMARELO)
         proximo = self.jogo.rpg.proximo_chefe()
         if proximo:
@@ -255,64 +256,75 @@ class MapaMundo(Cena):
                 t=self.t,
             )
         else:
-            # Painel esquerdo: Grafo do Atlas do Mundo com conexões entre as regiões
+            # Painel esquerdo: mapa-múndi ilustrado em pergaminho
             rect_atlas = pygame.Rect(14, 27, 192, 124)
-            pygame.draw.rect(tela, (24, 30, 52), rect_atlas)
-            pygame.draw.rect(tela, (70, 82, 125), rect_atlas, 1)
+            nos_locais = [
+                {"arq": n["arq"], "pos": (n["pos"][0] - rect_atlas.x, n["pos"][1] - rect_atlas.y), "conexoes": n["conexoes"]}
+                for n in self.nos
+            ]
+            tela.blit(gerar_mapa_mundi(rect_atlas.size, nos_locais), rect_atlas)
 
             pos_por_arq = {n["arq"]: n["pos"] for n in self.nos}
-            for n in self.nos:
-                x1, y1 = n["pos"]
-                for dest in n["conexoes"]:
-                    if dest in pos_por_arq:
-                        x2, y2 = pos_por_arq[dest]
-                        pygame.draw.line(tela, (65, 76, 110), (x1, y1), (x2, y2), 2)
-
-            # Rota brilhante para o objetivo recomendado
-            proximo = self.jogo.rpg.proximo_chefe()
             arq_heroi = self.jogo.nivel.caminho.name
+            proximo = self.jogo.rpg.proximo_chefe()
+
+            # Névoa sobre as regiões que o herói ainda não visitou
+            for n in self.nos:
+                if n["arq"] not in self.jogo.mapas_visitados and not n["arq"].startswith("castelo_"):
+                    desenhar_nevoa(tela, rect_atlas, n["pos"], self.t)
+
+            # Rota tracejada animada até o objetivo recomendado
             if proximo and proximo[4] in pos_por_arq and arq_heroi in pos_por_arq:
-                p_ini = pos_por_arq[arq_heroi]
-                p_fim = pos_por_arq[proximo[4]]
-                if p_ini != p_fim:
-                    fase_rota = (self.t * 3.0) % 1.0
-                    rx = int(p_ini[0] + (p_fim[0] - p_ini[0]) * fase_rota)
-                    ry = int(p_ini[1] + (p_fim[1] - p_ini[1]) * fase_rota)
-                    pygame.draw.line(tela, (255, 215, 80), p_ini, p_fim, 1)
-                    pygame.draw.circle(tela, (255, 240, 150), (rx, ry), 2)
+                p_ini = pygame.Vector2(pos_por_arq[arq_heroi])
+                p_fim = pygame.Vector2(pos_por_arq[proximo[4]])
+                dist = p_ini.distance_to(p_fim)
+                if dist > 1:
+                    for k in range(0, int(dist), 5):
+                        f = ((k + self.t * 14) % dist) / dist
+                        ponto = p_ini.lerp(p_fim, f)
+                        pygame.draw.circle(tela, (200, 40, 40), (round(ponto.x), round(ponto.y)), 1)
+                    # "X" vermelho marcando o destino
+                    fx, fy = round(p_fim.x), round(p_fim.y) - 7
+                    pygame.draw.line(tela, (190, 30, 30), (fx - 3, fy - 3), (fx + 3, fy + 3), 2)
+                    pygame.draw.line(tela, (190, 30, 30), (fx + 3, fy - 3), (fx - 3, fy + 3), 2)
 
             for i, n in enumerate(self.nos):
                 nx, ny = n["pos"]
                 visitado = n["arq"] in self.jogo.mapas_visitados
-                cor_no = (90, 245, 130) if n["arq"] == arq_heroi else ((110, 195, 255) if visitado else (110, 115, 140))
+                # Salas internas do castelo só aparecem depois de visitadas (ou selecionadas)
+                if n["arq"].startswith("castelo_") and not visitado and i != self.indice and n["arq"] != arq_heroi:
+                    continue
                 if i == self.indice:
                     raio_pulso = 7 + round(math.sin(self.t * 8.0) * 1.5)
-                    pygame.draw.circle(tela, AMARELO, (nx, ny), raio_pulso, 1)
-                pygame.draw.circle(tela, (20, 24, 40), (nx, ny), 5)
-                pygame.draw.circle(tela, cor_no, (nx, ny), 4)
+                    pygame.draw.circle(tela, (120, 40, 20), (nx, ny), raio_pulso, 1)
+                    pygame.draw.circle(tela, (255, 220, 120), (nx, ny), raio_pulso - 1, 1)
+                if n["arq"] == arq_heroi:
+                    # Marcador do herói: alfinete vermelho que quica
+                    pulo = round(abs(math.sin(self.t * 4)) * 2)
+                    pygame.draw.line(tela, (70, 46, 30), (nx, ny), (nx, ny - 6 - pulo))
+                    pygame.draw.circle(tela, (40, 20, 20), (nx, ny - 7 - pulo), 3)
+                    pygame.draw.circle(tela, (230, 50, 50), (nx, ny - 7 - pulo), 2)
+                    tela.set_at((nx - 1, ny - 8 - pulo), (255, 200, 200))
+                else:
+                    pygame.draw.circle(tela, (70, 46, 30), (nx, ny), 2)
+                    pygame.draw.circle(tela, (250, 236, 200) if visitado else (170, 150, 120), (nx, ny), 1)
 
                 # Badges de Chefes dos Covis (🔴 Insuficiente, 🟡 Recomendado, ⚪ Derrotado)
                 if n["arq"] in MAPA_REGIAO_PARA_CHEFE:
                     ch_id, _, ch_nv = MAPA_REGIAO_PARA_CHEFE[n["arq"]]
                     esta_selado = ch_id in self.jogo.rpg.chefes_derrotados
-                    bx, by = nx + 4, ny - 4
+                    bx, by = nx + 4, ny - 3
+                    # Selo pequeno: cinza = selado, vermelho = nível baixo, dourado pulsante = alvo ideal
                     if esta_selado:
-                        # ⚪ Cinza Espectral
-                        pygame.draw.circle(tela, (20, 24, 35), (bx, by), 3)
-                        pygame.draw.circle(tela, (180, 200, 225), (bx, by), 2)
+                        cor_selo = (190, 200, 215)
                     elif self.jogo.rpg.nivel < ch_nv:
-                        # 🔴 Vermelho (bloqueado/nível baixo)
-                        pygame.draw.circle(tela, (20, 24, 35), (bx, by), 3)
-                        pygame.draw.circle(tela, (255, 55, 65), (bx, by), 2)
+                        cor_selo = (220, 50, 50)
                     elif proximo and proximo[0] == ch_id:
-                        # 🟡 Dourado pulsante (desafio ideal)
-                        r_ch = 3 + round(math.sin(self.t * 10.0) * 1.0)
-                        pygame.draw.circle(tela, (255, 230, 90), (bx, by), r_ch)
-                        pygame.draw.circle(tela, (255, 255, 240), (bx, by), max(1, r_ch - 1))
+                        cor_selo = (255, 220, 70) if int(self.t * 6) % 2 == 0 else (255, 250, 200)
                     else:
-                        # Desafio acessível
-                        pygame.draw.circle(tela, (20, 24, 35), (bx, by), 3)
-                        pygame.draw.circle(tela, (245, 175, 60), (bx, by), 2)
+                        cor_selo = (240, 160, 50)
+                    pygame.draw.rect(tela, (70, 46, 30), (bx - 2, by - 2, 4, 4))
+                    pygame.draw.rect(tela, cor_selo, (bx - 1, by - 1, 2, 2))
 
             # Painel direito: Miniatura e detalhes da região selecionada
             rect_prev = pygame.Rect(212, 27, 94, 60)

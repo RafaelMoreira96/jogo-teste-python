@@ -31,6 +31,10 @@ PALAVRAS_CHAVE = [
     ("guardiao", "mago"),
     ("mercador", "aldeao"),
     ("aldeao", "aldeao"),
+    ("bardo", "bardo"),
+    ("vovo", "velha"),
+    ("vovó", "velha"),
+    ("fazendeir", "fazendeiro"),
     ("heroi", "heroi"),
     ("voce", "heroi"),
 ]

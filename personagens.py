@@ -857,6 +857,28 @@ MARTELO = [
 ]
 
 
+# ================================================================ 8. Acessórios dos moradores
+ALAUDE = [
+    "......kk",
+    ".....kk.",
+    "....TT..",
+    "..ttt...",
+    ".ttktT..",
+    ".tttTT..",
+    "..TTT...",
+]
+PENA_BONE = [
+    "...f",
+    "..fF",
+    ".fF.",
+    "fF..",
+]
+BENGALA = [
+    "tTt",
+    "t..",
+] + ["t.."] * 12
+
+
 def _sobrepor(base, camada):
     """Desenha `camada` por cima das primeiras linhas de `base` ('.' mantém o pixel original)."""
     resultado = list(base)
@@ -1066,6 +1088,50 @@ _VARIACOES = {
 for _nome, (_base, _cores) in _VARIACOES.items():
     PERSONAGENS[_nome] = {**PERSONAGENS[_base], "paleta": {**PERSONAGENS[_base]["paleta"], **_cores}}
 PERSONAGENS["espirito"]["alfa"] = 175
+
+# Moradores com acessórios próprios (cor + objetos extras por cima da base)
+PERSONAGENS["bardo"] = {
+    **PERSONAGENS["aldeao"],
+    "paleta": {
+        **PERSONAGENS["aldeao"]["paleta"],
+        "c": (156, 46, 120), "C": (104, 26, 82), "v": (206, 90, 166),
+        "y": (248, 206, 72), "Y": (188, 134, 34),
+        "h": (206, 156, 84), "H": (150, 104, 48), "i": (240, 200, 120),
+        "b": (60, 92, 176), "B": (36, 60, 124),
+        "t": (190, 130, 70), "T": (130, 82, 40),
+        "f": (236, 64, 64), "F": (160, 30, 40),
+    },
+    "baixo": {**PERSONAGENS["aldeao"]["baixo"], "extras": [extra(ALAUDE, 16, 17), extra(PENA_BONE, 20, 1)]},
+    "cima": {**PERSONAGENS["aldeao"]["cima"], "extras": [extra(ALAUDE, 8, 17, atras=True), extra(PENA_BONE, 20, 1)]},
+    "direita": {**PERSONAGENS["aldeao"]["direita"], "extras": [extra(ALAUDE, 15, 17), extra(PENA_BONE, 8, 1)]},
+}
+PERSONAGENS["velha"] = {
+    **PERSONAGENS["aldea"],
+    "paleta": {
+        **PERSONAGENS["aldea"]["paleta"],
+        "h": (206, 206, 216), "H": (150, 150, 166), "i": (246, 246, 252),
+        "c": (112, 70, 132), "C": (74, 44, 92), "v": (156, 112, 176),
+        "f": (96, 64, 116), "F": (64, 40, 80), "g": (236, 236, 244),
+        "a": (226, 214, 190), "A": (180, 166, 140),
+        "s": (240, 206, 176), "S": (210, 164, 132),
+        "t": (140, 92, 54), "T": (96, 60, 30),
+    },
+    "baixo": {**PERSONAGENS["aldea"]["baixo"], "extras": [extra(BENGALA, 23, 17)]},
+    "cima": {**PERSONAGENS["aldea"]["cima"], "extras": [extra(BENGALA, 6, 17, atras=True)]},
+    "direita": {**PERSONAGENS["aldea"]["direita"], "extras": [extra(BENGALA, 22, 17)]},
+}
+PERSONAGENS["fazendeiro"] = {
+    **PERSONAGENS["aldeao"],
+    "paleta": {
+        **PERSONAGENS["aldeao"]["paleta"],
+        "c": (232, 202, 112), "C": (182, 148, 70), "v": (252, 232, 156),
+        "y": (176, 60, 44), "Y": (120, 36, 28),
+        "a": (214, 84, 66), "A": (156, 52, 44),
+        "b": (72, 104, 164), "B": (46, 70, 118),
+        "h": (110, 70, 40), "H": (72, 44, 24), "i": (150, 100, 60),
+        "p": (72, 104, 164), "P": (46, 70, 118),
+    },
+}
 
 
 # ================================================================ montagem

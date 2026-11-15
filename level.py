@@ -41,6 +41,33 @@ SOLIDOS_TERRA = set("#TBWRCM")
 SOLIDOS = set("~#TBWRCM")
 
 
+def _ruido(x, y):
+    """Ruído de valor suave (0..1) para manchas grandes de luz e sombra no terreno."""
+    def h(ix, iy):
+        n = (ix * 374761393 + iy * 668265263) & 0xFFFFFFFF
+        n = ((n ^ (n >> 13)) * 1274126177) & 0xFFFFFFFF
+        return (n & 0xFFFF) / 0xFFFF
+
+    x0, y0 = math.floor(x), math.floor(y)
+    fx, fy = x - x0, y - y0
+    fx, fy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+    a = h(x0, y0) + (h(x0 + 1, y0) - h(x0, y0)) * fx
+    b = h(x0, y0 + 1) + (h(x0 + 1, y0 + 1) - h(x0, y0 + 1)) * fx
+    return a + (b - a) * fy
+
+
+_MANCHAS = {}
+
+
+def _mancha(cor, alfa):
+    chave = (cor, alfa)
+    if chave not in _MANCHAS:
+        s = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+        s.fill((*cor, alfa))
+        _MANCHAS[chave] = s
+    return _MANCHAS[chave]
+
+
 class Nivel:
     def __init__(self, caminho, gfx):
         self.gfx = gfx
@@ -408,6 +435,13 @@ class Nivel:
                     if self.tema:
                         cor_margem = (*self.tema["margem"], 235)
                         cor_espuma = (*self.tema["liquido"][1], 200)
+                    else:
+                        # Água rasa e mais clara junto à margem (dá profundidade ao lago)
+                        raso = (110, 190, 230, 110)
+                        for viz, ret in ((cima, (px, py, TILE, 5)), (baixo, (px, py + TILE - 5, TILE, 5)),
+                                         (esq, (px, py, 5, TILE)), (dir_, (px + TILE - 5, py, 5, TILE))):
+                            if viz and viz != "~":
+                                pygame.draw.rect(det, raso, ret)
                     if cima == "#" and (not self.tema or self.tema["anim"] == "agua"):
                         # Cachoeira desaguando da falésia de pedra superior
                         self.cachoeiras.append((px, py))
@@ -652,12 +686,23 @@ class Nivel:
         if self.tema:
             self._desenhar_tile_tema(cx, cy)
             return
-        nome = SIMBOLOS.get(self.grade[cy][cx])
-        if nome:
+        c = self.grade[cy][cx]
+        nome = SIMBOLOS.get(c)
+        if c == "W" and self.eh_interior:
+            img = self.gfx.tiles["parede_interna"]
+        elif nome:
             img = self.gfx.tiles[nome]
         else:
-            img = self.gfx.gramas[(cx * 7 + cy * 13) % len(self.gfx.gramas)]
-        self.superficie.blit(img, (cx * TILE, cy * TILE))
+            img = self.gfx.gramas[(cx * 7 + cy * 13 + (cx * cy) % 3) % len(self.gfx.gramas)]
+        pos = (cx * TILE, cy * TILE)
+        self.superficie.blit(img, pos)
+        # Manchas grandes de sol e sombra para os campos não parecerem um tapete repetido
+        if c in (".", "*", "T", "B") and not self.eh_interior:
+            v = _ruido(cx / 6.0, cy / 6.0)
+            if v > 0.62:
+                self.superficie.blit(_mancha((255, 240, 150), round((v - 0.62) * 200)), pos)
+            elif v < 0.38:
+                self.superficie.blit(_mancha((8, 36, 28), round((0.38 - v) * 260)), pos)
 
     def _desenhar_tile_tema(self, cx, cy):
         c = self.grade[cy][cx]

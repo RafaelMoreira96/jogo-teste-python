@@ -423,3 +423,29 @@ Você é o verdadeiro Herói Lendário!
 PARABÉNS! VOCÊ CONCLUIU O JOGO!
 
 
+
+=== bardo_vila
+Bardo Lírio: Ah, um aventureiro! Deixe-me afinar o alaúde... *plim plom*
+Bardo Lírio: Canto a balada dos dezesseis Guardiões. Dizem que só quem segue a bússola dourada encontra todos eles.
+@opcao Pedir uma canção -> bardo_cancao
+@opcao Seguir viagem -> bardo_tchau
+
+=== bardo_cancao
+Bardo Lírio: "Do lodo azul ao trono em chamas, o herói caminha onde o vento chama..."
+Bardo Lírio: Volte quando derrotar um Guardião. Prometo compor um verso novo em sua honra!
+
+=== bardo_tchau
+Bardo Lírio: Que as estradas sejam gentis com você!
+
+=== vovo_vila
+Vovó Celina: Meu jovem, coma direito antes de sair por aí enfrentando monstros.
+Vovó Celina: Quando eu era menina, os slimes eram azuis e educados. Hoje em dia, nem cumprimentam!
+Vovó Celina: Se ficar ferido, procure as poções na forja e os corações escondidos nos arbustos.
+
+=== fazendeiro_vila
+Fazendeiro Bento: Minha plantação de abóboras nunca cresceu tão bem! Deve ser a luz do monólito astral.
+Fazendeiro Bento: Encoste num monólito e você pode viajar entre eles num piscar de olhos. Coisa de magia, não me pergunte!
+
+=== fazendeiro_campo
+Fazendeiro Bento: Cuidado com as gosmas na Floresta Esmeralda. Elas comem minhas cenouras!
+Fazendeiro Bento: Dizem que o rei delas mora num covil a leste daqui. Se for lá, leve muitos corações.

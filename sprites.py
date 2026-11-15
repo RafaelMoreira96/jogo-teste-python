@@ -470,84 +470,118 @@ VERDE_SOL = (162, 214, 102)
 
 
 def _grama(semente, vento=0):
-    rng = random.Random(semente)
+    """Grama 16-bits: base com pontilhado, tufos em "v" de 3 tons e detalhes raros."""
+    rng = random.Random(semente * 31 + 7)
     s = pygame.Surface((TILE, TILE))
     s.fill(VERDE)
-    # Manchas pictóricas sutis de musgo e luz no solo (estilo Legend of Mana)
-    for _ in range(4):
-        mx, my = rng.randrange(0, TILE - 3), rng.randrange(0, TILE - 2)
-        pygame.draw.rect(s, VERDE_MUSGO, (mx, my, 3, 2))
-    # Tufos de grama em 3 tons que inclinam com o vento
-    for _ in range(6):
-        x, y = rng.randrange(2, TILE - 3), rng.randrange(3, TILE - 1)
+    # Pontilhado suave alternando dois verdes (textura de relva)
+    for y in range(TILE):
+        for x in range(TILE):
+            if (x * 3 + y * 5 + semente) % 7 == 0:
+                s.set_at((x, y), VERDE_MUSGO)
+            elif (x * 5 + y * 3 + semente) % 11 == 0:
+                s.set_at((x, y), (88, 164, 72))
+    # Tufos em "v": sombra na base, folhas médias e pontas iluminadas pelo sol
+    for _ in range(5):
+        x, y = rng.randrange(2, TILE - 3), rng.randrange(4, TILE - 1)
         s.set_at((x, y), VERDE_SOMBRA)
-        s.set_at((x, y - 1), VERDE_MUSGO)
-        s.set_at((x + vento, y - 2), VERDE_CLARO)
-        if rng.random() < 0.55:
-            s.set_at((x + 1 + vento, y - 1), VERDE_SOL)
-    # Pequenos trevos e pontinhos de luz dourada
-    for _ in range(3):
-        tx, ty = rng.randrange(1, TILE - 2), rng.randrange(1, TILE - 2)
-        s.set_at((tx, ty), VERDE_SOL if rng.random() < 0.6 else (54, 118, 52))
+        s.set_at((x + 1, y), VERDE_SOMBRA)
+        s.set_at((x - 1 + vento, y - 1), VERDE_MUSGO)
+        s.set_at((x + 2 + vento, y - 1), VERDE_MUSGO)
+        s.set_at((x - 1 + vento, y - 2), VERDE_CLARO)
+        s.set_at((x + 2 + vento, y - 2), VERDE_CLARO)
+        if rng.random() < 0.5:
+            s.set_at((x + vento, y - 3), VERDE_SOL)
+    # Detalhes raros: trevo, pedrinha ou florzinha branca
+    extra = semente % 4
+    tx, ty = rng.randrange(2, TILE - 3), rng.randrange(2, TILE - 3)
+    if extra == 1:
+        for dx, dy in ((0, 0), (1, 0), (0, 1)):
+            s.set_at((tx + dx, ty + dy), (60, 140, 60))
+        s.set_at((tx + 1, ty + 1), (110, 190, 90))
+    elif extra == 2:
+        s.set_at((tx, ty), (150, 150, 140))
+        s.set_at((tx + 1, ty), (120, 120, 116))
+        s.set_at((tx, ty - 1), (196, 196, 186))
+    elif extra == 3:
+        s.set_at((tx, ty), (250, 250, 240))
+        s.set_at((tx, ty + 1), (52, 120, 52))
     return s
 
 
 def _flores(vento=0):
+    """Canteiro de flores silvestres: três cachos coloridos com caule e folhas."""
     rng = random.Random(42)
     s = _grama(99, max(0, vento))
     paletas_flor = [
-        ((255, 250, 240), (220, 195, 180), (255, 210, 65)),  # margarida alva
-        ((255, 145, 190), (205, 85, 135), (255, 225, 90)),   # rosa silvestre
-        ((165, 185, 255), (105, 125, 215), (255, 235, 120)), # flor azul de mana
+        ((255, 250, 240), (214, 198, 196), (255, 210, 65)),   # margarida
+        ((255, 140, 186), (200, 78, 130), (255, 228, 120)),   # rosa silvestre
+        ((150, 176, 255), (96, 116, 214), (255, 240, 140)),   # flor azul de mana
+        ((255, 200, 80), (214, 140, 40), (255, 250, 200)),    # dente-de-leão
     ]
-    for i in range(3):
-        x, y = rng.randrange(3, TILE - 3), rng.randrange(3, TILE - 3)
-        petala, sombra_p, miolo = paletas_flor[i % len(paletas_flor)]
+    for i, (x, y) in enumerate(((4, 5), (11, 4), (7, 11))):
+        x += rng.randint(-1, 1)
+        petala, sombra_p, miolo = paletas_flor[(i + rng.randrange(4)) % len(paletas_flor)]
         cx = max(2, min(TILE - 3, x + vento))
-        # Caule e folhinhas na base
-        s.set_at((x, min(TILE - 1, y + 2)), (38, 94, 46))
-        s.set_at((max(0, x - 1), min(TILE - 1, y + 2)), (58, 132, 56))
-        # Pétalas sombreadas e iluminadas
-        s.set_at((cx - 1, y), petala)
-        s.set_at((cx + 1, y), sombra_p)
-        s.set_at((cx, y - 1), petala)
-        s.set_at((cx, y + 1), sombra_p)
+        # Caule e folhinhas
+        pygame.draw.line(s, (38, 94, 46), (x, y + 2), (cx, y + 1))
+        s.set_at((max(0, x - 1), min(TILE - 1, y + 3)), (70, 150, 60))
+        s.set_at((min(TILE - 1, x + 1), min(TILE - 1, y + 3)), (58, 132, 56))
+        # Cinco pétalas sombreadas e miolo
+        for dx, dy, cor in ((-1, 0, petala), (1, 0, sombra_p), (0, -1, petala), (0, 1, sombra_p), (-1, -1, petala)):
+            s.set_at((cx + dx, y + dy), cor)
         s.set_at((cx, y), miolo)
     return s
 
 
 def _caminho():
+    """Estrada de terra batida com sulcos de carroça, pedriscos e seixos chanfrados."""
     rng = random.Random(5)
     s = pygame.Surface((TILE, TILE))
-    s.fill((198, 164, 114))
-    # Textura de terra batida e pedrinhas de calçamento (estilo Zelda ALttP)
-    for _ in range(18):
-        cor = rng.choice([(176, 142, 94), (186, 152, 102), (214, 182, 132)])
-        s.set_at((rng.randrange(TILE), rng.randrange(TILE)), cor)
-    pedras = [(2, 3, 4, 3), (9, 2, 5, 3), (4, 9, 5, 4), (11, 10, 3, 3), (1, 12, 3, 2)]
-    for px, py, pl, pa in pedras:
-        pygame.draw.rect(s, (164, 130, 84), (px, py, pl, pa))
-        pygame.draw.line(s, (226, 198, 150), (px, py), (px + pl - 2, py))
-        s.set_at((px, py + 1), (226, 198, 150))
+    s.fill((200, 166, 116))
+    for y in range(TILE):
+        for x in range(TILE):
+            r = (x * 7 + y * 13) % 17
+            if r == 0:
+                s.set_at((x, y), (180, 146, 98))
+            elif r == 5:
+                s.set_at((x, y), (216, 184, 134))
+    # Sulcos suaves
+    for x in (4, 11):
+        for y in range(TILE):
+            if (y + x) % 3:
+                s.set_at((x, y), (184, 150, 102))
+    # Seixos com luz e sombra
+    for px, py, larg in ((1, 2, 3), (8, 1, 2), (13, 6, 2), (6, 8, 3), (2, 12, 2), (10, 13, 3)):
+        pygame.draw.rect(s, (156, 124, 82), (px, py + 1, larg, 1))
+        pygame.draw.rect(s, (184, 156, 112), (px, py, larg, 1))
+        s.set_at((px, py), (236, 214, 170))
+    for _ in range(8):
+        s.set_at((rng.randrange(TILE), rng.randrange(TILE)), rng.choice([(172, 138, 92), (226, 196, 150)]))
     return s
 
 
 def _agua(fase=0):
-    rng = random.Random(8)
+    """Água cristalina: faixas de profundidade em diagonal, marolas e cintilações."""
     s = pygame.Surface((TILE, TILE))
-    s.fill((46, 108, 188))
-    # Camadas cristalinas de profundidade (safira -> turquesa)
-    for y in range(0, TILE, 2):
-        tom = (38, 94, 172) if (y // 2 + fase) % 3 == 0 else ((56, 124, 204) if (y // 2 + fase) % 2 == 0 else (46, 108, 188))
-        pygame.draw.line(s, tom, (0, y), (TILE - 1, y))
-    # Reflexos caústicos e marolas cintilantes
-    for i in range(5):
-        x_base, y_base = rng.randrange(0, TILE - 4), rng.randrange(1, TILE - 1)
-        x = (x_base + fase * 3 + i * 2) % (TILE - 4)
-        y = (y_base + (1 if (fase + i) % 2 else 0)) % (TILE - 1)
-        pygame.draw.line(s, (110, 188, 242), (x, y), (x + 3, y))
+    s.fill((48, 112, 192))
+    for y in range(TILE):
+        for x in range(TILE):
+            onda = (x + y * 2 + fase * 4) % 16
+            if onda < 2:
+                s.set_at((x, y), (40, 98, 178))
+            elif onda == 8:
+                s.set_at((x, y), (62, 134, 214))
+    # Marolas em forma de "~" que se deslocam com a fase
+    for i, (bx, by) in enumerate(((2, 3), (9, 7), (4, 12))):
+        x = (bx + fase * 2 + i) % (TILE - 4)
+        pygame.draw.line(s, (120, 194, 244), (x, by), (x + 1, by))
+        pygame.draw.line(s, (120, 194, 244), (x + 2, by - 1), (x + 3, by - 1))
         if (fase + i) % 2 == 0:
-            s.set_at((x + 1, y), (225, 250, 255))
+            s.set_at((x + 2, by - 1), (236, 252, 255))
+    # Cintilação
+    sx, sy = (5 + fase * 5) % TILE, (2 + fase * 3) % TILE
+    s.set_at((sx, sy), (255, 255, 255))
     return s
 
 
@@ -573,38 +607,44 @@ def _pedra():
 
 
 def _arvore(vento=0):
+    """Base da árvore: sombra da copa no chão, tronco com casca e raízes.
+
+    A copa volumosa é desenhada por cima em 3D (render3d.desenhar_copas_3d_arvores).
+    """
     s = _grama(7, max(0, vento))
-    # Sombra da copa no chão e raízes do tronco (Legend of Mana)
-    pygame.draw.ellipse(s, (32, 76, 42), (2, 11, 12, 5))
-    pygame.draw.rect(s, (78, 46, 28), (5, 10, 6, 5))
-    pygame.draw.line(s, (118, 74, 44), (6, 10), (6, 14))
-    pygame.draw.line(s, (138, 90, 54), (7, 11), (7, 13))
-    s.set_at((4, 14), (78, 46, 28))
-    s.set_at((11, 14), (58, 34, 20))
-    # Copa volumosa em 4 camadas de cor (sombra fria -> esmeralda -> topo dourado)
-    pygame.draw.circle(s, (26, 68, 44), (8 + vento, 7), 7)
-    pygame.draw.circle(s, (42, 108, 52), (8 + vento, 6), 6)
-    pygame.draw.circle(s, (72, 152, 64), (7 + vento, 5), 5)
-    pygame.draw.circle(s, (118, 192, 78), (6 + vento, 4), 3)
-    for lx, ly in ((5, 2), (7, 2), (4, 4), (9, 3)):
-        s.set_at((max(0, min(15, lx + vento)), ly), (168, 224, 104))
-    # Pequenos frutos rubros na copa
-    for fx, fy in ((10, 6), (5, 8)):
-        s.set_at((max(0, min(15, fx + vento)), fy), (230, 75, 70))
+    sombra = pygame.Surface((TILE, 6), pygame.SRCALPHA)
+    pygame.draw.ellipse(sombra, (20, 56, 34, 170), (0, 0, TILE, 6))
+    s.blit(sombra, (0, 10))
+    # Tronco com casca listrada e raízes abertas
+    pygame.draw.rect(s, (70, 42, 26), (5, 3, 6, 11))
+    pygame.draw.rect(s, (112, 70, 40), (6, 3, 3, 11))
+    pygame.draw.line(s, (146, 96, 56), (6, 3), (6, 13))
+    for y in (5, 8, 11):
+        s.set_at((8, y), (80, 48, 28))
+    for rx, ry, cor in ((3, 14, (70, 42, 26)), (4, 13, (98, 60, 34)), (12, 14, (58, 34, 20)), (11, 13, (82, 50, 28))):
+        s.set_at((rx, ry), cor)
+    # Copa baixa (também aparece por trás da copa 3D)
+    pygame.draw.circle(s, (30, 80, 44), (8 + vento, 4), 6)
+    pygame.draw.circle(s, (52, 122, 56), (7 + vento, 3), 4)
     return s
 
 
 def _arbusto(vento=0):
+    """Arbusto em cachos de folhas com contorno escuro, brilho e frutinhas."""
     s = _grama(13, max(0, vento))
-    pygame.draw.ellipse(s, (30, 74, 40), (2, 11, 12, 4))
-    pygame.draw.circle(s, (30, 86, 44), (8 + vento, 9), 6)
-    pygame.draw.circle(s, (56, 136, 56), (8 + vento, 8), 5)
-    pygame.draw.circle(s, (92, 174, 72), (7 + vento, 7), 3)
-    for px, py in ((5, 6), (9, 5), (6, 8), (10, 8)):
-        s.set_at((max(0, min(15, px + vento)), py), (148, 212, 94))
-    # Frutinhas silvestres no arbusto
-    s.set_at((max(0, min(15, 6 + vento)), 10), (235, 85, 95))
-    s.set_at((max(0, min(15, 10 + vento)), 9), (235, 85, 95))
+    sombra = pygame.Surface((TILE, 5), pygame.SRCALPHA)
+    pygame.draw.ellipse(sombra, (20, 56, 34, 170), (1, 0, TILE - 2, 5))
+    s.blit(sombra, (0, 11))
+    for cx, cy, r in ((5, 9, 4), (11, 9, 4), (8, 6, 5)):
+        pygame.draw.circle(s, (22, 62, 36), (cx + vento, cy), r + 1)
+    for cx, cy, r in ((5, 9, 4), (11, 9, 4), (8, 6, 5)):
+        pygame.draw.circle(s, (48, 122, 54), (cx + vento, cy), r)
+        pygame.draw.circle(s, (78, 160, 66), (cx - 1 + vento, cy - 1), max(1, r - 2))
+    for px, py in ((6, 4), (9, 3), (4, 7), (11, 7), (7, 6)):
+        s.set_at((max(0, min(15, px + vento)), py), (156, 216, 98))
+    s.set_at((max(0, min(15, 6 + vento)), 10), (235, 70, 84))
+    s.set_at((max(0, min(15, 10 + vento)), 8), (235, 70, 84))
+    s.set_at((max(0, min(15, 10 + vento)), 7), (255, 170, 170))
     return s
 
 
@@ -639,6 +679,29 @@ def _parede():
     pygame.draw.line(s, (144, 148, 162), (1, 12), (14, 12))
     pygame.draw.line(s, (68, 70, 82), (7, 12), (7, 15))
     pygame.draw.line(s, (48, 46, 58), (0, 15), (15, 15))
+    return s
+
+
+def _parede_interna():
+    """Parede de dentro das casas: lambris de madeira, faixa de papel de parede e rodapé."""
+    s = pygame.Surface((TILE, TILE))
+    s.fill((124, 78, 48))
+    # Papel de parede com padrão de losangos na parte de cima
+    pygame.draw.rect(s, (176, 140, 104), (0, 0, TILE, 7))
+    for x in range(0, TILE, 4):
+        s.set_at((x + 1, 2), (150, 100, 80))
+        s.set_at((x + 2, 3), (150, 100, 80))
+        s.set_at((x + 1, 4), (150, 100, 80))
+        s.set_at((x, 3), (150, 100, 80))
+    # Moldura de madeira
+    pygame.draw.line(s, (196, 146, 90), (0, 7), (TILE - 1, 7))
+    pygame.draw.line(s, (70, 40, 24), (0, 8), (TILE - 1, 8))
+    # Lambris com tábuas verticais
+    for x in (0, 5, 10, 15):
+        pygame.draw.line(s, (90, 54, 32), (x, 9), (x, 14))
+        if x + 1 < TILE:
+            pygame.draw.line(s, (150, 98, 60), (x + 1, 9), (x + 1, 14))
+    pygame.draw.line(s, (52, 30, 18), (0, 15), (TILE - 1, 15))
     return s
 
 
@@ -777,6 +840,7 @@ class Graficos:
             "arbusto": carregar("arbusto", _arbusto),
             "piso": carregar("piso", _piso),
             "parede": carregar("parede", _parede),
+            "parede_interna": carregar("parede_interna", _parede_interna),
             "telhado": carregar("telhado", _telhado),
             "cama": carregar("cama", _cama),
             "mesa": carregar("mesa", _mesa),

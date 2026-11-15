@@ -313,8 +313,54 @@ def desenhar_relevo_3d_mapa(nivel, tela, ox, oy, tempo):
             pygame.draw.line(tela, cor_quina if c == "#" else cor_borda, p_t01, p_t11)
 
 
+_COPAS = []
+
+
+def _gerar_copas():
+    """Três variações de copa (carvalho redondo, árvore frutífera e pinheiro) em pixel art."""
+    import random as _r
+    copas = []
+    for variante in range(3):
+        rng = _r.Random(variante * 17 + 3)
+        s = pygame.Surface((24, 24), pygame.SRCALPHA)
+        if variante == 2:
+            # Pinheiro: três camadas triangulares
+            for i, (larg, y) in enumerate(((20, 14), (16, 9), (10, 4))):
+                pts = [(12 - larg // 2, y + 8), (12 + larg // 2, y + 8), (12, y - 2)]
+                pygame.draw.polygon(s, (20, 66, 46), pts)
+                pygame.draw.polygon(s, (36, 104, 62), [(12 - larg // 2 + 2, y + 7), (12, y + 7), (12, y)])
+                pygame.draw.polygon(s, (58, 132, 72), [(12, y + 7), (12 + larg // 2 - 2, y + 7), (12, y)])
+                pygame.draw.line(s, (120, 188, 104), (12 - larg // 2 + 3, y + 6), (12 - 1, y + 1))
+        else:
+            cachos = [(12, 13, 9), (7, 11, 6), (17, 11, 6), (12, 7, 7), (8, 15, 5), (16, 15, 5)]
+            for cx, cy, r in cachos:
+                pygame.draw.circle(s, (20, 58, 38), (cx, cy), r + 1)
+            for cx, cy, r in cachos:
+                pygame.draw.circle(s, (40, 110, 54), (cx, cy), r)
+            for cx, cy, r in cachos:
+                pygame.draw.circle(s, (74, 152, 66), (cx - 1, cy - 2), max(1, r - 3))
+            for _ in range(10):
+                x, y = rng.randrange(5, 19), rng.randrange(3, 14)
+                if s.get_at((x, y)).a:
+                    s.set_at((x, y), (150, 212, 98))
+            # Sombra interna na base da copa (volume)
+            for x in range(4, 21):
+                for y in range(16, 22):
+                    c = s.get_at((x, y))
+                    if c.a and c[:3] != (20, 58, 38):
+                        s.set_at((x, y), (30, 86, 48))
+            if variante == 1:
+                for fx, fy in ((8, 9), (15, 7), (17, 14), (10, 16)):
+                    s.set_at((fx, fy), (236, 72, 70))
+                    s.set_at((fx, fy - 1), (255, 170, 160))
+        copas.append(s)
+    return copas
+
+
 def desenhar_copas_3d_arvores(nivel, tela, ox, oy, tempo):
-    """Desenha uma segunda camada volumétrica de copa de árvore elevada em perspectiva 3D."""
+    """Desenha a copa volumosa das árvores elevada em perspectiva 3D, balançando ao vento."""
+    if not _COPAS:
+        _COPAS.extend(_gerar_copas())
     cx_ini = max(0, ox // TILE - 1)
     cy_ini = max(0, oy // TILE - 1)
     cx_fim = min(nivel.colunas, (ox + LARGURA) // TILE + 2)
@@ -326,13 +372,12 @@ def desenhar_copas_3d_arvores(nivel, tela, ox, oy, tempo):
             if linha[cx] != "T":
                 continue
             sx = cx * TILE - ox + 8
-            sy = cy * TILE - oy + 6
-            vento = math.sin(tempo * 2.6 - cx * 0.45 - cy * 0.25) * 1.4
+            sy = cy * TILE - oy + 4
+            vento = math.sin(tempo * 2.6 - cx * 0.45 - cy * 0.25) * 1.2
             px, py = projetar_ponto_3d(sx + vento, sy, 6.5)
-            ix, iy = round(px), round(py)
-            pygame.draw.circle(tela, (38, 102, 50), (ix, iy), 6)
-            pygame.draw.circle(tela, (76, 158, 66), (ix - 1, iy - 1), 4)
-            pygame.draw.circle(tela, (136, 204, 88), (ix - 2, iy - 2), 2)
+            sorteio = (cx * 7 + cy * 13) % 10
+            copa = _COPAS[2 if sorteio < 2 else (1 if sorteio < 4 else 0)]
+            tela.blit(copa, (round(px) - 12, round(py) - 14))
 
 
 def gerar_objetos_3d_nivel(nivel):
