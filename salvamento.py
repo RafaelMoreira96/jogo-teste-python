@@ -1,26 +1,131 @@
-"""Sistema de Salvamento e Carregamento de Progresso (Save Game)."""
+"""Sistema de Salvamento e Carregamento de Progresso com Múltiplos Slots (Save Game)."""
+from datetime import datetime
 import json
 from pathlib import Path
 
 from settings import PASTA_BASE, VIDA_MAXIMA
 
+NUM_SLOTS = 3
 
-ARQUIVO_SAVE = PASTA_BASE / "savegame.json"
+
+def caminho_slot(slot=1):
+    slot = max(1, min(NUM_SLOTS, int(slot)))
+    return PASTA_BASE / f"savegame_{slot}.json"
 
 
-def existe_save():
-    return ARQUIVO_SAVE.exists()
+def _migrar_save_legado():
+    """Migra savegame.json antigo para savegame_1.json de forma transparente."""
+    legado = PASTA_BASE / "savegame.json"
+    destino = caminho_slot(1)
+    if legado.exists() and not destino.exists():
+        try:
+            destino.write_bytes(legado.read_bytes())
+        except OSError:
+            pass
+
+
+_migrar_save_legado()
+ARQUIVO_SAVE = caminho_slot(1)
+
+
+def existe_save(slot=None):
+    """Verifica se há savegame em um slot específico ou em qualquer um dos slots."""
+    _migrar_save_legado()
+    if slot is not None:
+        return caminho_slot(slot).exists()
+    return any(caminho_slot(s).exists() for s in range(1, NUM_SLOTS + 1))
+
+
+def apagar_slot(slot):
+    """Exclui o arquivo do slot especificado."""
+    caminho = caminho_slot(slot)
+    if caminho.exists():
+        try:
+            caminho.unlink()
+            return True
+        except OSError:
+            return False
+    return False
 
 
 def apagar_save():
-    if ARQUIVO_SAVE.exists():
-        ARQUIVO_SAVE.unlink(missing_ok=True)
+    """Apaga o slot 1 (compatibilidade com chamadas legadas)."""
+    return apagar_slot(1)
 
 
-def salvar_jogo(jogo):
-    """Salva o estado atual do jogador, atributos de RPG, chefes derrotados e mapa."""
+def copiar_slot(origem, destino):
+    """Duplica os dados de um save de um slot para outro."""
+    c_origem = caminho_slot(origem)
+    if not c_origem.exists():
+        return False
+    c_destino = caminho_slot(destino)
+    try:
+        dados = json.loads(c_origem.read_text(encoding="utf-8"))
+        dados["slot"] = destino
+        dados["data_salvamento"] = datetime.now().strftime("%d/%m %H:%M")
+        temp_path = c_destino.with_suffix(".tmp")
+        with open(temp_path, "w", encoding="utf-8") as f:
+            json.dump(dados, f, indent=2, ensure_ascii=False)
+        temp_path.replace(c_destino)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def ler_resumo_slot(slot):
+    """Lê metadados resumidos de um slot para exibição rápida nos menus."""
+    caminho = caminho_slot(slot)
+    if not caminho.exists():
+        return None
+    try:
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+    rpg = dados.get("rpg", {})
+    nome_mapa = "Lugar desconhecido"
+    try:
+        texto_mapa = (PASTA_BASE / dados.get("mapa", "")).read_text(encoding="utf-8")
+        for linha in texto_mapa.splitlines():
+            if linha.strip().startswith("nome") and "=" in linha:
+                nome_mapa = linha.split("=", 1)[1].strip()
+                break
+    except OSError:
+        pass
+
+    chefes_derrotados = rpg.get("chefes_derrotados", [])
+    reliquias = len(rpg.get("reliquias_coletadas", [])) + len(rpg.get("reliquias_entregues", []))
+    flags = dados.get("flags", [])
+    conquistas = dados.get("conquistas", [])
+    jogo_zerado = bool(dados.get("jogo_zerado") or "vitoria_final" in flags or "vitoria_final" in conquistas)
+
+    return {
+        "slot": slot,
+        "local": nome_mapa,
+        "nivel": rpg.get("nivel", 1),
+        "vida": dados.get("vida", 6),
+        "vida_maxima": dados.get("vida_maxima", 6),
+        "chefes": len(chefes_derrotados),
+        "reliquias": reliquias,
+        "ouro": rpg.get("ouro", 0),
+        "jogo_zerado": jogo_zerado,
+        "data": dados.get("data_salvamento", "--/-- --:--"),
+    }
+
+
+def salvar_jogo(jogo, slot=None):
+    """Salva o estado atual do jogador, atributos de RPG, chefes derrotados e mapa no slot especificado."""
+    if slot is None:
+        slot = getattr(jogo, "slot_salvo", 1)
+    slot = max(1, min(NUM_SLOTS, int(slot)))
+    jogo.slot_salvo = slot
+
+    data_str = datetime.now().strftime("%d/%m %H:%M")
+
     dados = {
         "versao": 1,
+        "slot": slot,
+        "data_salvamento": data_str,
         "mapa": str(jogo.nivel.caminho.resolve().relative_to(PASTA_BASE.resolve())),
         "pos_x": jogo.jogador.rect.centerx,
         "pos_y": jogo.jogador.rect.bottom,
@@ -59,25 +164,31 @@ def salvar_jogo(jogo):
     }
 
     jogo.conquistas.desbloquear("salvador_ancestral", jogo)
-    temp_path = ARQUIVO_SAVE.with_suffix(".tmp")
+    caminho = caminho_slot(slot)
+    temp_path = caminho.with_suffix(".tmp")
     with open(temp_path, "w", encoding="utf-8") as f:
         json.dump(dados, f, indent=2, ensure_ascii=False)
-    temp_path.replace(ARQUIVO_SAVE)
+    temp_path.replace(caminho)
     return True
 
 
-def carregar_jogo(app):
-    """Carrega o progresso salvo e devolve uma instância pronta de Jogo."""
-    if not existe_save():
+def carregar_jogo(app, slot=1):
+    """Carrega o progresso salvo do slot e devolve uma instância pronta de Jogo."""
+    _migrar_save_legado()
+    slot = max(1, min(NUM_SLOTS, int(slot)))
+    caminho = caminho_slot(slot)
+    if not caminho.exists():
         return None
 
     try:
-        with open(ARQUIVO_SAVE, "r", encoding="utf-8") as f:
+        with open(caminho, "r", encoding="utf-8") as f:
             dados = json.load(f)
 
         from cenas.jogo import Jogo
 
-        jogo = Jogo(app, dialogo_inicial=None)
+        jogo = Jogo(app, dialogo_inicial=None, slot_salvo=slot)
+        jogo.slot_salvo = slot
+
         rpg_dados = dados.get("rpg", {})
         jogo.rpg.nivel = rpg_dados.get("nivel", 1)
         jogo.rpg.xp = rpg_dados.get("xp", 0)
@@ -136,5 +247,5 @@ def carregar_jogo(app):
 
         return jogo
     except Exception as e:
-        print(f"Erro ao carregar save: {e}")
+        print(f"Erro ao carregar save slot {slot}: {e}")
         return None

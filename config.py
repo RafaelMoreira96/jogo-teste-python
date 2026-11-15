@@ -40,15 +40,17 @@ def jogo_foi_zerado(app=None):
     if cfg.get("jogo_zerado", False):
         return True
 
-    # Verifica se há save com vitória final ou conquista correspondente
-    save_path = PASTA_BASE / "savegame.json"
-    if save_path.exists():
-        try:
-            dados = json.loads(save_path.read_text(encoding="utf-8"))
-            if "vitoria_final" in dados.get("flags", []) or "vitoria_final" in dados.get("conquistas", []):
-                return True
-        except (OSError, ValueError):
-            pass
+    # Verifica se há save com vitória final ou conquista correspondente em qualquer slot
+    from salvamento import NUM_SLOTS, caminho_slot
+    for s in range(1, NUM_SLOTS + 1):
+        c = caminho_slot(s)
+        if c.exists():
+            try:
+                dados = json.loads(c.read_text(encoding="utf-8"))
+                if dados.get("jogo_zerado") or "vitoria_final" in dados.get("flags", []) or "vitoria_final" in dados.get("conquistas", []):
+                    return True
+            except (OSError, ValueError):
+                pass
     return False
 
 

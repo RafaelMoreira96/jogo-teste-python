@@ -109,8 +109,9 @@ CORES_CLARAO = {
 
 
 class Jogo(Cena):
-    def __init__(self, app, dialogo_inicial="inicio", modo_chefe=None):
+    def __init__(self, app, dialogo_inicial="inicio", modo_chefe=None, slot_salvo=1):
         super().__init__(app)
+        self.slot_salvo = slot_salvo or 1
         # Modo Chefões: {"chefe", "nivel", "dificuldade"} (None no modo história)
         self.modo_chefe = modo_chefe
         if modo_chefe:

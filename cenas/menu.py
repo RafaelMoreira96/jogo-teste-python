@@ -274,11 +274,11 @@ class MenuPrincipal(Cena):
             audio.sfx("menu_confirmar")
 
         if escolha == "Continuar":
-            from salvamento import carregar_jogo
-            salvo = carregar_jogo(self.app)
-            self.app.trocar(salvo if salvo else Jogo(self.app))
+            from cenas.slots_save import CenaSlotsSave
+            self.app.trocar(CenaSlotsSave(self.app, modo="carregar"))
         elif escolha == "Novo jogo":
-            self.app.trocar(Jogo(self.app))
+            from cenas.slots_save import CenaSlotsSave
+            self.app.trocar(CenaSlotsSave(self.app, modo="novo"))
         elif escolha == "Modo Chefões":
             from cenas.modo_chefes import SelecaoChefes
             self.app.trocar(SelecaoChefes(self.app))

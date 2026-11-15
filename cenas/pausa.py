@@ -67,9 +67,10 @@ class Pausa(Cena):
                 self.app.desempilhar()
             elif escolha == "Salvar Jogo" and self.jogo is not None:
                 salvar_jogo(self.jogo)
+                slot = getattr(self.jogo, "slot_salvo", 1)
                 if audio:
                     audio.sfx("salvar")
-                self.msg_salvo = "Jogo Salvo com Sucesso!"
+                self.msg_salvo = f"Progresso Salvo no Arquivo {slot}!"
                 self.tempo_msg = 2.5
             elif escolha == "Missões" and self.jogo is not None:
                 if audio:
