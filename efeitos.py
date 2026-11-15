@@ -1158,6 +1158,8 @@ class MonolitoTeleporte:
                 p.vel = pygame.Vector2(random.uniform(-40, 40), random.uniform(-55, -15))
                 self.particulas.append(p)
             jogo.conquistas.desbloquear("viajante_astral", jogo)
+            if hasattr(jogo, "definir_checkpoint"):
+                jogo.definir_checkpoint(jogo.nivel.caminho, (self.pos.x, self.pos.y + 16), "baixo", f"Monólito: {self.nome_regiao}", notificar=True)
 
         # Partículas contínuas se ativo
         if esta_desperto:

@@ -135,6 +135,7 @@ def salvar_jogo(jogo, slot=None):
         "direcao": jogo.jogador.direcao,
         "vida": jogo.jogador.vida,
         "vida_maxima": jogo.jogador.vida_maxima,
+        "checkpoint": getattr(jogo, "checkpoint", None),
         "mapas_visitados": list(jogo.mapas_visitados),
         "flags": list(jogo.flags),
         "jogo_zerado": "vitoria_final" in jogo.flags or "vitoria_final" in getattr(jogo.conquistas, "desbloqueadas", set()),
@@ -253,6 +254,13 @@ def carregar_jogo(app, slot=1):
         jogo.jogador.direcao = dados.get("direcao", "baixo")
         jogo.jogador.vida = min(dados.get("vida", VIDA_MAXIMA), jogo.vida_max_total())
         jogo.camera.centralizar(jogo.jogador.rect)
+
+        # Checkpoint restaurado da sessão
+        chk = dados.get("checkpoint")
+        if chk and isinstance(chk, dict):
+            jogo.checkpoint = dict(chk)
+        else:
+            jogo.definir_checkpoint(caminho_mapa, (px, py), jogo.jogador.direcao, getattr(jogo.nivel, "nome", "Retorno Salvo"))
 
         # Transição fade-in suave ao carregar
         jogo.fade_estado = "in"

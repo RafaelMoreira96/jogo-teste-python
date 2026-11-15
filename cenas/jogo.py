@@ -43,9 +43,10 @@ from npc import NPC
 from player import VETORES, Jogador
 from rpg import LISTA_CHEFES_PROGRESSAO, OndaMagica, ProjetilMagico, SistemaRPG, TextoFlutuante
 from salvamento import salvar_jogo
-from ui import desenhar_texto
+from ui import CINZA, desenhar_painel, desenhar_texto, escurecer
 
 ELEMENTO_POR_CHEFE = {c[0]: c[5] for c in LISTA_CHEFES_PROGRESSAO}
+EH_ARENA_CHEFE = {c[3] for c in LISTA_CHEFES_PROGRESSAO} | {"coliseu_eras.txt"}
 from settings import (
     ALTURA,
     ARQUIVO_HISTORIA,
@@ -189,6 +190,14 @@ class Jogo(Cena):
         self.apresentacao_chefe = None
         self.feixe_teleporte = None
 
+        # Sistema de Checkpoints de Renascimento (evita retorno ao início na morte)
+        self.checkpoint = {
+            "mapa": "maps/mundo.txt",
+            "pos": (14 * 16, 15 * 16),
+            "direcao": "baixo",
+            "nome_local": "Floresta Esmeralda",
+        }
+
         if modo_chefe:
             self._preparar_modo_chefe()
             return
@@ -314,8 +323,85 @@ class Jogo(Cena):
         if audio and usar_porta:
             audio.sfx("porta")
 
+    def definir_checkpoint(self, caminho_mapa, pos, direcao="baixo", nome_local=None, notificar=False):
+        """Atualiza o ponto de renascimento do jogador para evitar retorno ao início."""
+        if not caminho_mapa:
+            return
+        if hasattr(caminho_mapa, "resolve"):
+            try:
+                caminho_rel = str(caminho_mapa.resolve().relative_to(PASTA_BASE.resolve()))
+            except ValueError:
+                caminho_rel = str(caminho_mapa)
+        else:
+            caminho_rel = str(caminho_mapa)
+
+        if not nome_local:
+            nome_local = getattr(getattr(self, "nivel", None), "nome", "Posto Avançado")
+
+        self.checkpoint = {
+            "mapa": caminho_rel,
+            "pos": (round(pos[0]), round(pos[1])),
+            "direcao": direcao,
+            "nome_local": nome_local,
+        }
+
+        if notificar:
+            self.aviso_mapa = f"🚩 Checkpoint: {nome_local}"
+            self.tempo_aviso_mapa = 3.0
+
+    def renascer_no_checkpoint(self):
+        """Ressuscita o herói no último checkpoint ativo sem reiniciar o progresso."""
+        chk = getattr(self, "checkpoint", None)
+        if not chk:
+            chk = {
+                "mapa": "maps/mundo.txt",
+                "pos": (14 * 16, 15 * 16),
+                "direcao": "baixo",
+                "nome_local": "Floresta Esmeralda",
+            }
+
+        # Restaura vitalidade e mana
+        self.jogador.vida = self.vida_max_total()
+        self.rpg.mana = self.rpg.mana_maxima
+        self.jogador.invulneravel = 2.0
+        self.estado = "jogando"
+
+        # Carrega o mapa do checkpoint
+        caminho_mapa = PASTA_BASE / chk["mapa"]
+        if not caminho_mapa.exists():
+            caminho_mapa = PASTA_BASE / "maps" / "mundo.txt"
+
+        self.trocar_mapa(caminho_mapa, usar_porta=False, tocar_sfx_porta=False)
+        px, py = chk["pos"]
+        self.jogador.posicionar(px, py)
+        self.jogador.direcao = chk.get("direcao", "baixo")
+        self.camera.centralizar(self.jogador.rect)
+
+        # Efeitos visuais e sonoros de ressurreição
+        self.fade_estado = "in"
+        self.fade_alfa = 1.0
+        self.clarao = 0.55
+        self.cor_clarao = (150, 235, 255)
+        self.ondas.append(OndaMagica((px, py - 6), 42, (120, 230, 255), 0.5))
+        self.textos_flutuantes.append(TextoFlutuante((px, py - 18), "Ressuscitado!", (110, 255, 180)))
+        self.aviso_mapa = f"🚩 Ponto de Retorno: {chk.get('nome_local', 'Checkpoint')}"
+        self.tempo_aviso_mapa = 3.5
+
+        audio = getattr(self.app, "audio", None)
+        if audio:
+            audio.sfx("teleporte")
+            audio.tocar_bgm_mapa(self.nivel.caminho.name)
+
     def trocar_mapa(self, caminho, usar_porta=True, tocar_sfx_porta=True):
         origem = self.nivel.caminho if hasattr(self, "nivel") else None
+
+        # Se estiver entrando numa arena de chefe, registra o checkpoint fora da porta na origem
+        if origem is not None and caminho.name in EH_ARENA_CHEFE and origem.name not in EH_ARENA_CHEFE:
+            pos_porta = (self.jogador.rect.centerx, self.jogador.rect.bottom)
+            dados_dest = self._carregar_mapa(caminho)
+            nome_arena = getattr(dados_dest["nivel"], "nome", "Covil do Guardião")
+            self.definir_checkpoint(origem, pos_porta, self.jogador.direcao, f"Entrada: {nome_arena}")
+
         dados = self._carregar_mapa(caminho)
         self.nivel = dados["nivel"]
 
@@ -405,6 +491,9 @@ class Jogo(Cena):
         self.jogador.tempo_empurrao = 0.0
         self.camera = Camera(self.nivel.largura_px, self.nivel.altura_px)
         self.camera.centralizar(self.jogador.rect)
+
+        if self.nivel.caminho.name not in EH_ARENA_CHEFE and self.nivel.caminho.name != "casa.txt":
+            self.definir_checkpoint(self.nivel.caminho, (x, y), self.jogador.direcao, self.nivel.nome)
 
         if self.nivel.caminho.name == "santuario.txt" and "santuario_desperto" not in self.flags and not self.em_abertura:
             self.iniciar_dialogo("cutscene_despertar_santuario", opcional=True)
@@ -1022,8 +1111,12 @@ class Jogo(Cena):
                 elif entrada.apertou("voltar") or entrada.apertou("pausa"):
                     from cenas.modo_chefes import SelecaoChefes
                     self.app.trocar(SelecaoChefes(self.app, self.modo_chefe.get("indice_selecao", 0)))
-            elif entrada.apertou("confirmar"):
-                self.app.trocar(Jogo(self.app))
+            else:
+                if entrada.apertou("confirmar") or entrada.apertou("acao"):
+                    self.renascer_no_checkpoint()
+                elif entrada.apertou("voltar") or entrada.apertou("pausa"):
+                    from cenas.menu import MenuPrincipal
+                    self.app.trocar(MenuPrincipal(self.app, pular_abertura=True))
             return
 
         jogador = self.jogador
@@ -1147,6 +1240,7 @@ class Jogo(Cena):
                 break
 
         if ponto_salve and (entrada.apertou("acao") or entrada.apertou("confirmar")):
+            self.definir_checkpoint(self.nivel.caminho, (ponto_salve[0], ponto_salve[1] + 14), "baixo", f"Altar: {self.nivel.nome}")
             salvar_jogo(self)
             self.jogador.vida = self.vida_max_total()
             self.rpg.mana = self.rpg.mana_maxima
@@ -1687,7 +1781,8 @@ class Jogo(Cena):
         elif self.estado == "derrota" and self.modo_chefe:
             desenhar_mensagem(tela, fonte, "DERROTA", "Enter: tentar de novo   Esc: escolher chefe")
         elif self.estado == "derrota":
-            desenhar_mensagem(tela, fonte, "GAME OVER", "Enter / A para tentar de novo")
+            chk_nome = self.checkpoint.get("nome_local", "Ponto Seguro") if hasattr(self, "checkpoint") else "Ponto de Retorno"
+            self._desenhar_tela_derrota(tela, fonte, chk_nome)
 
         if self.fade_alfa > 0:
             alfa_fade = int(min(1.0, self.fade_alfa) * 255)
@@ -1697,6 +1792,28 @@ class Jogo(Cena):
 
         # Notificações de Conquistas em primeiro plano
         self.conquistas.desenhar(tela, fonte, no_topo=self.dialogo is not None)
+
+    def _desenhar_tela_derrota(self, tela, fonte, nome_checkpoint):
+        escurecer(tela, 220)
+        larg_painel = 210
+        alt_painel = 66
+        painel = pygame.Rect(LARGURA // 2 - larg_painel // 2, ALTURA // 2 - alt_painel // 2, larg_painel, alt_painel)
+        desenhar_painel(tela, painel, "magico", alfa=245)
+        pygame.draw.rect(tela, (230, 70, 70), painel, 1)
+
+        pulso = int(math.sin(self.tempo_cenario * 6.0) * 20)
+        cor_titulo = (255, 60 + pulso, 60)
+        desenhar_texto(tela, fonte, "FIM DE JORNADA", (LARGURA // 2, painel.y + 10), cor_titulo, centro=True)
+
+        txt_chk = f"Ponto de Retorno: {nome_checkpoint}"
+        if fonte.size(txt_chk)[0] > larg_painel - 16:
+            txt_chk = txt_chk[:28] + "..."
+        desenhar_texto(tela, fonte, txt_chk, (LARGURA // 2, painel.y + 24), (180, 225, 255), centro=True)
+
+        pygame.draw.line(tela, (65, 75, 110), (painel.x + 12, painel.y + 36), (painel.right - 12, painel.y + 36))
+
+        desenhar_texto(tela, fonte, "Enter / Espaço: Renascer no Checkpoint", (LARGURA // 2, painel.y + 44), (255, 235, 130), centro=True)
+        desenhar_texto(tela, fonte, "Esc: Menu Principal", (LARGURA // 2, painel.y + 55), CINZA, centro=True)
 
     # ------------------------------------------------------------ bússola
     def _grafo_portas(self):
