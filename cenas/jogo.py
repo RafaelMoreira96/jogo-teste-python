@@ -1117,6 +1117,11 @@ class Jogo(Cena):
             return
 
         if not self.dialogo and self.estado == "jogando":
+            # Failsafe: restaura pose normal do jogador caso uma cutscene tenha terminado em pose especial
+            if self.jogador.pose not in ("normal", "dormir"):
+                self.jogador.definir_pose("normal")
+                self.efeito_ativo = None
+
             if entrada.apertou("mapa") and not self.modo_chefe:
                 self.app.empilhar(MapaMundo(self.app, self))
                 return
@@ -1153,6 +1158,10 @@ class Jogo(Cena):
             self.dialogo.atualizar(dt, entrada)
             if self.dialogo.terminou:
                 self.dialogo = None
+                self.alvo_camera = None
+                self.efeito_ativo = None
+                if self.jogador.pose not in ("normal", "dormir"):
+                    self.jogador.definir_pose("normal")
                 if self.em_abertura:
                     self.em_abertura = False
                     if hasattr(self.app, "audio"):

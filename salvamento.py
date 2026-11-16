@@ -260,6 +260,9 @@ def carregar_jogo(app, slot=1):
         py = dados.get("pos_y", jogo.jogador.rect.bottom)
         jogo.jogador.posicionar(px, py)
         jogo.jogador.direcao = dados.get("direcao", "baixo")
+        jogo.jogador.definir_pose("normal")
+        jogo.efeito_ativo = None
+        jogo.alvo_camera = None
         jogo.jogador.vida = min(dados.get("vida", VIDA_MAXIMA), jogo.vida_max_total())
         jogo.camera.centralizar(jogo.jogador.rect)
 

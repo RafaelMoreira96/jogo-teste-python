@@ -219,7 +219,7 @@ Ancião da Vila: Que a Luz Ancestral guie seus passos, jovem campeão!
 @tremer 5 1.5
 @pose heroi assustar
 - Uma tempestade de relâmpagos púrpuras rasga o horizonte acima do Santuário Sombrio...
-@camera 160 50
+@camera 24 6
 @esperar 1.0
 @efeito fogo heroi
 Voz das Sombras: MORTAL INSIGNIFICANTE... OS QUATRO SELOS FORAM QUEBRADOS!
@@ -229,6 +229,9 @@ Voz das Sombras: O APOCALIPSE NÃO PODE MAIS SER CONTIDO POR SUAS MÃOS FRÁGEIS
 @camera heroi
 @pose heroi poder
 Herói: Enquanto esta lâmina brilhar, o reino de Valoria não cairá nas trevas!
+@pose heroi normal
+@efeito parar
+@camera heroi
 @marcar santuario_desperto
 
 === florista_vila
