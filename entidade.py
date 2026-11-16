@@ -136,9 +136,11 @@ class Entidade:
                     bateu = True
 
         if hasattr(nivel, "largura_px") and hasattr(nivel, "altura_px"):
-            self.rect.left = max(0, min(self.rect.left, nivel.largura_px - self.rect.width))
-            self.rect.top = max(0, min(self.rect.top, nivel.altura_px - self.rect.height))
-            self.pos.update(self.rect.topleft)
+            max_x = max(0, nivel.largura_px - self.rect.width)
+            max_y = max(0, nivel.altura_px - self.rect.height)
+            self.pos.x = max(0.0, min(self.pos.x, float(max_x)))
+            self.pos.y = max(0.0, min(self.pos.y, float(max_y)))
+            self.rect.topleft = (round(self.pos.x), round(self.pos.y))
 
         return bateu
 

@@ -378,14 +378,26 @@ def silhueta_branca(surf):
 
 # ---------------------------------------------------------------- folhas
 def _fatiar_personagem(folha):
-    """Corta a folha em {direcao: [quadros]}; esquerda é a direita espelhada."""
+    """Corta a folha em {direcao: [quadros]} nos 8 eixos; esquerdas são espelhadas."""
     quadros = {}
-    for linha, direcao in enumerate(("baixo", "cima", "direita")):
+    linhas_disp = folha.get_height() // QUADRO
+    direcoes_folha = ("baixo", "cima", "direita", "baixo_direita", "cima_direita")[:linhas_disp]
+    for linha, direcao in enumerate(direcoes_folha):
         quadros[direcao] = [
             folha.subsurface((c * QUADRO, linha * QUADRO, QUADRO, QUADRO))
             for c in range(QUADROS_POR_LINHA)
         ]
     quadros["esquerda"] = [pygame.transform.flip(q, True, False) for q in quadros["direita"]]
+    if "baixo_direita" in quadros:
+        quadros["baixo_esquerda"] = [pygame.transform.flip(q, True, False) for q in quadros["baixo_direita"]]
+    else:
+        quadros["baixo_direita"] = quadros["baixo"]
+        quadros["baixo_esquerda"] = [pygame.transform.flip(q, True, False) for q in quadros["baixo"]]
+    if "cima_direita" in quadros:
+        quadros["cima_esquerda"] = [pygame.transform.flip(q, True, False) for q in quadros["cima_direita"]]
+    else:
+        quadros["cima_direita"] = quadros["cima"]
+        quadros["cima_esquerda"] = [pygame.transform.flip(q, True, False) for q in quadros["cima"]]
     return quadros
 
 

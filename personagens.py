@@ -268,6 +268,58 @@ TUNICA_LADO = [
     "..vvccCcccCcC...",
     "..CCCCCCCCCCC...",
 ]
+HEROI_DIAG_FRENTE = [
+    "...hhhhiihhhhh..",
+    "..hhhiihhhhhihh.",
+    ".hhhiihhhhhhhhH.",
+    "HhhhhhHhhhhHhhHH",
+    "FFffffffffffFfHH",
+    "FffhfyfssssssffH",
+    "HHhhssHssssHssHH",
+    "HHhssewsssssewsS",
+    "HHhsseessssseesS",
+    "HHhssuusssssuusS",
+    ".Hhssrsssssssrs.",
+    "..HSsssssRRsssS.",
+    "...dSssssssssSd.",
+]
+HEROI_DIAG_COSTAS = [
+    "...hhhhiihhhh...",
+    "..hhhhiihhhhhh..",
+    ".hhhhhihhhhhhhh.",
+    "HhhhhhhhhhhhhhhH",
+    "FFffffffffffffFH",
+    "FffFFFFFFFFFffHH",
+    "HHhhhhhhhhhhhfHH",
+    "HHhhhHhhhhHhhssH",
+    "HHhhHHhhhhHHhssS",
+    "HHHhhHhhhhHhhssS",
+    ".HHhhHhhhhHhhss.",
+    "..HHhHhhhhHhHSs.",
+    "...HHdSsssssSd..",
+]
+TUNICA_DIAG_FRENTE = [
+    "...fffffYYfff...",
+    ".mMfffcvssvcfMm.",
+    ".bBckbbccccvckBb",
+    ".vckcvbbccccCkCC",
+    ".vckccccbyycckCC",
+    ".bbkbbbbbyybbkBB",
+    ".sskcccccyccCkSS",
+    "..vvcccCCycccCC.",
+    "..CCCCCCYCCCCCC.",
+]
+TUNICA_DIAG_COSTAS = [
+    "...fffffffff....",
+    ".mMffffffffFfMm.",
+    ".bBckffffffFkBb.",
+    "..vckffffffFkCC.",
+    "..vckcffffFFkCC.",
+    "..bbkbbbbbbbkBB.",
+    "..sskccccccckSS.",
+    "..vvcccCccccCC..",
+    "..CCCCCCCCCCCC..",
+]
 
 
 # ================================================================ 2. ALDEÃO / MERCADOR (Boina, bigode simpático, colete bordado)
@@ -888,13 +940,26 @@ def _sobrepor(base, camada):
 
 
 # ================================================================ catálogo de personagens
-def _direcoes(frente, costas, lado, pernas_frente=PERNAS_FRENTE, extras=None):
+def _direcoes(frente, costas, lado, pernas_frente=PERNAS_FRENTE, extras=None, diag_frente=None, diag_costas=None):
     extras = extras or {}
-    return {
+    res = {
         "baixo": {"partes": frente, "pernas": pernas_frente, "extras": extras.get("baixo", [])},
         "cima": {"partes": costas, "pernas": PERNAS_COSTAS, "extras": extras.get("cima", [])},
         "direita": {"partes": lado, "pernas": PERNAS_LADO, "extras": extras.get("direita", [])},
     }
+    if diag_frente is not None:
+        res["baixo_direita"] = {
+            "partes": diag_frente,
+            "pernas": pernas_frente,
+            "extras": extras.get("baixo_direita", extras.get("baixo", [])),
+        }
+    if diag_costas is not None:
+        res["cima_direita"] = {
+            "partes": diag_costas,
+            "pernas": PERNAS_COSTAS,
+            "extras": extras.get("cima_direita", extras.get("cima", [])),
+        }
+    return res
 
 
 PERSONAGENS = {
@@ -904,6 +969,8 @@ PERSONAGENS = {
             [corpo(TUNICA_FRENTE), cabeca(HEROI_FRENTE)],
             [corpo(TUNICA_COSTAS), cabeca(HEROI_COSTAS)],
             [corpo(TUNICA_LADO), cabeca(HEROI_LADO)],
+            diag_frente=[corpo(TUNICA_DIAG_FRENTE), cabeca(HEROI_DIAG_FRENTE)],
+            diag_costas=[corpo(TUNICA_DIAG_COSTAS), cabeca(HEROI_DIAG_COSTAS)],
         ),
     },
     "aldeao": {
@@ -1152,16 +1219,16 @@ def _desenhar(surf, parte, paleta, dy=0, direcao="baixo", quadro=0):
             ox, oy = 0, dy
             # Nos quadros de ataque (8..10), omite o braço em repouso que será desenhado empunhando a espada
             if tipo == "corpo" and quadro in (8, 9, 10):
-                if direcao == "baixo" and x <= 2 and y >= 2:
+                if direcao in ("baixo", "baixo_direita") and x <= 2 and y >= 2:
                     continue
-                if direcao == "cima" and x >= 13 and y >= 2:
+                if direcao in ("cima", "cima_direita") and x >= 13 and y >= 2:
                     continue
                 if direcao == "direita" and 7 <= x <= 9 and 5 <= y <= 6 and c in ("s", "S"):
                     continue
 
             # Balanço natural dos braços durante a caminhada (quadros 0..5)
             if tipo == "corpo" and 1 <= y <= 6:
-                if direcao in ("baixo", "cima"):
+                if direcao in ("baixo", "cima", "baixo_direita", "cima_direita"):
                     eh_braco_esq = x <= 2
                     eh_braco_dir = x >= 13
                     if quadro in (0, 1):
@@ -1176,14 +1243,14 @@ def _desenhar(surf, parte, paleta, dy=0, direcao="baixo", quadro=0):
 
             # Torção de tronco/cabeça nos quadros de ataque (8=preparação, 9=impacto, 10=finalização)
             if quadro == 8 and tipo in ("corpo", "cabeca"):
-                if direcao == "direita":
+                if direcao in ("direita", "baixo_direita", "cima_direita"):
                     ox -= 1
-                elif direcao == "baixo":
+                if direcao in ("baixo", "baixo_direita"):
                     oy -= 1
             elif quadro == 9 and tipo in ("corpo", "cabeca"):
-                if direcao == "direita":
+                if direcao in ("direita", "baixo_direita", "cima_direita"):
                     ox += 1
-                elif direcao == "baixo":
+                if direcao in ("baixo", "baixo_direita"):
                     oy += 1
 
             px, py = parte["x"] + x + ox, parte["y"] + y + oy
@@ -1274,8 +1341,9 @@ def montar_quadro(definicao, direcao, quadro, paleta):
 def folha_personagem(nome):
     definicao = PERSONAGENS[nome]
     paleta = {**PALETA_BASE, **definicao["paleta"]}
-    folha = pygame.Surface((QUADRO * QUADROS_POR_LINHA, QUADRO * 3), pygame.SRCALPHA)
-    for linha, direcao in enumerate(("baixo", "cima", "direita")):
+    direcoes_disp = [d for d in ("baixo", "cima", "direita", "baixo_direita", "cima_direita") if d in definicao]
+    folha = pygame.Surface((QUADRO * QUADROS_POR_LINHA, QUADRO * len(direcoes_disp)), pygame.SRCALPHA)
+    for linha, direcao in enumerate(direcoes_disp):
         for q in range(QUADROS_POR_LINHA):
             folha.blit(montar_quadro(definicao, direcao, q, paleta), (q * QUADRO, linha * QUADRO))
     return folha

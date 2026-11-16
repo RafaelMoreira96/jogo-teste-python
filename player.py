@@ -12,11 +12,28 @@ from settings import (
     VIDA_MAXIMA,
 )
 
+DIAG = 0.7071067811865475  # 1 / sqrt(2)
+
 VETORES = {
     "cima": pygame.Vector2(0, -1),
     "baixo": pygame.Vector2(0, 1),
     "esquerda": pygame.Vector2(-1, 0),
     "direita": pygame.Vector2(1, 0),
+    "cima_esquerda": pygame.Vector2(-DIAG, -DIAG),
+    "cima_direita": pygame.Vector2(DIAG, -DIAG),
+    "baixo_esquerda": pygame.Vector2(-DIAG, DIAG),
+    "baixo_direita": pygame.Vector2(DIAG, DIAG),
+}
+
+MAPA_DIRECOES_8 = {
+    (0, -1): "cima",
+    (0, 1): "baixo",
+    (-1, 0): "esquerda",
+    (1, 0): "direita",
+    (-1, -1): "cima_esquerda",
+    (1, -1): "cima_direita",
+    (-1, 1): "baixo_esquerda",
+    (1, 1): "baixo_direita",
 }
 
 ANGULO_BASE_ESPADA = {
@@ -24,6 +41,10 @@ ANGULO_BASE_ESPADA = {
     "baixo": 180,
     "direita": -90,
     "esquerda": 90,
+    "cima_direita": -45,
+    "cima_esquerda": 45,
+    "baixo_direita": -135,
+    "baixo_esquerda": 135,
 }
 
 
@@ -78,6 +99,7 @@ class Jogador(Entidade):
         self.vel_atual = pygame.Vector2()
         self.rastros = []  # fantasmas deixados durante o dash
         self.timer_rastro = 0.0
+        self.timer_manter_diagonal = 0.0
         self.impulso_ataque = False
         self.cama_pos = None
 
@@ -102,21 +124,18 @@ class Jogador(Entidade):
         if self.invencivel > 0:
             return False
 
-        # Bloqueio frontal com escudo
+        # Bloqueio frontal com escudo (suporta os 8 eixos)
         if self.defendendo and self.escudo_equipado != "nenhum":
             ox = origem[0] if isinstance(origem, (tuple, list)) else getattr(origem, "x", getattr(origem, "centerx", self.rect.centerx))
             oy = origem[1] if isinstance(origem, (tuple, list)) else getattr(origem, "y", getattr(origem, "centery", self.rect.centery))
             dx = ox - self.rect.centerx
             dy = oy - self.rect.centery
-            bloqueou = False
-            if self.direcao == "cima" and dy <= 4:
+            vetor_olhar = VETORES.get(self.direcao, pygame.Vector2(0, 1))
+            vetor_ataque = pygame.Vector2(dx, dy)
+            if vetor_ataque.length_squared() == 0:
                 bloqueou = True
-            elif self.direcao == "baixo" and dy >= -4:
-                bloqueou = True
-            elif self.direcao == "esquerda" and dx <= 4:
-                bloqueou = True
-            elif self.direcao == "direita" and dx >= -4:
-                bloqueou = True
+            else:
+                bloqueou = vetor_olhar.dot(vetor_ataque.normalize()) >= -0.25
 
             if bloqueou:
                 if audio:
@@ -135,9 +154,9 @@ class Jogador(Entidade):
         return True
 
     def area_interacao(self):
-        """Pedacinho à frente do jogador, para falar com NPCs."""
-        dx, dy = VETORES[self.direcao]
-        return self.rect.move(int(dx * 8), int(dy * 8)).inflate(4, 4)
+        """Pedacinho à frente do jogador, para falar com NPCs (nos 8 eixos)."""
+        dx, dy = VETORES.get(self.direcao, pygame.Vector2(0, 1))
+        return self.rect.move(round(dx * 8), round(dy * 8)).inflate(4, 4)
 
     def curar(self, quantidade):
         self.vida = min(self.vida_maxima, self.vida + quantidade)
@@ -190,12 +209,23 @@ class Jogador(Entidade):
             self.vel_atual *= max(0.0, 1.0 - dt * 18)
             return
 
-        pressionadas = [d for d in VETORES if entrada.segurando(d)]
-        movimento = sum((VETORES[d] for d in pressionadas), pygame.Vector2())
+        eixo_x = (1 if entrada.segurando("direita") else 0) - (1 if entrada.segurando("esquerda") else 0)
+        eixo_y = (1 if entrada.segurando("baixo") else 0) - (1 if entrada.segurando("cima") else 0)
+        movimento = pygame.Vector2(eixo_x, eixo_y)
 
         if movimento.length_squared() > 0:
-            if self.direcao not in pressionadas:
-                self.direcao = pressionadas[0]
+            nova_dir = MAPA_DIRECOES_8.get((eixo_x, eixo_y), self.direcao)
+            if "_" in nova_dir:
+                self.direcao = nova_dir
+                self.timer_manter_diagonal = 0.055
+            else:
+                if "_" in self.direcao and nova_dir in self.direcao.split("_") and self.timer_manter_diagonal > 0:
+                    self.timer_manter_diagonal = max(0.0, self.timer_manter_diagonal - dt)
+                    if self.timer_manter_diagonal <= 0:
+                        self.direcao = nova_dir
+                else:
+                    self.timer_manter_diagonal = 0.0
+                    self.direcao = nova_dir
 
             if entrada.apertou("correr") and self.recarga_dash <= 0:
                 self.tempo_dash = 0.15
@@ -227,6 +257,7 @@ class Jogador(Entidade):
                         "vida": 0.14,
                     })
         else:
+            self.timer_manter_diagonal = 0.0
             # Desaceleração suave ao parar
             self.vel_atual *= max(0.0, 1.0 - dt * 20.0)
             if self.vel_atual.length_squared() < 12.0:
@@ -257,6 +288,10 @@ class Jogador(Entidade):
             "baixo": ("midtop", (c.centerx - 4, c.bottom - 10)),
             "direita": ("midleft", (c.right - 2, c.bottom - 9)),
             "esquerda": ("midright", (c.left + 2, c.bottom - 9)),
+            "cima_direita": ("bottomleft", (c.centerx + 2, c.bottom - 12)),
+            "cima_esquerda": ("bottomright", (c.centerx - 2, c.bottom - 12)),
+            "baixo_direita": ("topleft", (c.centerx + 2, c.bottom - 10)),
+            "baixo_esquerda": ("topright", (c.centerx - 2, c.bottom - 10)),
         }[self.direcao]
 
     def rect_espada(self):
@@ -265,8 +300,10 @@ class Jogador(Entidade):
         setattr(r, attr, ponto)
         if self.direcao in ("cima", "baixo"):
             r.inflate_ip(-4, 0)
-        else:
+        elif self.direcao in ("esquerda", "direita"):
             r.inflate_ip(0, -2)
+        else:
+            r.inflate_ip(-2, -2)
         # Inclui o corpo, para acertar também inimigos colados no jogador.
         return r.union(self.rect_corpo().inflate(-2, -2))
 
@@ -278,6 +315,10 @@ class Jogador(Entidade):
             "cima": pygame.Vector2(cx + 5, base_y - 11),
             "direita": pygame.Vector2(cx + 2, base_y - 11),
             "esquerda": pygame.Vector2(cx - 2, base_y - 11),
+            "baixo_direita": pygame.Vector2(cx - 1, base_y - 11),
+            "baixo_esquerda": pygame.Vector2(cx + 1, base_y - 11),
+            "cima_direita": pygame.Vector2(cx + 4, base_y - 11),
+            "cima_esquerda": pygame.Vector2(cx - 4, base_y - 11),
         }[self.direcao]
 
     @staticmethod
@@ -304,7 +345,7 @@ class Jogador(Entidade):
     def _desenhar_golpe_espada(self, tela, camera, gfx, dx, dy):
         progresso = 1.0 - (self.tempo_ataque / TEMPO_ATAQUE)
         f_braco, f_espada, compr_braco = self._fases_ataque(progresso)
-        sentido = -1 if self.direcao == "direita" else 1
+        sentido = -1 if "direita" in self.direcao else 1
         ang_base = ANGULO_BASE_ESPADA[self.direcao]
 
         ang_braco = ang_base + (f_braco * 72.0) * sentido
@@ -398,9 +439,21 @@ class Jogador(Entidade):
         if self.direcao == "baixo":
             pos_esc = (cx - 5, base_y - 12 + recuo)
             dim = (10, 12)
+        elif self.direcao == "baixo_direita":
+            pos_esc = (cx - 2 + recuo, base_y - 12 + recuo)
+            dim = (8, 11)
+        elif self.direcao == "baixo_esquerda":
+            pos_esc = (cx - 6 - recuo, base_y - 12 + recuo)
+            dim = (8, 11)
         elif self.direcao == "cima":
             pos_esc = (cx - 5, base_y - 17 - recuo)
             dim = (10, 11)
+        elif self.direcao == "cima_direita":
+            pos_esc = (cx - 2 + recuo, base_y - 16 - recuo)
+            dim = (8, 11)
+        elif self.direcao == "cima_esquerda":
+            pos_esc = (cx - 6 - recuo, base_y - 16 - recuo)
+            dim = (8, 11)
         elif self.direcao == "direita":
             pos_esc = (cx + 2 + recuo, base_y - 13)
             dim = (6, 11)
@@ -456,6 +509,7 @@ class Jogador(Entidade):
             img = pygame.transform.rotate(img, 90)
 
         dx, dy = self.offset_pose()
+        olhando_costas = self.direcao in ("cima", "cima_direita", "cima_esquerda")
         if self.nadando:
             # Enquanto nada, apenas o tronco/cabeça aparece acima da superfície da água, balançando com as ondas
             balanco_agua = round(math.sin(self.tempo_idle * 6.0) * 1.2)
@@ -463,20 +517,20 @@ class Jogador(Entidade):
             rect_nado = camera.aplicar(self.rect_sprite()).move(dx, dy + 6 + balanco_agua)
             tela.blit(topo_submerso, rect_nado.topleft)
         else:
-            # Quando olha para cima, o escudo e braço com espada passam por trás das costas
-            if self.escudo_equipado != "nenhum" and self.direcao == "cima" and self.pose == "normal":
+            # Quando olha para cima/costas, o escudo e braço com espada passam por trás das costas
+            if self.escudo_equipado != "nenhum" and olhando_costas and self.pose == "normal":
                 self._desenhar_escudo(tela, camera, dx, dy)
-            if self.atacando and self.direcao == "cima":
+            if self.atacando and olhando_costas:
                 self._desenhar_golpe_espada(tela, camera, gfx, dx, dy)
 
             img_transf, rect_desenho = self.transformar_sprite(img, self.rect_sprite(), camera)
             tela.blit(img_transf, rect_desenho)
 
             # Quando olha para os lados ou para baixo, o escudo fica na frente
-            if self.escudo_equipado != "nenhum" and self.direcao != "cima" and self.pose == "normal":
+            if self.escudo_equipado != "nenhum" and not olhando_costas and self.pose == "normal":
                 self._desenhar_escudo(tela, camera, dx, dy)
 
-        if self.atacando and (self.direcao != "cima" or self.nadando):
+        if self.atacando and (not olhando_costas or self.nadando):
             self._desenhar_golpe_espada(tela, camera, gfx, dx, dy)
         elif self.pose == "poder":
             espada = gfx.espada["cima"]
