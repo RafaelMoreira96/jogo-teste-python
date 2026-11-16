@@ -9,6 +9,7 @@ import random
 import pygame
 
 from entidade import Entidade
+from pooling import PoolProjeteis
 from render3d import criar_cristal_3d
 from settings import ALTURA, LARGURA, TILE
 from arte_chefes import ARTE
@@ -73,6 +74,24 @@ class ProjetilChefe:
         self.estilo = estilo
         self.rastro = []
         self.alvo = None  # entidade perseguida (orbes teleguiados)
+        self.giro = 0.0
+
+    def reset(self, pos, vel, dano=1, raio=4, cor=(255, 90, 60), cor_borda=(160, 20, 30), duracao=4.5, elemento=None, estilo=None):
+        self.pos.x = float(pos[0])
+        self.pos.y = float(pos[1])
+        self.vel.x = float(vel[0])
+        self.vel.y = float(vel[1])
+        self.dano = dano
+        self.raio = raio
+        self.cor = cor
+        self.cor_borda = cor_borda
+        self.vida = duracao
+        self.duracao = duracao
+        self.tempo = 0.0
+        self.elemento = elemento
+        self.estilo = estilo
+        self.rastro.clear()
+        self.alvo = None
         self.giro = 0.0
 
     @property
@@ -323,7 +342,7 @@ class Chefe(Entidade):
     def _projetil(self, pos, vel, **kw):
         kw.setdefault("dano", self.dano_contato)
         kw.setdefault("cor", CORES_ELEMENTO.get(self.elemento, ((255, 90, 60),))[0])
-        return ProjetilChefe(pos, vel, elemento=self.elemento, **kw)
+        return PoolProjeteis.obter_chefe(pos, vel, elemento=self.elemento, **kw)
 
     def _alerta(self, pos, raio, tempo, acao, linha=None):
         self.alertas.append({"pos": pygame.Vector2(pos), "raio": raio, "t": tempo, "total": tempo, "acao": acao, "linha": linha})
@@ -581,7 +600,7 @@ class ReiSlime(Chefe):
             for ang in range(0, 360, 60):
                 rad = math.radians(ang)
                 vel = pygame.Vector2(math.cos(rad), math.sin(rad)) * (95.0 * self.fator_poder)
-                projeteis.append(ProjetilChefe(self.rect.center, vel, dano=self.dano_contato, raio=4, cor=(75, 175, 245)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, vel, dano=self.dano_contato, raio=4, cor=(75, 175, 245)))
 
         if dist > 8 and self.no_ar:
             self.mover(ate_j.normalize() * (self.velocidade_base * 1.5 * dt * self.fator_poder), nivel)
@@ -607,7 +626,7 @@ class GolemPedra(Chefe):
             if audio:
                 audio.sfx("impacto_pesado")
             for dir_v in (pygame.Vector2(1, 0), pygame.Vector2(-1, 0), pygame.Vector2(0, 1), pygame.Vector2(0, -1)):
-                projeteis.append(ProjetilChefe(self.rect.center, dir_v * (115.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(145, 140, 135)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v * (115.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(145, 140, 135)))
 
         if dist > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
@@ -630,7 +649,7 @@ class SerpenteDunas(Chefe):
             dir_base = ate_j.normalize() if ate_j.length() > 0 else pygame.Vector2(1, 0)
             for ang in (-25, 0, 25):
                 vel = dir_base.rotate(ang) * (130.0 * self.fator_poder)
-                projeteis.append(ProjetilChefe(self.rect.center, vel, dano=self.dano_contato, raio=5, cor=(255, 130, 45)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, vel, dano=self.dano_contato, raio=5, cor=(255, 130, 45)))
 
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * 1.25 * dt * self.fator_poder), nivel)
@@ -652,7 +671,7 @@ class ColossoSolar(Chefe):
             for ang in range(0, 360, 45):
                 rad = math.radians(ang)
                 vel = pygame.Vector2(math.cos(rad), math.sin(rad)) * (120.0 * self.fator_poder)
-                projeteis.append(ProjetilChefe(self.rect.center, vel, dano=self.dano_contato, raio=4, cor=(255, 225, 80)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, vel, dano=self.dano_contato, raio=4, cor=(255, 225, 80)))
 
         if ate_j.length() > 20:
             self.mover(ate_j.normalize() * (self.velocidade_base * 0.95 * dt * self.fator_poder), nivel)
@@ -673,7 +692,7 @@ class BruxaBrumas(Chefe):
             # 4 orbes venenosos teleguiados lentos
             dir_v = ate_j.normalize() if ate_j.length() > 0 else pygame.Vector2(0, 1)
             for a in (-32, -10, 10, 32):
-                projeteis.append(ProjetilChefe(self.rect.center, dir_v.rotate(a) * (90.0 * self.fator_poder), dano=self.dano_contato, raio=4, cor=(165, 70, 245)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v.rotate(a) * (90.0 * self.fator_poder), dano=self.dano_contato, raio=4, cor=(165, 70, 245)))
 
         if ate_j.length() > 32:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
@@ -694,7 +713,7 @@ class CeifadorEspectral(Chefe):
                 audio.sfx("magia_corte")
             ondas.append(OndaMagica(self.rect.center, 46, (90, 225, 240), 0.35))
             dir_v = ate_j.normalize() if ate_j.length() > 0 else pygame.Vector2(0, 1)
-            projeteis.append(ProjetilChefe(self.rect.center, dir_v * (145.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(120, 245, 255)))
+            projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v * (145.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(120, 245, 255)))
 
         if ate_j.length() > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * 1.15 * dt * self.fator_poder), nivel)
@@ -714,7 +733,7 @@ class LeviataAquatico(Chefe):
                 audio.sfx("nado")
             dir_v = ate_j.normalize() if ate_j.length() > 0 else pygame.Vector2(1, 0)
             for a in (-22, 0, 22):
-                projeteis.append(ProjetilChefe(self.rect.center, dir_v.rotate(a) * (135.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(90, 195, 255)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v.rotate(a) * (135.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(90, 195, 255)))
 
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
@@ -736,7 +755,7 @@ class GuardiaoDiamante(Chefe):
             for ang in range(0, 360, 60):
                 rad = math.radians(ang + self.tempo_vida * 30)
                 vel = pygame.Vector2(math.cos(rad), math.sin(rad)) * (115.0 * self.fator_poder)
-                projeteis.append(ProjetilChefe(self.rect.center, vel, dano=self.dano_contato, raio=4, cor=(215, 245, 255)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, vel, dano=self.dano_contato, raio=4, cor=(215, 245, 255)))
 
         if ate_j.length() > 22:
             self.mover(ate_j.normalize() * (self.velocidade_base * 0.85 * dt * self.fator_poder), nivel)
@@ -757,7 +776,7 @@ class TrollRochas(Chefe):
                 audio.sfx("impacto_pesado")
             ondas.append(OndaMagica(self.rect.center, 48, (195, 145, 90), 0.45))
             dir_v = ate_j.normalize() if ate_j.length() > 0 else pygame.Vector2(0, 1)
-            projeteis.append(ProjetilChefe(self.rect.center, dir_v * (110.0 * self.fator_poder), dano=self.dano_contato, raio=6, cor=(165, 115, 75)))
+            projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v * (110.0 * self.fator_poder), dano=self.dano_contato, raio=6, cor=(165, 115, 75)))
 
         if ate_j.length() > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
@@ -777,7 +796,7 @@ class YetiGlacial(Chefe):
                 audio.sfx("magia_gelo")
             dir_v = ate_j.normalize() if ate_j.length() > 0 else pygame.Vector2(0, 1)
             for a in (-35, -15, 0, 15, 35):
-                projeteis.append(ProjetilChefe(self.rect.center, dir_v.rotate(a) * (120.0 * self.fator_poder), dano=self.dano_contato, raio=4, cor=(160, 235, 255)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v.rotate(a) * (120.0 * self.fator_poder), dano=self.dano_contato, raio=4, cor=(160, 235, 255)))
 
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
@@ -797,7 +816,7 @@ class ValquiriaCaida(Chefe):
                 audio.sfx("magia_raio")
             dir_v = ate_j.normalize() if ate_j.length() > 0 else pygame.Vector2(0, 1)
             for a in (-25, 0, 25):
-                projeteis.append(ProjetilChefe(self.rect.center, dir_v.rotate(a) * (150.0 * self.fator_poder), dano=self.dano_contato, raio=4, cor=(255, 240, 140)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v.rotate(a) * (150.0 * self.fator_poder), dano=self.dano_contato, raio=4, cor=(255, 240, 140)))
 
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * 1.2 * dt * self.fator_poder), nivel)
@@ -818,7 +837,7 @@ class CavaleiroNegro(Chefe):
                 audio.sfx("espada")
             ondas.append(OndaMagica(self.rect.center, 46, (220, 50, 75), 0.35))
             dir_v = ate_j.normalize() if ate_j.length() > 0 else pygame.Vector2(1, 0)
-            projeteis.append(ProjetilChefe(self.rect.center, dir_v * (155.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(235, 45, 65)))
+            projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v * (155.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(235, 45, 65)))
 
         if ate_j.length() > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * 1.15 * dt * self.fator_poder), nivel)
@@ -838,7 +857,7 @@ class QuimeraAbissal(Chefe):
                 audio.sfx("rugido_chefe")
             dir_v = ate_j.normalize() if ate_j.length() > 0 else pygame.Vector2(0, 1)
             for a in (-30, -10, 10, 30):
-                projeteis.append(ProjetilChefe(self.rect.center, dir_v.rotate(a) * (125.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(255, 95, 45)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v.rotate(a) * (125.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(255, 95, 45)))
 
         if ate_j.length() > 16:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
@@ -860,7 +879,7 @@ class ArquimagoCorrompido(Chefe):
             for ang in range(0, 360, 45):
                 rad = math.radians(ang + self.tempo_vida * 45)
                 vel = pygame.Vector2(math.cos(rad), math.sin(rad)) * (130.0 * self.fator_poder)
-                projeteis.append(ProjetilChefe(self.rect.center, vel, dano=self.dano_contato, raio=4, cor=(190, 85, 255)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, vel, dano=self.dano_contato, raio=4, cor=(190, 85, 255)))
 
         if ate_j.length() > 28:
             self.mover(ate_j.normalize() * (self.velocidade_base * 0.95 * dt * self.fator_poder), nivel)
@@ -882,7 +901,7 @@ class PaladinoJuizo(Chefe):
             ondas.append(OndaMagica(self.rect.center, 54, (255, 230, 110), 0.45))
             # 4 feixes de martelo sagrado
             for d in (pygame.Vector2(1, 0), pygame.Vector2(-1, 0), pygame.Vector2(0, 1), pygame.Vector2(0, -1)):
-                projeteis.append(ProjetilChefe(self.rect.center, d * (145.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(255, 240, 130)))
+                projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, d * (145.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(255, 240, 130)))
 
         if ate_j.length() > 14:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)
@@ -923,7 +942,7 @@ class EntidadeMalignaChefe(Chefe):
                 # Onda quádrupla de fogo abissal teleguiado
                 dir_v = ate_j.normalize() if dist > 0 else pygame.Vector2(0, 1)
                 for a in (-40, -15, 15, 40):
-                    projeteis.append(ProjetilChefe(self.rect.center, dir_v.rotate(a) * (120.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(255, 60, 95)))
+                    projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, dir_v.rotate(a) * (120.0 * self.fator_poder), dano=self.dano_contato, raio=5, cor=(255, 60, 95)))
             else:
                 # Fase 2: Chuva infernal em espiral bullet-hell
                 self.timer_magia = random.uniform(0.9, 1.5) / self.fator_poder
@@ -933,7 +952,7 @@ class EntidadeMalignaChefe(Chefe):
                 for ang in range(0, 360, 36):
                     rad = math.radians(ang + self.tempo_vida * 60)
                     vel = pygame.Vector2(math.cos(rad), math.sin(rad)) * (135.0 * self.fator_poder)
-                    projeteis.append(ProjetilChefe(self.rect.center, vel, dano=self.dano_contato, raio=5, cor=(255, 35, 75)))
+                    projeteis.append(PoolProjeteis.obter_chefe(self.rect.center, vel, dano=self.dano_contato, raio=5, cor=(255, 35, 75)))
 
         if dist > 24:
             self.mover(ate_j.normalize() * (self.velocidade_base * dt * self.fator_poder), nivel)

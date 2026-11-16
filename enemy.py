@@ -34,6 +34,15 @@ class FlechaInimigo:
         self.tempo_vida = 3.2
         self.raio = 3
 
+    def reset(self, pos, vel, dano=1):
+        self.pos.x = float(pos[0])
+        self.pos.y = float(pos[1])
+        self.vel.x = float(vel[0])
+        self.vel.y = float(vel[1])
+        self.dano = dano
+        self.tempo_vida = 3.2
+        self.raio = 3
+
     @property
     def rect(self):
         r = pygame.Rect(0, 0, 8, 8)
@@ -303,8 +312,9 @@ class ZumbiArqueiro(Inimigo):
                 self.cooldown_tiro = random.uniform(2.2, 3.2)
                 self.mirando = 0.0
                 if projeteis_inimigos is not None:
+                    from pooling import PoolProjeteis
                     vel_flecha = ate_jogador.normalize() * 140.0
-                    projeteis_inimigos.append(FlechaInimigo(self.rect.center, vel_flecha, dano=1))
+                    projeteis_inimigos.append(PoolProjeteis.obter_flecha(self.rect.center, vel_flecha, dano=1))
         else:
             self.anim += dt * 3.0
             self.tempo_direcao -= dt

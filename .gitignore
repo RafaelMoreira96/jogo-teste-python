@@ -6,3 +6,4 @@ config.json
 savegame.json
 savegame_*.json
 .DS_Store
+skills/

@@ -41,6 +41,7 @@ from level import Nivel
 from missoes import GerenciadorMissoes
 from npc import NPC
 from player import VETORES, Jogador
+from pooling import ListaParticulas, PoolParticulas, PoolProjeteis
 from rpg import LISTA_CHEFES_PROGRESSAO, OndaMagica, ProjetilMagico, SistemaRPG, TextoFlutuante
 from salvamento import salvar_jogo
 from ui import CINZA, desenhar_painel, desenhar_texto, escurecer
@@ -140,7 +141,7 @@ class Jogo(Cena):
         self.conquistas = GerenciadorConquistas()
         if not modo_chefe:
             self.conquistas.desbloquear("primeiro_passo", self)
-        self.particulas = []
+        self.particulas = ListaParticulas()
         self.estado = "jogando"  # ou "derrota"
         self.dialogo = None
         self.tempo_cenario = 0.0
@@ -415,7 +416,13 @@ class Jogo(Cena):
         self.npcs = dados["npcs"]
         self.coracoes = dados["coracoes"]
         self.ambiente = dados["ambiente"]
-        self.particulas = []
+        for p in getattr(self, "projeteis", []):
+            PoolProjeteis.liberar(p)
+        for p in getattr(self, "projeteis_chefes", []):
+            PoolProjeteis.liberar(p)
+        for p in getattr(self, "projeteis_inimigos", []):
+            PoolProjeteis.liberar(p)
+        self.particulas = ListaParticulas()
         self.projeteis = []
         self.ondas = []
         self.projeteis_chefes = []
@@ -584,7 +591,7 @@ class Jogo(Cena):
                 audio.sfx("magia_fogo")
             vetor = VETORES[self.jogador.direcao]
             dano = 2 + (1 if "furia_escolhido" in self.rpg.desbloqueadas else 0)
-            self.projeteis.append(ProjetilMagico(centro, vetor, dano=dano, cor=(255, 110, 45)))
+            self.projeteis.append(PoolProjeteis.obter_magico(centro, vetor, dano=dano, cor=(255, 110, 45)))
             self.jogador.atacar()
         elif id_p == "corte_giratorio":
             if audio:
@@ -985,7 +992,10 @@ class Jogo(Cena):
         self.tempo_objetivo_visivel = max(0.0, getattr(self, "tempo_objetivo_visivel", 0.0) - dt)
         for obj3d in getattr(self.nivel, "objetos_3d", []):
             obj3d.atualizar(self.tempo_cenario)
-        self.particulas = [p for p in self.particulas if p.atualizar(dt)]
+        if hasattr(self.particulas, "atualizar"):
+            self.particulas.atualizar(dt)
+        else:
+            self.particulas = [p for p in self.particulas if p.atualizar(dt)]
         self.ondas = [o for o in self.ondas if o.atualizar(dt)]
         self.textos_flutuantes = [t for t in self.textos_flutuantes if t.atualizar(dt)]
         self.conquistas.atualizar(dt)
@@ -1178,19 +1188,28 @@ class Jogo(Cena):
                 else [(220, 205, 175), (185, 170, 140)]
             )
             for _ in range(5):
-                poeira = Particula(jogador.rect.midbottom, random.choice(cores_pouso))
-                poeira.vel = pygame.Vector2(random.uniform(-38, 38), random.uniform(-12, 8))
-                poeira.vida = 0.2
+                poeira = PoolParticulas.obter(
+                    jogador.rect.midbottom,
+                    random.choice(cores_pouso),
+                    vel=(random.uniform(-38, 38), random.uniform(-12, 8)),
+                    vida=0.2,
+                )
                 self.particulas.append(poeira)
         elif jogador.nadando and jogador.andando and random.random() < dt * 15:
-            gota = Particula(jogador.rect.center, random.choice([(120, 210, 255), (215, 248, 255)]))
-            gota.vel = pygame.Vector2(random.uniform(-24, 24), random.uniform(-18, 6))
-            gota.vida = 0.24
+            gota = PoolParticulas.obter(
+                jogador.rect.center,
+                random.choice([(120, 210, 255), (215, 248, 255)]),
+                vel=(random.uniform(-24, 24), random.uniform(-18, 6)),
+                vida=0.24,
+            )
             self.particulas.append(gota)
         elif jogador.correndo and jogador.andando and random.random() < dt * 18:
-            poeira = Particula(jogador.rect.midbottom, random.choice([(210, 195, 165), (180, 165, 135)]))
+            poeira = PoolParticulas.obter(
+                jogador.rect.midbottom,
+                random.choice([(210, 195, 165), (180, 165, 135)]),
+                vida=0.22,
+            )
             poeira.vel *= 0.25
-            poeira.vida = 0.22
             self.particulas.append(poeira)
 
         for npc in self.npcs:
@@ -1352,9 +1371,10 @@ class Jogo(Cena):
         for proj in self.projeteis:
             if not proj.atualizar(dt, self.nivel):
                 self.particulas += explosao(proj.pos, CORES_FOGO, 8)
+                PoolProjeteis.liberar(proj)
                 continue
             if random.random() < 0.65:
-                rastro = Particula(proj.pos, random.choice(CORES_FOGO))
+                rastro = PoolParticulas.obter(proj.pos, random.choice(CORES_FOGO))
                 rastro.vel *= 0.2
                 self.particulas.append(rastro)
 
@@ -1375,6 +1395,7 @@ class Jogo(Cena):
                     self.textos_flutuantes.append(
                         TextoFlutuante(slime.rect.midtop, f"-{proj.dano}", (255, 130, 60))
                     )
+                    PoolProjeteis.liberar(proj)
                     acertou = True
                     break
             if not acertou:
@@ -1387,6 +1408,7 @@ class Jogo(Cena):
                         self.textos_flutuantes.append(
                             TextoFlutuante(chefe.rect.midtop, f"-{proj.dano}", (255, 130, 60))
                         )
+                        PoolProjeteis.liberar(proj)
                         acertou = True
                         break
             if not acertou:
@@ -1402,12 +1424,14 @@ class Jogo(Cena):
         novos_proj_ini = []
         for p_ini in self.projeteis_inimigos:
             if not p_ini.atualizar(dt, self.nivel):
+                PoolProjeteis.liberar(p_ini)
                 continue
             if not jogador.no_ar and p_ini.rect.colliderect(jogador.rect):
                 jogador.levar_dano(p_ini.dano, p_ini.pos, self.rpg, audio)
                 if audio:
                     audio.sfx("hit_inimigo")
                 self.particulas += explosao(p_ini.pos, CORES_ZUMBI, 8)
+                PoolProjeteis.liberar(p_ini)
                 continue
             novos_proj_ini.append(p_ini)
         self.projeteis_inimigos = novos_proj_ini
@@ -1422,14 +1446,17 @@ class Jogo(Cena):
         novos_proj_c = []
         for pc in self.projeteis_chefes:
             if not pc.atualizar(dt, self.nivel):
+                PoolProjeteis.liberar(pc)
                 continue
             if not jogador.no_ar and pc.rect.colliderect(jogador.rect):
                 jogador.levar_dano(pc.dano, pc.pos, self.rpg, audio)
                 if audio:
                     audio.sfx("hit_inimigo")
                 self.particulas += explosao(pc.pos, [(255, 90, 60), (255, 220, 140)], 8)
+                PoolProjeteis.liberar(pc)
                 continue
             novos_proj_c.append(pc)
+        self.projeteis_chefes = novos_proj_c
         self.projeteis_chefes = novos_proj_c
 
         # Processa derrota de chefões

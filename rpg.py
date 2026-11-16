@@ -339,6 +339,22 @@ class ProjetilMagico:
         self.tempo = 0.0
         self.golpe_id = random.randint(10000, 999999)
 
+    def reset(self, pos, direcao_vetor, dano=2, cor=(255, 115, 45)):
+        self.pos.x = float(pos[0])
+        self.pos.y = float(pos[1])
+        v = pygame.Vector2(direcao_vetor)
+        if v.length_squared() > 0:
+            v = v.normalize() * 165.0
+        else:
+            v = pygame.Vector2(0, 1) * 165.0
+        self.vel.x = v.x
+        self.vel.y = v.y
+        self.dano = dano
+        self.cor = cor
+        self.vida = 0.95
+        self.tempo = 0.0
+        self.golpe_id = random.randint(10000, 999999)
+
     @property
     def rect(self):
         r = pygame.Rect(0, 0, 8, 8)

@@ -31,10 +31,26 @@ class Coracao:
 
 
 class Particula:
-    def __init__(self, pos, cor):
+    def __init__(self, pos, cor, vel=None, vida=None):
         self.pos = pygame.Vector2(pos)
-        self.vel = pygame.Vector2(1, 0).rotate(random.uniform(0, 360)) * random.uniform(30, 90)
-        self.vida = random.uniform(0.3, 0.6)
+        if vel is not None:
+            self.vel = pygame.Vector2(vel)
+        else:
+            self.vel = pygame.Vector2(1, 0).rotate(random.uniform(0, 360)) * random.uniform(30, 90)
+        self.vida = vida if vida is not None else random.uniform(0.3, 0.6)
+        self.cor = cor
+
+    def reset(self, pos, cor, vel=None, vida=None):
+        self.pos.x = float(pos[0])
+        self.pos.y = float(pos[1])
+        if vel is not None:
+            self.vel.x = float(vel[0])
+            self.vel.y = float(vel[1])
+        else:
+            ang = random.uniform(0, 360)
+            spd = random.uniform(30, 90)
+            self.vel.from_polar((spd, ang))
+        self.vida = vida if vida is not None else random.uniform(0.3, 0.6)
         self.cor = cor
 
     def atualizar(self, dt):
@@ -49,7 +65,9 @@ class Particula:
 
 
 def explosao(centro, cores, quantidade=8):
-    return [Particula(centro, random.choice(cores)) for _ in range(quantidade)]
+    from pooling import PoolParticulas
+
+    return PoolParticulas.obter_explosao(centro, cores, quantidade)
 
 
 CORES_BORBOLETA = [
