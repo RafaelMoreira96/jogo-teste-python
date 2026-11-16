@@ -117,12 +117,43 @@ class Jogador(Entidade):
         self.dash_strike = False
         self.fator_frenesi = 1.0
 
+        # Stamina (Estilo Soulslike)
+        self.rpg = None
+        self._stamina = 60.0
+        self._stamina_maxima = 60.0
+
+    @property
+    def stamina(self):
+        return self.rpg.stamina if self.rpg else self._stamina
+
+    @stamina.setter
+    def stamina(self, valor):
+        if self.rpg:
+            self.rpg.stamina = float(valor)
+        else:
+            self._stamina = float(valor)
+
+    @property
+    def stamina_maxima(self):
+        return self.rpg.stamina_maxima if self.rpg else self._stamina_maxima
+
     @property
     def atacando(self):
         return self.tempo_ataque > 0
 
     def atacar(self):
         if self.tempo_empurrao > 0 or self.pose != "normal":
+            return
+
+        if self.tempo_dash > 0:
+            custo_stamina = 22.0
+        elif self.tempo_combo_janela > 0:
+            etapa_prevista = (self.combo_etapa + 1) % 3
+            custo_stamina = 16.0 if etapa_prevista == 1 else 24.0
+        else:
+            custo_stamina = 14.0
+
+        if self.rpg and not self.rpg.pode_gastar_stamina(custo_stamina):
             return
 
         if self.atacando:
@@ -133,6 +164,9 @@ class Jogador(Entidade):
 
         # Solta o escudo para atacar de imediato se estiver defendendo
         self.defendendo = False
+
+        if self.rpg:
+            self.rpg.gastar_stamina(custo_stamina)
 
         if self.tempo_dash > 0:
             # Dash-Strike (Estocada de Choque em arrancada)
@@ -182,11 +216,34 @@ class Jogador(Entidade):
                 bloqueou = vetor_olhar.dot(vetor_ataque.normalize()) >= -0.25
 
             if bloqueou:
-                if audio:
-                    audio.sfx("escudo_bloqueio")
-                self.empurrar(origem, 85, 0.12)
-                self.deformar(0.9, 1.15)
-                return False
+                custo_bloqueio = max(14.0, float(quantidade) * 9.0)
+                guard_break = False
+                rpg_ativo = rpg or self.rpg
+                if rpg_ativo:
+                    if rpg_ativo.stamina < custo_bloqueio:
+                        rpg_ativo.stamina = 0.0
+                        rpg_ativo.exaustao_stamina = True
+                        rpg_ativo.delay_regen_stamina = 0.9
+                        guard_break = True
+                    else:
+                        rpg_ativo.gastar_stamina(custo_bloqueio, delay=0.5)
+
+                if guard_break:
+                    self.defendendo = False
+                    self.empurrar(origem, 160, 0.45)
+                    self.deformar(0.75, 1.35)
+                    if audio:
+                        audio.sfx("escudo_bloqueio")
+                    dano_gb = max(1, quantidade // 2)
+                    self.vida = max(0, self.vida - dano_gb)
+                    self.invencivel = 0.6
+                    return True
+                else:
+                    if audio:
+                        audio.sfx("escudo_bloqueio")
+                    self.empurrar(origem, 85, 0.12)
+                    self.deformar(0.9, 1.15)
+                    return False
 
         # Redução por túnica/armadura
         red = rpg.fator_reducao_dano if rpg else 1.0
@@ -253,13 +310,20 @@ class Jogador(Entidade):
 
         # Dash e Dash-Cancel (cancela animação de ataque com esquiva instantânea)
         if entrada.apertou("correr") and self.recarga_dash <= 0 and not self.nadando and self.tempo_empurrao <= 0:
-            if self.atacando:
-                self.tempo_ataque = 0.0
-                self.buffer_ataque = False
-                self.tempo_combo_janela = 0.38
-            self.tempo_dash = 0.16
-            self.recarga_dash = 0.35
-            self.deformar(1.25, 0.78)
+            custo_dash = 18.0
+            pode_dash = True
+            if self.rpg:
+                pode_dash = self.rpg.pode_gastar_stamina(custo_dash)
+            if pode_dash:
+                if self.rpg:
+                    self.rpg.gastar_stamina(custo_dash)
+                if self.atacando:
+                    self.tempo_ataque = 0.0
+                    self.buffer_ataque = False
+                    self.tempo_combo_janela = 0.38
+                self.tempo_dash = 0.16
+                self.recarga_dash = 0.35
+                self.deformar(1.25, 0.78)
 
         if entrada.apertou("pular"):
             self.pular(160.0)
@@ -293,7 +357,13 @@ class Jogador(Entidade):
                     self.timer_manter_diagonal = 0.0
                     self.direcao = nova_dir
 
-            self.correndo = (entrada.segurando("correr") or self.tempo_dash > 0) and not self.defendendo
+            quer_correr = entrada.segurando("correr") and not self.defendendo
+            if quer_correr and self.rpg:
+                if self.rpg.stamina <= 0 or getattr(self.rpg, "exaustao_stamina", False):
+                    quer_correr = False
+                else:
+                    self.rpg.gastar_stamina_continua(12.0 * dt)
+            self.correndo = (quer_correr or self.tempo_dash > 0) and not self.defendendo
             fator_agua = 0.78 if self.nadando else 1.0
             fator_defesa = 0.65 if self.defendendo else 1.0
             fator_vel = (2.2 if self.tempo_dash > 0 else (1.45 if self.correndo else 1.0)) * self.fator_velocidade_rpg * fator_agua * fator_defesa * getattr(self, "fator_frenesi", 1.0)

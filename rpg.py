@@ -184,6 +184,13 @@ class SistemaRPG:
         self.indice_poder = 0
         self.mana_base = 20.0
         self.mana = 20.0
+        self.stamina_base = 60.0
+        self.stamina = 60.0
+        self.delay_regen_stamina = 0.0
+        self.exaustao_stamina = False
+        self.vida_fantasma = 6.0
+        self.mana_fantasma = 20.0
+        self.stamina_fantasma = 60.0
         self.chefes_derrotados = set()
 
         # Economia, Consumíveis e Equipamentos (Pilar 1)
@@ -237,6 +244,12 @@ class SistemaRPG:
         return self.mana_base + (self.nivel - 1) * 4.0 + bonus
 
     @property
+    def stamina_maxima(self):
+        # Aumenta conforme o nível do personagem: base 60 + 8 por nível além do 1
+        bonus_ng = getattr(self, "ciclo_ng", 0) * 10.0
+        return self.stamina_base + (self.nivel - 1) * 8.0 + bonus_ng
+
+    @property
     def bonus_vida_maxima(self):
         bonus_hab = 2 if "barreira_astral" in self.desbloqueadas else 0
         bonus_rel = 2 if len(self.reliquias_entregues) >= 6 else 0
@@ -285,8 +298,58 @@ class SistemaRPG:
             self.indice_poder = (self.indice_poder + 1) % len(self.poderes_ativos)
         return self.poder_atual
 
-    def atualizar(self, dt):
+    def pode_gastar_stamina(self, quantidade):
+        if self.exaustao_stamina:
+            return False
+        return self.stamina >= quantidade
+
+    def gastar_stamina(self, quantidade, delay=0.38):
+        self.stamina = max(0.0, self.stamina - float(quantidade))
+        self.delay_regen_stamina = max(self.delay_regen_stamina, delay)
+        if self.stamina <= 0.0:
+            self.exaustao_stamina = True
+            self.delay_regen_stamina = max(self.delay_regen_stamina, 0.75)
+
+    def gastar_stamina_continua(self, quantidade):
+        self.stamina = max(0.0, self.stamina - float(quantidade))
+        self.delay_regen_stamina = max(self.delay_regen_stamina, 0.22)
+        if self.stamina <= 0.0:
+            self.exaustao_stamina = True
+            self.delay_regen_stamina = max(self.delay_regen_stamina, 0.75)
+
+    def atualizar(self, dt, vida_jogador=None, defendendo=False, correndo=False):
+        # 1. Regeneração de Mana
         self.mana = min(self.mana_maxima, self.mana + self.regen_mana * dt)
+
+        # 2. Regeneração de Stamina (Soulslike: pausada após gasto, reduzida se defendendo)
+        if self.delay_regen_stamina > 0:
+            self.delay_regen_stamina = max(0.0, self.delay_regen_stamina - dt)
+        else:
+            fator_defesa = 0.30 if defendendo else 1.0
+            taxa_regen = 42.0 * fator_defesa
+            self.stamina = min(self.stamina_maxima, self.stamina + taxa_regen * dt)
+
+        # Recuperação do estado de exaustão
+        if self.exaustao_stamina and self.stamina >= min(20.0, self.stamina_maxima * 0.3):
+            self.exaustao_stamina = False
+
+        # 3. Barras fantasmas com decaimento suave (estilo Dark Souls / Elden Ring)
+        if vida_jogador is not None:
+            v_alvo = float(vida_jogador)
+            if v_alvo < self.vida_fantasma:
+                self.vida_fantasma = max(v_alvo, self.vida_fantasma - dt * 5.0)
+            else:
+                self.vida_fantasma = v_alvo
+
+        if self.mana < self.mana_fantasma:
+            self.mana_fantasma = max(self.mana, self.mana_fantasma - dt * 14.0)
+        else:
+            self.mana_fantasma = self.mana
+
+        if self.stamina < self.stamina_fantasma:
+            self.stamina_fantasma = max(self.stamina, self.stamina_fantasma - dt * 45.0)
+        else:
+            self.stamina_fantasma = self.stamina
 
     def ganhar_xp(self, quantidade):
         """Soma XP e devolve True se subiu de nível. No New Game+, dobra os pontos de XP."""
@@ -301,6 +364,7 @@ class SistemaRPG:
             self.xp_proximo = int(self.xp_proximo * 1.32 + 10)
             self.pontos_habilidade += 1
             self.mana = self.mana_maxima
+            self.stamina = self.stamina_maxima
             subiu = True
         return subiu
 

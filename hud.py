@@ -33,6 +33,67 @@ TAGS_PODERES = {
 }
 
 
+def desenhar_barra_soulslike(
+    tela,
+    x,
+    y,
+    largura,
+    altura,
+    prop_atual,
+    prop_fantasma,
+    cor_principal,
+    cor_brilho,
+    cor_fundo,
+    cor_fantasma,
+    cor_sombra,
+    marcadores=True,
+    pulso=False,
+):
+    """Renderiza uma barra elegante no estilo Soulslike (Dark Souls / Elden Ring).
+
+    Possui fundo escuro com chanfro, trailing bar de dano/consumo recente,
+    barra principal com gradiente de luz e marcadores de segmentação.
+    """
+    rect_calha = pygame.Rect(x, y, largura, altura)
+    # Fundo escuro com borda de ardósia
+    pygame.draw.rect(tela, (12, 12, 18), rect_calha.inflate(2, 2))
+    pygame.draw.rect(tela, cor_fundo, rect_calha)
+
+    # 1. Barra fantasma (trailing ghost bar de dano ou consumo recente)
+    if prop_fantasma > prop_atual:
+        larg_fantasma = max(0, min(largura, round(largura * prop_fantasma)))
+        if larg_fantasma > 0:
+            pygame.draw.rect(tela, cor_fantasma, (x, y, larg_fantasma, altura))
+
+    # 2. Barra principal com brilho volumétrico
+    larg_atual = max(0, min(largura, round(largura * prop_atual)))
+    if larg_atual > 0:
+        cor_base = cor_principal
+        if pulso:
+            cor_base = (
+                min(255, cor_principal[0] + 50),
+                max(0, cor_principal[1] - 30),
+                max(0, cor_principal[2] - 30),
+            )
+        pygame.draw.rect(tela, cor_base, (x, y, larg_atual, altura))
+        # Linha superior de iluminação/reflexo
+        pygame.draw.line(tela, cor_brilho, (x, y), (x + larg_atual - 1, y))
+        # Linha inferior de sombra
+        if altura >= 3:
+            pygame.draw.line(tela, cor_sombra, (x, y + altura - 1), (x + larg_atual - 1, y + altura - 1))
+        # Ponto de brilho no topo da ponta
+        if larg_atual >= 2:
+            tela.set_at((x + larg_atual - 1, y), (255, 255, 255))
+
+    # 3. Moldura externa metálica
+    pygame.draw.rect(tela, (40, 42, 54), rect_calha.inflate(2, 2), 1)
+
+    # 4. Marcadores verticais de graduação (ticks sutis estilo Dark Souls)
+    if marcadores and largura >= 24:
+        for mx in range(x + 16, x + largura - 4, 16):
+            pygame.draw.line(tela, (16, 18, 26), (mx, y), (mx, y + altura - 1))
+
+
 def desenhar_hud(
     tela,
     gfx,
@@ -58,57 +119,113 @@ def desenhar_hud(
     modo_speedrun = cfg.get("speedrun", False)
 
     # =========================================================================
-    # 1. QUADRO SUPERIOR ESQUERDO: STATUS DO HERÓI
+    # 1. QUADRO SUPERIOR ESQUERDO: STATUS DO HERÓI (ESTILO SOULSLIKE)
     # =========================================================================
-    max_coracoes = vida_maxima // 2
-    linhas_coracoes = 1 if max_coracoes <= 6 else 2
-    y_barras = 15 + (linhas_coracoes - 1) * 8
-    larg_box = 72 if tamanho_hud == "compacto" else (100 if tamanho_hud == "expandido" else 86)
-    alt_box = (y_barras + 22) if rpg is not None else (y_barras + 2)
+    # 1.1 Proporções e comprimentos que escalam dinamicamente com os atributos
+    # Barra de Vida (Vermelha)
+    prop_hp = max(0.0, min(1.0, vida / max(1.0, float(vida_maxima))))
+    vida_fantasma = getattr(rpg, "vida_fantasma", float(vida)) if rpg else float(vida)
+    prop_hp_fantasma = max(0.0, min(1.0, vida_fantasma / max(1.0, float(vida_maxima))))
+    larg_hp_base = 62 if tamanho_hud == "compacto" else (88 if tamanho_hud == "expandido" else 74)
+    larg_hp = min(108, larg_hp_base + (vida_maxima - 6) * 3)
+
+    # Barra de Magia (Azul)
+    mana_atual = rpg.mana if rpg else 20.0
+    mana_maxima = rpg.mana_maxima if rpg else 20.0
+    prop_mp = max(0.0, min(1.0, mana_atual / max(1.0, float(mana_maxima))))
+    mana_fantasma = getattr(rpg, "mana_fantasma", float(mana_atual)) if rpg else float(mana_atual)
+    prop_mp_fantasma = max(0.0, min(1.0, mana_fantasma / max(1.0, float(mana_maxima))))
+    larg_mp_base = 52 if tamanho_hud == "compacto" else (78 if tamanho_hud == "expandido" else 64)
+    larg_mp = min(98, larg_mp_base + int((mana_maxima - 20) * 0.75)) if rpg else larg_mp_base
+
+    # Barra de Stamina (Verde - escala com o nível do herói!)
+    stamina_atual = getattr(rpg, "stamina", 60.0) if rpg else 60.0
+    stamina_maxima = getattr(rpg, "stamina_maxima", 60.0) if rpg else 60.0
+    prop_sp = max(0.0, min(1.0, stamina_atual / max(1.0, float(stamina_maxima))))
+    stamina_fantasma = getattr(rpg, "stamina_fantasma", float(stamina_atual)) if rpg else float(stamina_atual)
+    prop_sp_fantasma = max(0.0, min(1.0, stamina_fantasma / max(1.0, float(stamina_maxima))))
+    larg_sp_base = 56 if tamanho_hud == "compacto" else (82 if tamanho_hud == "expandido" else 68)
+    larg_sp = min(102, larg_sp_base + int((stamina_maxima - 60) * 0.35)) if rpg else larg_sp_base
+
+    # Dimensões do Painel de Status
+    x_barras = 25 if rpg is not None else 8
+    larg_max_barras = max(larg_hp, larg_mp, larg_sp)
+    larg_box = max(larg_max_barras + x_barras + 5, 84 if tamanho_hud == "compacto" else 102)
+    alt_box = 39 if rpg is not None else 23
     desenhar_painel(tela, (2, 2, larg_box, alt_box), alfa=215)
 
-    # 1.1 Corações (com leve pulso quando a vida está baixa)
-    vida_baixa = vida <= 2 and vida > 0
-    passo_c = 8 if tamanho_hud == "compacto" else 9
-    for i in range(max_coracoes):
-        resto = vida - i * 2
-        if resto >= 2:
-            img = gfx.coracao_cheio
-        elif resto == 1:
-            img = gfx.coracao_metade
-        else:
-            img = gfx.coracao_vazio
-        col = i % 6
-        lin = i // 6
-        dy = -1 if vida_baixa and i == (vida - 1) // 2 and int(tempo * 6) % 2 == 0 else 0
-        tela.blit(img, (6 + col * passo_c, 6 + lin * 8 + dy))
-
-    if tamanho_hud == "expandido":
-        desenhar_texto(tela, fonte, f"{vida}/{vida_maxima}", (62, 6), (255, 200, 200))
-
+    # 1.2 Brasão / Selo do Nível Soulslike (à esquerda das barras)
     if rpg is not None:
-        # 1.2 Nível (selo dourado à direita dos corações)
-        txt_nv = f"Nv{rpg.nivel}"
-        larg_nv = fonte.size(txt_nv)[0] + 4
-        selo = pygame.Rect(larg_box - larg_nv - 2, 5, larg_nv, 10)
-        pygame.draw.rect(tela, (8, 8, 16), selo.inflate(2, 2))
-        pygame.draw.rect(tela, (120, 84, 30), selo)
-        pygame.draw.line(tela, (236, 190, 90), selo.topleft, (selo.right - 1, selo.top))
-        desenhar_texto(tela, fonte, txt_nv, selo.center, (255, 236, 150), centro=True)
+        selo_rect = pygame.Rect(5, 5, 17, 19)
+        pygame.draw.rect(tela, (14, 14, 22), selo_rect)
+        pygame.draw.rect(tela, (110, 80, 28), selo_rect, 1)
+        pygame.draw.line(tela, (230, 190, 80), selo_rect.topleft, (selo_rect.right - 1, selo_rect.top))
+        desenhar_texto(tela, fonte, "Nv", (selo_rect.centerx, selo_rect.y + 1), (200, 185, 140), centro=True)
+        desenhar_texto(tela, fonte, str(rpg.nivel), (selo_rect.centerx, selo_rect.y + 9), (255, 235, 145), centro=True)
         if rpg.pontos_habilidade > 0 and int(tempo * 2.5) % 2 == 0:
-            desenhar_texto(tela, fonte, f"+{rpg.pontos_habilidade}", (selo.x - 1, selo.bottom + 1), (120, 255, 150))
+            desenhar_texto(tela, fonte, f"+{rpg.pontos_habilidade}", (selo_rect.centerx, selo_rect.bottom), (120, 255, 150), centro=True)
 
-        # 1.3 Mana (gota + barra) e XP (barra fina dourada)
-        desenhar_icone(tela, "gota", (6, y_barras))
-        larg_barras = 34 if tamanho_hud == "compacto" else (54 if tamanho_hud == "expandido" else 44)
-        prop_mp = rpg.mana / max(1.0, rpg.mana_maxima)
-        desenhar_barra(tela, (15, y_barras + 1, larg_barras, 4), prop_mp, (64, 160, 255))
+    # 1.3 As 3 Barras Empilhadas no estilo Soulslike:
+    # --- Barra 1: VIDA (HP - Vermelha) ---
+    vida_baixa = vida <= 2 and vida > 0
+    desenhar_barra_soulslike(
+        tela,
+        x=x_barras,
+        y=5,
+        largura=larg_hp,
+        altura=5,
+        prop_atual=prop_hp,
+        prop_fantasma=prop_hp_fantasma,
+        cor_principal=(212, 34, 42),
+        cor_brilho=(255, 105, 115),
+        cor_fundo=(45, 10, 14),
+        cor_fantasma=(235, 170, 50),
+        cor_sombra=(135, 16, 22),
+        pulso=vida_baixa and int(tempo * 6) % 2 == 0,
+    )
+    if tamanho_hud == "expandido":
+        desenhar_texto(tela, fonte, f"{vida}/{vida_maxima}", (x_barras + larg_hp + 3, 4), (255, 200, 200))
+
+    # --- Barra 2: MAGIA (MP - Azul) ---
+    desenhar_barra_soulslike(
+        tela,
+        x=x_barras,
+        y=12,
+        largura=larg_mp,
+        altura=4,
+        prop_atual=prop_mp,
+        prop_fantasma=prop_mp_fantasma,
+        cor_principal=(36, 130, 242),
+        cor_brilho=(120, 205, 255),
+        cor_fundo=(12, 22, 50),
+        cor_fantasma=(135, 215, 255),
+        cor_sombra=(18, 70, 160),
+    )
+
+    # --- Barra 3: STAMINA (SP - Verde) ---
+    exaustao = getattr(rpg, "exaustao_stamina", False) if rpg else False
+    desenhar_barra_soulslike(
+        tela,
+        x=x_barras,
+        y=18,
+        largura=larg_sp,
+        altura=4,
+        prop_atual=prop_sp,
+        prop_fantasma=prop_sp_fantasma,
+        cor_principal=(46, 200, 78),
+        cor_brilho=(135, 248, 150),
+        cor_fundo=(12, 38, 16),
+        cor_fantasma=(195, 235, 95),
+        cor_sombra=(22, 115, 42),
+        pulso=exaustao and int(tempo * 6) % 2 == 0,
+    )
+
+    # 1.4 Barra fina de XP e Indicador de Feitiço / Habilidade
+    if rpg is not None:
         prop_xp = rpg.xp / max(1, rpg.xp_proximo)
-        desenhar_barra(tela, (15, y_barras + 7, larg_barras, 2), prop_xp, (246, 206, 70), brilho=False)
-        if tamanho_hud != "compacto":
-            desenhar_texto(tela, fonte, "XP", (18 + larg_barras, y_barras + 2), (200, 180, 120))
+        larg_xp = max(larg_hp, larg_mp, larg_sp)
+        desenhar_barra(tela, (x_barras, 24, larg_xp, 2), prop_xp, (246, 206, 70), brilho=False)
 
-        # 1.4 Feitiço equipado: tecla [F] + nome na cor do poder
         poder = rpg.poder_atual
         if poder is not None:
             tem_mana = rpg.mana >= poder["custo_mana"]
@@ -116,13 +233,19 @@ def desenhar_hud(
             tag_poder = TAGS_PODERES.get(poder["id"], poder["nome"][:5])
             if tamanho_hud == "compacto":
                 tag_poder = tag_poder[:3]
-            y_p = y_barras + 11
-            larg_t = desenhar_tecla(tela, fonte, "F", (6, y_p))
-            pygame.draw.rect(tela, (8, 8, 16), (8 + larg_t, y_p + 2, 6, 6))
-            pygame.draw.rect(tela, cor_p, (9 + larg_t, y_p + 3, 4, 4))
-            desenhar_texto(tela, fonte, tag_poder, (17 + larg_t, y_p), cor_p)
-            custo = f"{poder['custo_mana']}"
-            desenhar_texto(tela, fonte, custo, (larg_box - fonte.size(custo)[0] - 3, y_p), (110, 190, 255) if tem_mana else CINZA)
+            y_p = 28
+            larg_t = desenhar_tecla(tela, fonte, "F", (5, y_p))
+            pygame.draw.rect(tela, (8, 8, 16), (7 + larg_t, y_p + 2, 6, 6))
+            pygame.draw.rect(tela, cor_p, (8 + larg_t, y_p + 3, 4, 4))
+            desenhar_texto(tela, fonte, tag_poder, (16 + larg_t, y_p), cor_p)
+            custo = f"{poder['custo_mana']} MP"
+            desenhar_texto(
+                tela,
+                fonte,
+                custo,
+                (larg_box - fonte.size(custo)[0] - 3, y_p),
+                (110, 190, 255) if tem_mana else CINZA,
+            )
 
     # =========================================================================
     # 2. CENTRO SUPERIOR: FAIXA DE REGIÃO / OBJETIVO

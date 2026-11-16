@@ -367,9 +367,11 @@ class Jogo(Cena):
                 "nome_local": "Floresta Esmeralda",
             }
 
-        # Restaura vitalidade e mana
+        # Restaura vitalidade, mana e stamina
         self.jogador.vida = self.vida_max_total()
         self.rpg.mana = self.rpg.mana_maxima
+        self.rpg.stamina = self.rpg.stamina_maxima
+        self.rpg.exaustao_stamina = False
         self.jogador.invulneravel = 2.0
         self.estado = "jogando"
 
@@ -594,7 +596,14 @@ class Jogo(Cena):
             )
             return
 
+        if self.rpg.stamina < 10.0 or getattr(self.rpg, "exaustao_stamina", False):
+            self.textos_flutuantes.append(
+                TextoFlutuante(self.jogador.rect.midtop, "Sem Fôlego!", (140, 255, 160))
+            )
+            return
+
         self.rpg.mana -= poder["custo_mana"]
+        self.rpg.gastar_stamina(10.0)
         id_p = poder["id"]
         centro = self.jogador.rect.center
         audio = getattr(self.app, "audio", None)
@@ -930,6 +939,8 @@ class Jogo(Cena):
         self.cor_clarao = (255, 235, 120)
         self.jogador.curar(self.vida_max_total())
         self.rpg.mana = self.rpg.mana_maxima
+        self.rpg.stamina = self.rpg.stamina_maxima
+        self.rpg.exaustao_stamina = False
         self.rpg.bombas = self.rpg.capacidade_max_bombas
         self.conquistas.desbloquear("colecionador_reliquias", self)
 
@@ -1012,7 +1023,13 @@ class Jogo(Cena):
         if not self.dialogo and self.estado == "jogando":
             self.rpg.tempo_speedrun += dt
         self.tempo_split_recente = max(0.0, getattr(self, "tempo_split_recente", 0.0) - dt)
-        self.rpg.atualizar(dt)
+        self.jogador.rpg = self.rpg
+        self.rpg.atualizar(
+            dt,
+            vida_jogador=self.jogador.vida,
+            defendendo=self.jogador.defendendo,
+            correndo=self.jogador.correndo and self.jogador.andando,
+        )
         self.jogador.vida_maxima = self.vida_max_total()
         self.jogador.fator_velocidade_rpg = self.rpg.fator_velocidade
         self.ambiente.atualizar(dt)
@@ -1201,6 +1218,8 @@ class Jogo(Cena):
             if ponto_salve:
                 self.jogador.vida = self.vida_max_total()
                 self.rpg.mana = self.rpg.mana_maxima
+                self.rpg.stamina = self.rpg.stamina_maxima
+                self.rpg.exaustao_stamina = False
                 self.definir_checkpoint(self.nivel.caminho, (ponto_salve[0], ponto_salve[1] + 14), "baixo", f"Altar: {self.nivel.nome}")
                 salvar_jogo(self)
                 self.aviso_autosave = f"Altar: {self.nivel.nome}"
@@ -1208,7 +1227,7 @@ class Jogo(Cena):
                 if audio:
                     audio.sfx("salvar")
                 self.textos_flutuantes.append(
-                    TextoFlutuante(jogador.rect.midtop, "Jogo Salvo! Vida & Mana Restauradas!", (110, 255, 180))
+                    TextoFlutuante(jogador.rect.midtop, "Jogo Salvo! Vida, Mana & Stamina Restauradas!", (110, 255, 180))
                 )
                 self.clarao = 0.45
                 self.cor_clarao = (255, 240, 140)

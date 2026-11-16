@@ -154,6 +154,7 @@ def salvar_jogo(jogo, slot=None):
             "poderes_ativos": list(jogo.rpg.poderes_ativos),
             "indice_poder": jogo.rpg.indice_poder,
             "mana": jogo.rpg.mana,
+            "stamina": getattr(jogo.rpg, "stamina", 60.0),
             "chefes_derrotados": list(getattr(jogo.rpg, "chefes_derrotados", set())),
             "ouro": getattr(jogo.rpg, "ouro", 0),
             "bombas": getattr(jogo.rpg, "bombas", 3),
@@ -217,6 +218,9 @@ def carregar_jogo(app, slot=1):
         jogo.rpg.poderes_ativos = list(rpg_dados.get("poderes_ativos", ["esfera_fogo"]))
         jogo.rpg.indice_poder = rpg_dados.get("indice_poder", 0)
         jogo.rpg.mana = rpg_dados.get("mana", 20.0)
+        jogo.rpg.stamina = float(rpg_dados.get("stamina", jogo.rpg.stamina_maxima))
+        jogo.rpg.stamina = min(jogo.rpg.stamina_maxima, jogo.rpg.stamina)
+        jogo.jogador.rpg = jogo.rpg
         jogo.rpg.chefes_derrotados = set(rpg_dados.get("chefes_derrotados", []))
         jogo.rpg.ouro = rpg_dados.get("ouro", 0)
         jogo.rpg.bombas = rpg_dados.get("bombas", 3)
