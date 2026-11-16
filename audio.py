@@ -1029,6 +1029,34 @@ def construir_banco_sfx():
 
 
 # =====================================================================
+# Regras de Audio Ducking Dinâmico (skills/game-audio/SKILL.md)
+# Atenua dinamicamente a BGM para destacar eventos críticos e SFX pesados.
+# Formato: {nome_sfx: (fator_volume_bgm, duracao_segundos)}
+# =====================================================================
+SFX_DUCKING_REGRAS = {
+    # Rugidos de chefes e gongos épicos
+    "rugido_chefe": (0.30, 1.25),
+    "gong_chefe": (0.35, 1.10),
+    "morte_inimigo": (0.50, 0.70),
+    "impacto_pesado": (0.45, 0.50),
+    "explosao_bomba": (0.40, 0.85),
+    "quebrar_vaso": (0.65, 0.35),
+    "cristal_quebra": (0.55, 0.40),
+    # Fanfarras, teleporte e level up
+    "fanfarra_item": (0.25, 2.20),
+    "level_up": (0.35, 1.40),
+    "ativar_monolito": (0.35, 1.50),
+    "teleporte": (0.40, 1.20),
+    # Magias de grande impacto
+    "magia_raio": (0.50, 0.65),
+    "magia_fogo": (0.60, 0.50),
+    "magia_corte": (0.55, 0.45),
+    "magia_gelo": (0.55, 0.50),
+    "escudo_bloqueio": (0.60, 0.35),
+}
+
+
+# =====================================================================
 # Gerenciador Principal de Áudio (OST + SFX)
 # =====================================================================
 class SistemaAudio:
@@ -1041,6 +1069,11 @@ class SistemaAudio:
         self._sfx = {}
         self._canal_bgm = None
         self._cooldown_sfx = {}
+        self.fator_ducking = 1.0
+        self._duck_alvo = 1.0
+        self._tempo_duck = 0.0
+        self.duck_dialogo = False
+        self._vol_bgm_base = 0.7
 
         try:
             atual = pygame.mixer.get_init()
@@ -1059,12 +1092,39 @@ class SistemaAudio:
     def aplicar_volumes(self):
         if not self.ativo:
             return
-        vol_bgm = max(0.0, min(1.0, self.cfg.get("volume_bgm", 70) / 100.0))
+        self._vol_bgm_base = max(0.0, min(1.0, self.cfg.get("volume_bgm", 70) / 100.0))
         vol_sfx = max(0.0, min(1.0, self.cfg.get("volume_sfx", 80) / 100.0))
         if self._canal_bgm is not None:
-            self._canal_bgm.set_volume(vol_bgm)
+            self._canal_bgm.set_volume(self._vol_bgm_base * self.fator_ducking)
         for som in self._sfx.values():
             som.set_volume(vol_sfx)
+
+    def aplicar_ducking(self, fator=0.5, duracao=0.6):
+        """Abaixa dinamicamente o volume da BGM para dar destaque a um evento/SFX."""
+        self._duck_alvo = min(self._duck_alvo, fator)
+        self._tempo_duck = max(self._tempo_duck, duracao)
+
+    def atualizar(self, dt):
+        """Atualiza a transição suave de ducking do canal de BGM."""
+        if not self.ativo:
+            return
+
+        if self._tempo_duck > 0:
+            self._tempo_duck = max(0.0, self._tempo_duck - dt)
+            alvo = self._duck_alvo
+            if self._tempo_duck <= 0:
+                self._duck_alvo = 1.0
+        else:
+            alvo = 1.0
+
+        if self.duck_dialogo:
+            alvo = min(alvo, 0.68)
+
+        # Attack rápido (15.0) para resposta imediata ao impacto, release suave (3.5)
+        taxa = 15.0 if alvo < self.fator_ducking else 3.5
+        self.fator_ducking += (alvo - self.fator_ducking) * min(1.0, dt * taxa)
+        if self._canal_bgm is not None:
+            self._canal_bgm.set_volume(self._vol_bgm_base * self.fator_ducking)
 
     def tocar_bgm(self, nome_faixa, forcar=False):
         """Inicia ou troca a música de fundo (BGM) com cache em memória."""
@@ -1083,8 +1143,8 @@ class SistemaAudio:
             self._cache_bgm[nome_faixa] = sintetizar_bgm(nome_faixa)
 
         som = self._cache_bgm[nome_faixa]
-        vol_bgm = max(0.0, min(1.0, self.cfg.get("volume_bgm", 70) / 100.0))
-        self._canal_bgm.set_volume(vol_bgm)
+        self._vol_bgm_base = max(0.0, min(1.0, self.cfg.get("volume_bgm", 70) / 100.0))
+        self._canal_bgm.set_volume(self._vol_bgm_base * self.fator_ducking)
         loops = 0 if nome_faixa == "derrota" else -1
         self._canal_bgm.play(som, loops=loops, fade_ms=380)
         return True
@@ -1095,7 +1155,12 @@ class SistemaAudio:
         return self.tocar_bgm(tema)
 
     def sfx(self, nome):
-        """Toca um efeito sonoro 16-bits respeitando um pequeno intervalo mínimo."""
+        """Toca um efeito sonoro 16-bits respeitando intervalo e disparando ducking."""
+        # Aciona ducking dinâmico caso haja regra para este som
+        if nome in SFX_DUCKING_REGRAS:
+            fator, dur = SFX_DUCKING_REGRAS[nome]
+            self.aplicar_ducking(fator, dur)
+
         if not self.ativo or nome not in self._sfx:
             return
         if self.cfg.get("volume_sfx", 80) <= 0:

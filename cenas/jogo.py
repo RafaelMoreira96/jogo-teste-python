@@ -980,6 +980,8 @@ class Jogo(Cena):
 
         entrada = self.app.entrada
         audio = getattr(self.app, "audio", None)
+        if audio:
+            audio.duck_dialogo = (self.dialogo is not None)
         self.tempo_cenario += dt
         if not self.dialogo and self.estado == "jogando":
             self.rpg.tempo_speedrun += dt

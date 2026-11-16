@@ -96,6 +96,8 @@ class App:
             self.entrada.processar(evento)
 
     def passo(self, dt):
+        if getattr(self, "audio", None):
+            self.audio.atualizar(dt)
         self.cenas[-1].atualizar(dt)
         # Desenha a partir da última cena que não é transparente.
         inicio = len(self.cenas) - 1
