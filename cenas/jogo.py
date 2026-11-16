@@ -967,11 +967,24 @@ class Jogo(Cena):
 
     def _seguir_camera(self, dt):
         if isinstance(self.alvo_camera, pygame.Rect):
-            self.camera.seguir(self.alvo_camera, dt)
+            self.camera.seguir(self.alvo_camera, dt, lookahead=None)
         elif self.alvo_camera is not None:
-            self.camera.seguir(self.alvo_camera.rect, dt)
+            self.camera.seguir(self.alvo_camera.rect, dt, lookahead=None)
         else:
-            self.camera.seguir(self.jogador.rect, dt)
+            # Look-Ahead nos 8 eixos (antecipação suave da câmera na direção do movimento)
+            usar_lookahead = self.app.config.get("camera_lookahead", True)
+            if usar_lookahead and not self.dialogo and self.estado == "jogando":
+                vetor_dir = VETORES.get(self.jogador.direcao, pygame.Vector2(0, 0))
+                if self.jogador.correndo or self.jogador.tempo_dash > 0:
+                    dist_la = 32.0
+                elif self.jogador.andando:
+                    dist_la = 20.0
+                else:
+                    dist_la = 8.0
+                vetor_la = vetor_dir * dist_la
+            else:
+                vetor_la = None
+            self.camera.seguir(self.jogador.rect, dt, lookahead=vetor_la)
 
     def atualizar(self, dt):
         from cenas.arvore_habilidades import ArvoreHabilidades

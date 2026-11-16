@@ -4,18 +4,24 @@ from settings import ALTURA, LARGURA
 
 
 class Camera:
-    """Segue o jogador suavemente sem mostrar nada fora do mapa."""
+    """Segue o jogador suavemente sem mostrar nada fora do mapa, com Look-Ahead dinâmico nos 8 eixos."""
 
     def __init__(self, largura_mundo, altura_mundo):
         self.largura_mundo = largura_mundo
         self.altura_mundo = altura_mundo
         self.pos = pygame.Vector2()
+        self.lookahead = pygame.Vector2()
+        self.suavidade_lookahead = 4.5
+        self.suavidade_camera = 7.5
 
-    def _alvo(self, rect):
-        x = rect.centerx - LARGURA / 2
-        y = rect.centery - ALTURA / 2
-        x = max(0, min(x, self.largura_mundo - LARGURA))
-        y = max(0, min(y, self.altura_mundo - ALTURA))
+    def _alvo(self, rect, offset_lookahead=None):
+        centro_x = rect.centerx + (offset_lookahead.x if offset_lookahead else 0.0)
+        centro_y = rect.centery + (offset_lookahead.y if offset_lookahead else 0.0)
+
+        x = centro_x - LARGURA / 2
+        y = centro_y - ALTURA / 2
+        x = max(0.0, min(x, self.largura_mundo - LARGURA))
+        y = max(0.0, min(y, self.altura_mundo - ALTURA))
         # Mapa menor que a tela: centraliza.
         if self.largura_mundo < LARGURA:
             x = (self.largura_mundo - LARGURA) / 2
@@ -24,10 +30,19 @@ class Camera:
         return pygame.Vector2(x, y)
 
     def centralizar(self, rect):
+        self.lookahead = pygame.Vector2(0, 0)
         self.pos = self._alvo(rect)
 
-    def seguir(self, rect, dt):
-        self.pos += (self._alvo(rect) - self.pos) * min(1.0, dt * 8)
+    def seguir(self, rect, dt, lookahead=None):
+        if lookahead is not None:
+            taxa_la = min(1.0, dt * self.suavidade_lookahead)
+            self.lookahead += (lookahead - self.lookahead) * taxa_la
+        else:
+            taxa_la = min(1.0, dt * self.suavidade_lookahead)
+            self.lookahead += (pygame.Vector2(0, 0) - self.lookahead) * taxa_la
+
+        alvo_final = self._alvo(rect, self.lookahead)
+        self.pos += (alvo_final - self.pos) * min(1.0, dt * self.suavidade_camera)
 
     @property
     def offset(self):

@@ -17,6 +17,7 @@ PADRAO = {
     "tamanho_hud": "normal",  # "normal", "compacto", "expandido"
     "alto_contraste": False,
     "intensidade_tremor": 1.0,  # 1.0 (100%), 0.5 (50%), 0.0 (Desligado)
+    "camera_lookahead": True,   # Câmera Dinâmica com Antecipação (Fase 3 - Skills)
     "speedrun": False,
     "mapeamento_teclado": {},
     "mapeamento_controle": {},
