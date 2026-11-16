@@ -119,15 +119,15 @@ def desenhar_hud(
     modo_speedrun = cfg.get("speedrun", False)
 
     # =========================================================================
-    # 1. QUADRO SUPERIOR ESQUERDO: STATUS DO HERÓI (ESTILO SOULSLIKE)
+    # 1. QUADRO SUPERIOR ESQUERDO: STATUS DO HERÓI (ESTILO SOULSLIKE COMPACTO)
     # =========================================================================
-    # 1.1 Proporções e comprimentos que escalam dinamicamente com os atributos
+    # 1.1 Proporções compactas e elegantes que escalam sem invadir o centro
     # Barra de Vida (Vermelha)
     prop_hp = max(0.0, min(1.0, vida / max(1.0, float(vida_maxima))))
     vida_fantasma = getattr(rpg, "vida_fantasma", float(vida)) if rpg else float(vida)
     prop_hp_fantasma = max(0.0, min(1.0, vida_fantasma / max(1.0, float(vida_maxima))))
-    larg_hp_base = 62 if tamanho_hud == "compacto" else (88 if tamanho_hud == "expandido" else 74)
-    larg_hp = min(108, larg_hp_base + (vida_maxima - 6) * 3)
+    larg_hp_base = 42 if tamanho_hud == "compacto" else (58 if tamanho_hud == "expandido" else 48)
+    larg_hp = min(72, larg_hp_base + (vida_maxima - 6) * 2)
 
     # Barra de Magia (Azul)
     mana_atual = rpg.mana if rpg else 20.0
@@ -135,8 +135,8 @@ def desenhar_hud(
     prop_mp = max(0.0, min(1.0, mana_atual / max(1.0, float(mana_maxima))))
     mana_fantasma = getattr(rpg, "mana_fantasma", float(mana_atual)) if rpg else float(mana_atual)
     prop_mp_fantasma = max(0.0, min(1.0, mana_fantasma / max(1.0, float(mana_maxima))))
-    larg_mp_base = 52 if tamanho_hud == "compacto" else (78 if tamanho_hud == "expandido" else 64)
-    larg_mp = min(98, larg_mp_base + int((mana_maxima - 20) * 0.75)) if rpg else larg_mp_base
+    larg_mp_base = 36 if tamanho_hud == "compacto" else (50 if tamanho_hud == "expandido" else 42)
+    larg_mp = min(66, larg_mp_base + int((mana_maxima - 20) * 0.5)) if rpg else larg_mp_base
 
     # Barra de Stamina (Verde - escala com o nível do herói!)
     stamina_atual = getattr(rpg, "stamina", 60.0) if rpg else 60.0
@@ -144,19 +144,19 @@ def desenhar_hud(
     prop_sp = max(0.0, min(1.0, stamina_atual / max(1.0, float(stamina_maxima))))
     stamina_fantasma = getattr(rpg, "stamina_fantasma", float(stamina_atual)) if rpg else float(stamina_atual)
     prop_sp_fantasma = max(0.0, min(1.0, stamina_fantasma / max(1.0, float(stamina_maxima))))
-    larg_sp_base = 56 if tamanho_hud == "compacto" else (82 if tamanho_hud == "expandido" else 68)
-    larg_sp = min(102, larg_sp_base + int((stamina_maxima - 60) * 0.35)) if rpg else larg_sp_base
+    larg_sp_base = 38 if tamanho_hud == "compacto" else (54 if tamanho_hud == "expandido" else 44)
+    larg_sp = min(70, larg_sp_base + int((stamina_maxima - 60) * 0.25)) if rpg else larg_sp_base
 
-    # Dimensões do Painel de Status
-    x_barras = 25 if rpg is not None else 8
+    # Dimensões compactas do Painel de Status (máximo ~78px de largura)
+    x_barras = 24 if rpg is not None else 7
     larg_max_barras = max(larg_hp, larg_mp, larg_sp)
-    larg_box = max(larg_max_barras + x_barras + 5, 84 if tamanho_hud == "compacto" else 102)
+    larg_box = max(larg_max_barras + x_barras + 4, 68 if tamanho_hud == "compacto" else 76)
     alt_box = 39 if rpg is not None else 23
     desenhar_painel(tela, (2, 2, larg_box, alt_box), alfa=215)
 
     # 1.2 Brasão / Selo do Nível Soulslike (à esquerda das barras)
     if rpg is not None:
-        selo_rect = pygame.Rect(5, 5, 17, 19)
+        selo_rect = pygame.Rect(5, 5, 16, 19)
         pygame.draw.rect(tela, (14, 14, 22), selo_rect)
         pygame.draw.rect(tela, (110, 80, 28), selo_rect, 1)
         pygame.draw.line(tela, (230, 190, 80), selo_rect.topleft, (selo_rect.right - 1, selo_rect.top))
@@ -183,8 +183,6 @@ def desenhar_hud(
         cor_sombra=(135, 16, 22),
         pulso=vida_baixa and int(tempo * 6) % 2 == 0,
     )
-    if tamanho_hud == "expandido":
-        desenhar_texto(tela, fonte, f"{vida}/{vida_maxima}", (x_barras + larg_hp + 3, 4), (255, 200, 200))
 
     # --- Barra 2: MAGIA (MP - Azul) ---
     desenhar_barra_soulslike(
@@ -231,14 +229,14 @@ def desenhar_hud(
             tem_mana = rpg.mana >= poder["custo_mana"]
             cor_p = poder["cor"] if tem_mana else CINZA
             tag_poder = TAGS_PODERES.get(poder["id"], poder["nome"][:5])
-            if tamanho_hud == "compacto":
+            if tamanho_hud == "compacto" or larg_box < 80:
                 tag_poder = tag_poder[:3]
             y_p = 28
             larg_t = desenhar_tecla(tela, fonte, "F", (5, y_p))
             pygame.draw.rect(tela, (8, 8, 16), (7 + larg_t, y_p + 2, 6, 6))
             pygame.draw.rect(tela, cor_p, (8 + larg_t, y_p + 3, 4, 4))
             desenhar_texto(tela, fonte, tag_poder, (16 + larg_t, y_p), cor_p)
-            custo = f"{poder['custo_mana']} MP"
+            custo = f"{poder['custo_mana']}"
             desenhar_texto(
                 tela,
                 fonte,
@@ -248,12 +246,12 @@ def desenhar_hud(
             )
 
     # =========================================================================
-    # 2. CENTRO SUPERIOR: FAIXA DE REGIÃO / OBJETIVO
+    # 2. CENTRO SUPERIOR: FAIXA DE REGIÃO / OBJETIVO (SÓ APARECE AO APERTAR [O])
     # =========================================================================
     if chefe_ativo is None:
         if tempo_aviso_mapa > 0 and aviso_mapa:
             texto = limpar_texto(aviso_mapa)
-            larg_max = 2 * (LARGURA // 2 - 91)  # entre o painel de status e o minimapa
+            larg_max = 2 * (LARGURA // 2 - 86)  # livre de qualquer colisão
             larg_aviso = min(larg_max, fonte.size(texto)[0] + 12)
             linhas = quebrar_linhas(fonte, texto, larg_aviso - 10) if fonte.size(texto)[0] > larg_aviso - 10 else [texto]
             alt_aviso = 4 + 10 * len(linhas)
@@ -262,7 +260,8 @@ def desenhar_hud(
             desenhar_painel(tela, (LARGURA // 2 - larg_aviso // 2, y0, larg_aviso, alt_aviso + 2), "dourado", alfa=225, cantos=False)
             for i, linha in enumerate(linhas):
                 desenhar_texto(tela, fonte, linha, (LARGURA // 2, y0 + 6 + i * 10), (255, 240, 160), centro=True)
-        elif rpg is not None and hasattr(rpg, "proximo_chefe"):
+        elif bussola and bussola.get("tempo_visivel", 0.0) > 0 and rpg is not None and hasattr(rpg, "proximo_chefe"):
+            # O banner do próximo chefão SÓ aparece sob demanda quando o jogador aperta [O] (botão de objetivo)
             proximo = rpg.proximo_chefe()
             if proximo:
                 _, nome_p, nv_p, _, _, _, _ = proximo
@@ -277,12 +276,14 @@ def desenhar_hud(
                 txt_obj = f"{nome_curto}"
                 txt_nv = f"Nv{nv_p}"
                 cor_nv = (120, 255, 150) if rpg.nivel >= nv_p else (255, 120, 110)
-                larg_obj = min(150, fonte.size(txt_obj)[0] + fonte.size(txt_nv)[0] + 26)
+                larg_obj = min(140, fonte.size(txt_obj)[0] + fonte.size(txt_nv)[0] + 24)
                 x0 = LARGURA // 2 - larg_obj // 2
-                desenhar_painel(tela, (x0, 3, larg_obj, 14), "padrao", alfa=200, cantos=False)
-                desenhar_icone(tela, "caveira", (x0 + 4, 6))
-                desenhar_texto(tela, fonte, txt_obj, (x0 + 13, 5), (255, 235, 140))
-                desenhar_texto(tela, fonte, txt_nv, (x0 + larg_obj - fonte.size(txt_nv)[0] - 3, 5), cor_nv)
+                tempo_v = bussola.get("tempo_visivel", 0.0)
+                y0 = 3 if tempo_v > 0.3 else (3 - round((1 - tempo_v / 0.3) * 18))
+                desenhar_painel(tela, (x0, y0, larg_obj, 14), "padrao", alfa=220, cantos=False)
+                desenhar_icone(tela, "caveira", (x0 + 4, y0 + 3))
+                desenhar_texto(tela, fonte, txt_obj, (x0 + 13, y0 + 2), (255, 235, 140))
+                desenhar_texto(tela, fonte, txt_nv, (x0 + larg_obj - fonte.size(txt_nv)[0] - 3, y0 + 2), cor_nv)
 
     # =========================================================================
     # 3. QUADRO INFERIOR ESQUERDO: RECURSOS COM ÍCONES

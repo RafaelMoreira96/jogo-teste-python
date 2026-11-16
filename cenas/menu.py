@@ -407,73 +407,244 @@ class MenuPrincipal(Cena):
                 pygame.draw.line(tela, (40, 26, 60), (bx, by), (bx + 2, by + asa))
 
     def _desenhar_castelo_vivo(self, tela, cx, cy, t):
-        """Castelo gótico com rim-lighting do nascer do sol, ameias, janelas acesas e farol místico."""
-        # Silhueta base do castelo e muralhas
-        sombra = (32, 22, 48)
-        pedra = (48, 36, 68)
-        pedra_luz = (86, 64, 102)
-        rim_sol = (255, 210, 140)
+        """Castelo gótico imponente e detalhado com múltiplas torres, vitral rosácea, agulhas góticas,
 
-        # Torres laterais e muralhas
-        # Muralha de fundo
-        pygame.draw.rect(tela, sombra, (cx - 36, cy + 30, 72, 34))
-        pygame.draw.rect(tela, pedra, (cx - 34, cy + 32, 68, 30))
+        promontório de basalto, contrafortes, portão com grade iluminado e flâmulas tremulantes.
+        """
+        # Paleta de tons crepusculares e góticos
+        sombra_prof = (20, 14, 32)
+        sombra = (28, 20, 44)
+        pedra = (44, 32, 62)
+        pedra_luz = (68, 52, 90)
+        pedra_destaque = (96, 76, 122)
+        rim_sol = (255, 215, 140)
+        rim_ceu = (130, 150, 205)
+        ouro = (255, 225, 110)
+        carmesim = (210, 40, 55)
 
-        # Ameias da muralha
-        for bx in range(cx - 34, cx + 34, 6):
-            pygame.draw.rect(tela, pedra, (bx, cy + 27, 4, 5))
-            pygame.draw.line(tela, rim_sol, (bx + 3, cy + 27), (bx + 3, cy + 31))
-
-        # Torre esquerda
-        pygame.draw.rect(tela, sombra, (cx - 42, cy + 14, 18, 50))
-        pygame.draw.rect(tela, pedra, (cx - 40, cy + 16, 15, 48))
-        # Telhado cônico esquerdo
-        pygame.draw.polygon(tela, sombra, [(cx - 44, cy + 14), (cx - 31, cy - 8), (cx - 20, cy + 14)])
-        pygame.draw.polygon(tela, pedra_luz, [(cx - 42, cy + 14), (cx - 31, cy - 7), (cx - 22, cy + 14)])
-        pygame.draw.line(tela, rim_sol, (cx - 31, cy - 7), (cx - 22, cy + 14))
-
-        # Torre direita (mais próxima do sol, rim-light acentuado)
-        pygame.draw.rect(tela, sombra, (cx + 24, cy + 10, 20, 54))
-        pygame.draw.rect(tela, pedra, (cx + 26, cy + 12, 17, 52))
-        pygame.draw.polygon(tela, sombra, [(cx + 22, cy + 10), (cx + 35, cy - 14), (cx + 47, cy + 10)])
-        pygame.draw.polygon(tela, pedra_luz, [(cx + 24, cy + 10), (cx + 35, cy - 13), (cx + 45, cy + 10)])
-        pygame.draw.line(tela, rim_sol, (cx + 35, cy - 13), (cx + 45, cy + 10), 2)
-        pygame.draw.line(tela, rim_sol, (cx + 43, cy + 12), (cx + 43, cy + 62))
-
-        # Torre Central de Menagem (a mais imponente)
-        pygame.draw.rect(tela, sombra, (cx - 16, cy - 6, 32, 70))
-        pygame.draw.rect(tela, pedra, (cx - 14, cy - 4, 28, 68))
-        # Spire central
-        pygame.draw.polygon(tela, sombra, [(cx - 18, cy - 6), (cx, cy - 38), (cx + 18, cy - 6)])
-        pygame.draw.polygon(tela, pedra_luz, [(cx - 16, cy - 6), (cx, cy - 36), (cx + 16, cy - 6)])
-        pygame.draw.line(tela, rim_sol, (cx, cy - 36), (cx + 16, cy - 6))
-
-        # Ameias da torre central
-        for bx in range(cx - 14, cx + 16, 7):
-            pygame.draw.rect(tela, pedra, (bx, cy - 10, 4, 5))
-            pygame.draw.line(tela, rim_sol, (bx + 3, cy - 10), (bx + 3, cy - 6))
-
-        # Farol místico no topo da torre central
-        pulso_farol = 0.5 + 0.5 * math.sin(t * 3.0)
-        s_farol = pygame.Surface((18, 18), pygame.SRCALPHA)
-        pygame.draw.circle(s_farol, (180, 235, 255, round(60 + 50 * pulso_farol)), (9, 9), 8)
-        pygame.draw.circle(s_farol, (255, 255, 255, round(160 + 90 * pulso_farol)), (9, 9), 3)
-        tela.blit(s_farol, (cx - 9, cy - 44))
-        tela.set_at((cx, cy - 35), (255, 255, 255))
-
-        # Janelas góticas iluminadas por tochas/vitrais
-        janelas = [
-            (cx - 34, cy + 26), (cx - 34, cy + 40),
-            (cx - 6, cy + 12), (cx + 4, cy + 12),
-            (cx - 6, cy + 30), (cx + 4, cy + 30),
-            (cx + 33, cy + 22), (cx + 33, cy + 38),
+        # -------------------------------------------------------------------------
+        # 1. PROMONTÓRIO ROCHOSO (FALÉSIA / BASE DE BASALTO)
+        # -------------------------------------------------------------------------
+        pts_rocha = [
+            (cx - 56, cy + 62),
+            (cx - 52, cy + 50),
+            (cx - 40, cy + 44),
+            (cx - 15, cy + 46),
+            (cx + 20, cy + 43),
+            (cx + 46, cy + 48),
+            (cx + 58, cy + 54),
+            (cx + 62, cy + 62),
         ]
-        for jx, jy in janelas:
-            cintila = math.sin(t * 4.5 + jx * 1.7) * 20
-            cor_janela = (min(255, round(255 + cintila)), round(205 + cintila), 80)
-            pygame.draw.rect(tela, (20, 14, 30), (jx - 1, jy - 1, 5, 8))
-            pygame.draw.rect(tela, cor_janela, (jx, jy, 3, 6))
-            tela.set_at((jx + 1, jy), (255, 255, 220))
+        pygame.draw.polygon(tela, sombra_prof, pts_rocha)
+        pygame.draw.polygon(tela, sombra, [(p[0], p[1] - 2) for p in pts_rocha])
+        # Estratos rochosos verticais e quinas iluminadas
+        for rx, ry, h in ((cx - 46, cy + 48, 12), (cx - 25, cy + 46, 14), (cx + 12, cy + 45, 15), (cx + 38, cy + 48, 13)):
+            pygame.draw.line(tela, pedra_destaque, (rx, ry), (rx + 2, ry + h))
+            pygame.draw.line(tela, rim_sol, (rx + 3, ry), (rx + 5, ry + h - 2))
+
+        # -------------------------------------------------------------------------
+        # 2. TORRES DE FUNDO (SILHUETAS ESGUIAS COM AGULHAS GÓTICAS)
+        # -------------------------------------------------------------------------
+        # Torre de Fundo Esquerda (Alta e Esguia)
+        tx_esq = cx - 34
+        pygame.draw.rect(tela, sombra_prof, (tx_esq - 6, cy - 24, 12, 68))
+        pygame.draw.rect(tela, sombra, (tx_esq - 5, cy - 22, 10, 66))
+        # Agulha esbelta esquerda
+        pygame.draw.polygon(tela, sombra_prof, [(tx_esq - 7, cy - 24), (tx_esq, cy - 54), (tx_esq + 7, cy - 24)])
+        pygame.draw.polygon(tela, pedra, [(tx_esq - 5, cy - 24), (tx_esq, cy - 52), (tx_esq + 5, cy - 24)])
+        pygame.draw.line(tela, rim_ceu, (tx_esq - 6, cy - 24), (tx_esq, cy - 54))
+        # Pináculo e flâmula ondulante esquerda
+        tela.set_at((tx_esq, cy - 55), ouro)
+        flamula_onda1 = math.sin(t * 5.5) * 2.0
+        pygame.draw.polygon(tela, carmesim, [(tx_esq, cy - 54), (tx_esq - 8, cy - 53 + round(flamula_onda1)), (tx_esq, cy - 51)])
+
+        # Torre de Fundo Direita (Campanário)
+        tx_dir = cx + 32
+        pygame.draw.rect(tela, sombra_prof, (tx_dir - 7, cy - 28, 14, 72))
+        pygame.draw.rect(tela, sombra, (tx_dir - 6, cy - 26, 12, 70))
+        # Agulha esbelta direita
+        pygame.draw.polygon(tela, sombra_prof, [(tx_dir - 8, cy - 28), (tx_dir, cy - 58), (tx_dir + 8, cy - 28)])
+        pygame.draw.polygon(tela, pedra_luz, [(tx_dir - 6, cy - 28), (tx_dir, cy - 56), (tx_dir + 6, cy - 28)])
+        pygame.draw.line(tela, rim_sol, (tx_dir, cy - 57), (tx_dir + 7, cy - 28), 2)
+        # Pináculo e flâmula direita
+        tela.set_at((tx_dir, cy - 59), ouro)
+        flamula_onda2 = math.sin(t * 6.2 + 1.2) * 2.2
+        pygame.draw.polygon(tela, carmesim, [(tx_dir, cy - 58), (tx_dir + 9, cy - 57 + round(flamula_onda2)), (tx_dir, cy - 55)])
+
+        # Arcada sineira da torre direita
+        pygame.draw.rect(tela, sombra_prof, (tx_dir - 3, cy - 20, 6, 8))
+        pygame.draw.circle(tela, sombra_prof, (tx_dir, cy - 20), 3)
+        tela.set_at((tx_dir, cy - 18), ouro)
+
+        # -------------------------------------------------------------------------
+        # 3. PONTE AÉREA / PASSADIÇO COM ARCADAS VAZADAS
+        # -------------------------------------------------------------------------
+        # Conecta a torre esquerda de fundo ao corpo central
+        pygame.draw.rect(tela, sombra, (cx - 30, cy + 12, 16, 8))
+        pygame.draw.line(tela, rim_ceu, (cx - 30, cy + 12), (cx - 14, cy + 12))
+        for ax in (cx - 27, cx - 19):
+            pygame.draw.rect(tela, (18, 14, 28), (ax, cy + 15, 4, 5))
+            pygame.draw.circle(tela, (18, 14, 28), (ax + 2, cy + 15), 2)
+
+        # -------------------------------------------------------------------------
+        # 4. MURALHAS E AMEIAS DO MEIO-PLANO
+        # -------------------------------------------------------------------------
+        pygame.draw.rect(tela, sombra, (cx - 48, cy + 26, 96, 28))
+        pygame.draw.rect(tela, pedra, (cx - 46, cy + 28, 92, 24))
+        # Friso de mísulas / corbels abaixo das ameias
+        for bx in range(cx - 46, cx + 46, 5):
+            pygame.draw.line(tela, sombra_prof, (bx, cy + 26), (bx, cy + 28))
+            pygame.draw.line(tela, pedra_destaque, (bx + 1, cy + 26), (bx + 1, cy + 28))
+        # Ameias com seteiras
+        for bx in range(cx - 46, cx + 46, 7):
+            pygame.draw.rect(tela, sombra_prof, (bx - 1, cy + 20, 5, 6))
+            pygame.draw.rect(tela, pedra_luz, (bx, cy + 21, 3, 5))
+            pygame.draw.line(tela, rim_sol, (bx + 3, cy + 20), (bx + 3, cy + 25))
+
+        # -------------------------------------------------------------------------
+        # 5. GRANDE TORREÃO CENTRAL DE MENAGEM (DONJON IMPERIAL)
+        # -------------------------------------------------------------------------
+        # Corpo principal dividido em 3 andares com contrafortes
+        pygame.draw.rect(tela, sombra_prof, (cx - 20, cy - 14, 40, 68))
+        pygame.draw.rect(tela, pedra, (cx - 18, cy - 12, 36, 66))
+        pygame.draw.rect(tela, pedra_luz, (cx + 4, cy - 12, 14, 66))
+        # Contrafortes laterais chanfrados
+        pygame.draw.polygon(tela, sombra_prof, [(cx - 22, cy + 54), (cx - 22, cy + 16), (cx - 18, cy + 10), (cx - 18, cy + 54)])
+        pygame.draw.polygon(tela, pedra_destaque, [(cx + 18, cy + 10), (cx + 22, cy + 16), (cx + 22, cy + 54), (cx + 18, cy + 54)])
+        pygame.draw.line(tela, rim_sol, (cx + 22, cy + 16), (cx + 22, cy + 54), 2)
+
+        # Ameias e torrinhas suspensas do topo da torre central
+        pygame.draw.rect(tela, sombra_prof, (cx - 21, cy - 18, 42, 6))
+        pygame.draw.rect(tela, pedra_destaque, (cx - 20, cy - 17, 40, 5))
+        for bx in range(cx - 19, cx + 21, 6):
+            pygame.draw.rect(tela, pedra_luz, (bx, cy - 22, 3, 5))
+            pygame.draw.line(tela, rim_sol, (bx + 3, cy - 22), (bx + 3, cy - 18))
+
+        # Telhado íngreme gótico em pavilhão
+        pygame.draw.polygon(tela, sombra_prof, [(cx - 18, cy - 18), (cx, cy - 44), (cx + 18, cy - 18)])
+        pygame.draw.polygon(tela, (60, 36, 78), [(cx - 16, cy - 18), (cx, cy - 42), (cx, cy - 18)])
+        pygame.draw.polygon(tela, (92, 54, 115), [(cx, cy - 42), (cx + 16, cy - 18), (cx, cy - 18)])
+        pygame.draw.line(tela, rim_sol, (cx, cy - 42), (cx + 17, cy - 18), 2)
+
+        # Torrinhas de canto suspensas (echauguettes)
+        for ech_x, dir_luz in ((cx - 19, False), (cx + 19, True)):
+            pygame.draw.rect(tela, sombra_prof, (ech_x - 3, cy - 28, 6, 12))
+            pygame.draw.polygon(tela, (88, 52, 110) if dir_luz else (50, 32, 68), [(ech_x - 3, cy - 28), (ech_x, cy - 38), (ech_x + 3, cy - 28)])
+            if dir_luz:
+                pygame.draw.line(tela, rim_sol, (ech_x, cy - 38), (ech_x + 3, cy - 28))
+
+        # Grande Agulha Imperial (Grand Spire)
+        pygame.draw.line(tela, pedra_destaque, (cx, cy - 44), (cx, cy - 58), 2)
+        tela.set_at((cx, cy - 59), ouro)
+        # Flâmula imperial do topo
+        onda_flam_imp = math.sin(t * 5.8 + 0.5) * 2.5
+        pygame.draw.polygon(tela, carmesim, [(cx, cy - 58), (cx + 14, cy - 56 + round(onda_flam_imp)), (cx, cy - 53)])
+        pygame.draw.line(tela, ouro, (cx, cy - 56), (cx + 14, cy - 56 + round(onda_flam_imp)))
+
+        # Orbe Astral radiante no pináculo
+        pulso_orbe = 0.5 + 0.5 * math.sin(t * 3.5)
+        s_orbe = pygame.Surface((22, 22), pygame.SRCALPHA)
+        pygame.draw.circle(s_orbe, (160, 220, 255, round(45 + 40 * pulso_orbe)), (11, 11), 10)
+        pygame.draw.circle(s_orbe, (210, 245, 255, round(120 + 80 * pulso_orbe)), (11, 11), 5)
+        pygame.draw.circle(s_orbe, (255, 255, 255, 255), (11, 11), 2)
+        tela.blit(s_orbe, (cx - 11, cy - 69))
+
+        # -------------------------------------------------------------------------
+        # 6. GRANDE VITRAL ROSÁCEA GÓTICO (ROSE WINDOW)
+        # -------------------------------------------------------------------------
+        rx_centro, ry_centro = cx, cy + 2
+        pygame.draw.circle(tela, sombra_prof, (rx_centro, ry_centro), 7)
+        pygame.draw.circle(tela, pedra_destaque, (rx_centro, ry_centro), 6)
+        cintila_ros = math.sin(t * 4.0) * 25
+        cor_ros_ouro = (min(255, round(245 + cintila_ros)), round(195 + cintila_ros), 70)
+        pygame.draw.circle(tela, cor_ros_ouro, (rx_centro, ry_centro), 5)
+        pygame.draw.circle(tela, (110, 210, 255), (rx_centro, ry_centro), 3)
+        tela.set_at((rx_centro, ry_centro), (255, 255, 255))
+        pygame.draw.line(tela, sombra_prof, (rx_centro - 5, ry_centro), (rx_centro + 5, ry_centro))
+        pygame.draw.line(tela, sombra_prof, (rx_centro, ry_centro - 5), (rx_centro, ry_centro + 5))
+
+        # -------------------------------------------------------------------------
+        # 7. BASTIÕES FRONTAIS LATERAIS (TORRES DO PRIMEIRO PLANO)
+        # -------------------------------------------------------------------------
+        # Bastião Esquerdo
+        bx_esq = cx - 33
+        pygame.draw.rect(tela, sombra_prof, (bx_esq - 10, cy + 4, 20, 52))
+        pygame.draw.rect(tela, pedra, (bx_esq - 9, cy + 6, 18, 50))
+        for ax in range(bx_esq - 8, bx_esq + 9, 5):
+            pygame.draw.rect(tela, pedra_destaque, (ax, cy + 1, 3, 5))
+        pygame.draw.polygon(tela, sombra_prof, [(bx_esq - 11, cy + 4), (bx_esq, cy - 18), (bx_esq + 11, cy + 4)])
+        pygame.draw.polygon(tela, (65, 40, 85), [(bx_esq - 9, cy + 4), (bx_esq, cy - 16), (bx_esq + 9, cy + 4)])
+        pygame.draw.line(tela, rim_ceu, (bx_esq - 10, cy + 4), (bx_esq, cy - 17))
+        tela.set_at((bx_esq, cy - 19), ouro)
+
+        # Bastião Direito (banhado pelo rim-light do nascente)
+        bx_dir = cx + 31
+        pygame.draw.rect(tela, sombra_prof, (bx_dir - 10, cy + 2, 20, 54))
+        pygame.draw.rect(tela, pedra_luz, (bx_dir - 9, cy + 4, 18, 52))
+        for ax in range(bx_dir - 8, bx_dir + 9, 5):
+            pygame.draw.rect(tela, pedra_destaque, (ax, cy - 1, 3, 5))
+            pygame.draw.line(tela, rim_sol, (ax + 2, cy - 1), (ax + 2, cy + 3))
+        pygame.draw.polygon(tela, sombra_prof, [(bx_dir - 11, cy + 2), (bx_dir, cy - 22), (bx_dir + 11, cy + 2)])
+        pygame.draw.polygon(tela, (95, 58, 120), [(bx_dir - 9, cy + 2), (bx_dir, cy - 20), (bx_dir + 9, cy + 2)])
+        pygame.draw.line(tela, rim_sol, (bx_dir, cy - 21), (bx_dir + 11, cy + 2), 2)
+        pygame.draw.line(tela, rim_sol, (bx_dir + 10, cy + 4), (bx_dir + 10, cy + 54), 2)
+        tela.set_at((bx_dir, cy - 23), ouro)
+
+        # -------------------------------------------------------------------------
+        # 8. PORTAL EM ARCO OGIVAL (BARBACÃ COM GRADE E ILUMINAÇÃO INTERNA)
+        # -------------------------------------------------------------------------
+        px_portao = cx
+        py_portao = cy + 40
+        pygame.draw.rect(tela, sombra_prof, (px_portao - 7, py_portao, 14, 18))
+        pygame.draw.circle(tela, sombra_prof, (px_portao, py_portao), 7)
+        pygame.draw.rect(tela, (255, 185, 60), (px_portao - 5, py_portao + 2, 10, 16))
+        pygame.draw.circle(tela, (255, 215, 110), (px_portao, py_portao + 2), 5)
+        for gx in range(px_portao - 4, px_portao + 5, 2):
+            pygame.draw.line(tela, sombra_prof, (gx, py_portao - 1), (gx, py_portao + 17))
+        for gy in range(py_portao + 4, py_portao + 16, 4):
+            pygame.draw.line(tela, sombra_prof, (px_portao - 5, gy), (px_portao + 4, gy))
+        pygame.draw.arc(tela, rim_sol, (px_portao - 8, py_portao - 8, 16, 16), 0, math.pi, 2)
+
+        # -------------------------------------------------------------------------
+        # 9. JANELAS GÓTICAS EM ARCO COM LUZ CINTILANTE E PEITORIS
+        # -------------------------------------------------------------------------
+        janelas_goticas = [
+            (bx_esq, cy + 18, 3, 6, 0.5, True),
+            (bx_esq, cy + 32, 3, 6, 1.8, True),
+            (cx - 10, cy + 18, 3, 7, 2.4, True),
+            (cx + 10, cy + 18, 3, 7, 3.1, True),
+            (cx - 10, cy + 30, 3, 6, 0.9, False),
+            (cx + 10, cy + 30, 3, 6, 4.2, False),
+            (bx_dir, cy + 16, 3, 7, 1.2, True),
+            (bx_dir, cy + 30, 3, 6, 2.7, True),
+            (tx_esq, cy - 8, 2, 5, 3.6, False),
+            (tx_dir, cy - 10, 2, 5, 0.3, False),
+        ]
+        for jx, jy, jw, jh, fase, arco in janelas_goticas:
+            cint = math.sin(t * 4.8 + fase * 2.3) * 22
+            cor_j = (min(255, round(255 + cint)), max(0, min(255, round(210 + cint))), 80)
+            pygame.draw.rect(tela, (16, 10, 24), (jx - 1, jy - 1, jw + 2, jh + 2))
+            pygame.draw.line(tela, pedra_destaque, (jx - 1, jy + jh), (jx + jw, jy + jh))
+            pygame.draw.rect(tela, cor_j, (jx, jy, jw, jh))
+            if arco:
+                pygame.draw.line(tela, (255, 240, 180), (jx, jy), (jx + jw - 1, jy))
+            tela.set_at((jx + 1, jy + 1), (255, 255, 220))
+
+        # -------------------------------------------------------------------------
+        # 10. CHAMINÉ COM VOLUTAS DE FUMAÇA ORGÂNICAS
+        # -------------------------------------------------------------------------
+        ch_x, ch_y = cx + 8, cy - 16
+        pygame.draw.rect(tela, sombra_prof, (ch_x, ch_y, 4, 8))
+        pygame.draw.rect(tela, pedra_destaque, (ch_x, ch_y, 3, 7))
+        for k in range(5):
+            fase_fum = (t * 1.8 + k * 0.7) % 3.0
+            fum_x = ch_x + 1 - fase_fum * 3.5 + math.sin(t * 2.0 + k) * 1.5
+            fum_y = ch_y - fase_fum * 7.0
+            alfa_fum = max(0, min(90, round((1.0 - fase_fum / 3.0) * 90)))
+            raio_fum = max(1, round(1.2 + fase_fum * 1.1))
+            s_fum = pygame.Surface((raio_fum * 2 + 2, raio_fum * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(s_fum, (190, 195, 220, alfa_fum), (raio_fum + 1, raio_fum + 1), raio_fum)
+            tela.blit(s_fum, (round(fum_x - raio_fum), round(fum_y - raio_fum)))
 
     def _desenhar_lago(self, tela, t, sol, cx_castelo):
         topo = 124
@@ -494,8 +665,17 @@ class MenuPrincipal(Cena):
             alfa_refl = round(max(0, 110 - y * 4))
             if alfa_refl > 0:
                 refl_x = round(cx_castelo + desloc_onda)
-                larg_refl = max(4, round(36 - y * 0.8))
+                larg_refl = max(4, round(54 - y * 1.1))
                 pygame.draw.line(lago, (18, 14, 32, alfa_refl), (refl_x - larg_refl // 2, y), (refl_x + larg_refl // 2, y))
+
+        # Reflexo das janelas e portal iluminado do castelo na lâmina d'água
+        for y in range(min(alt - 4, 20)):
+            desloc_onda = math.sin(t * 4.2 + y * 0.75) * (1.5 + y * 0.12)
+            alfa_luz = round(max(0, 105 - y * 5.2))
+            if alfa_luz > 0:
+                refl_gx = round(cx_castelo + desloc_onda)
+                larg_gl = max(4, round(18 - y * 0.7))
+                pygame.draw.line(lago, (245, 185, 75, alfa_luz), (refl_gx - larg_gl // 2, y), (refl_gx + larg_gl // 2, y))
 
         # Trilha de reflexo dourado do sol ondulando
         sx = sol[0]
