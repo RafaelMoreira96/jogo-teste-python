@@ -42,6 +42,7 @@ from missoes import GerenciadorMissoes
 from npc import NPC
 from player import VETORES, Jogador
 from pooling import ListaParticulas, PoolParticulas, PoolProjeteis
+from render3d import desenhar_tilt_shift_dof
 from rpg import LISTA_CHEFES_PROGRESSAO, OndaMagica, ProjetilMagico, SistemaRPG, TextoFlutuante
 from salvamento import salvar_jogo
 from ui import CINZA, desenhar_painel, desenhar_texto, escurecer
@@ -147,6 +148,8 @@ class Jogo(Cena):
         self.tempo_cenario = 0.0
         self.aviso_mapa = ""
         self.tempo_aviso_mapa = 0.0
+        self.tempo_autosave = 0.0
+        self.aviso_autosave = ""
         self.em_abertura = bool(dialogo_inicial == "inicio")
         self.fade_estado = "in"  # None, "out", "in"
         self.fade_alfa = 1.0
@@ -396,12 +399,19 @@ class Jogo(Cena):
     def trocar_mapa(self, caminho, usar_porta=True, tocar_sfx_porta=True):
         origem = self.nivel.caminho if hasattr(self, "nivel") else None
 
-        # Se estiver entrando numa arena de chefe, registra o checkpoint fora da porta na origem
+        # Se estiver entrando numa arena de chefe, registra o checkpoint fora da porta na origem e executa Autosave
         if origem is not None and caminho.name in EH_ARENA_CHEFE and origem.name not in EH_ARENA_CHEFE:
             pos_porta = (self.jogador.rect.centerx, self.jogador.rect.bottom)
             dados_dest = self._carregar_mapa(caminho)
             nome_arena = getattr(dados_dest["nivel"], "nome", "Covil do Guardião")
             self.definir_checkpoint(origem, pos_porta, self.jogador.direcao, f"Entrada: {nome_arena}")
+            if not getattr(self, "modo_chefe", None):
+                salvar_jogo(self)
+                self.aviso_autosave = f"Entrada: {nome_arena}"
+                self.tempo_autosave = 3.5
+                audio = getattr(self.app, "audio", None)
+                if audio:
+                    audio.sfx("salvar")
 
         dados = self._carregar_mapa(caminho)
         self.nivel = dados["nivel"]
@@ -1005,6 +1015,7 @@ class Jogo(Cena):
         self.ambiente.atualizar(dt)
         self.destaque_bussola = max(0.0, getattr(self, "destaque_bussola", 0.0) - dt)
         self.tempo_objetivo_visivel = max(0.0, getattr(self, "tempo_objetivo_visivel", 0.0) - dt)
+        self.tempo_autosave = max(0.0, getattr(self, "tempo_autosave", 0.0) - dt)
         for obj3d in getattr(self.nivel, "objetos_3d", []):
             obj3d.atualizar(self.tempo_cenario)
         if hasattr(self.particulas, "atualizar"):
@@ -1706,6 +1717,8 @@ class Jogo(Cena):
             self._desenhar_clima(tela)
             if getattr(self.nivel, "tema", None):
                 desenhar_atmosfera(tela, self.nivel.tema, ox, oy, self.tempo_cenario)
+            if self.app.config.get("tilt_shift_dof", True):
+                desenhar_tilt_shift_dof(tela, self.tempo_cenario)
             alvo_bussola = self.alvo_bussola() if self.estado != "derrota" and not self.dialogo else None
             info_bussola = None
             if alvo_bussola:
@@ -1769,6 +1782,10 @@ class Jogo(Cena):
                     tela.blit(faixa_m, (LARGURA // 2 - larg_dm // 2, ALTURA - 30))
                     desenhar_texto(tela, fonte, dica_m, (LARGURA // 2, ALTURA - 24), (180, 240, 255), centro=True)
                     break
+
+            # Indicador de Salvamento Automático (Autosave) estilo 16-bit
+            if getattr(self, "tempo_autosave", 0.0) > 0 and getattr(self, "aviso_autosave", None):
+                self._desenhar_badge_autosave(tela, fonte)
 
         if self.clarao > 0:
             camada = pygame.Surface(tela.get_size(), pygame.SRCALPHA)
@@ -1834,6 +1851,39 @@ class Jogo(Cena):
 
         # Notificações de Conquistas em primeiro plano
         self.conquistas.desenhar(tela, fonte, no_topo=self.dialogo is not None)
+
+    def _desenhar_badge_autosave(self, tela, fonte):
+        """Exibe badge retrô 16-bit de Salvamento Automático (Autosave) no canto inferior esquerdo."""
+        tempo = getattr(self, "tempo_autosave", 0.0)
+        if tempo <= 0:
+            return
+
+        prog_in = min(1.0, (3.5 - tempo) / 0.25)
+        prog_out = min(1.0, tempo / 0.25)
+        prog = min(prog_in, prog_out)
+        larg_card = 126
+        alt_card = 22
+        x0 = round(-larg_card * (1.0 - prog) + 6)
+        y0 = ALTURA - alt_card - 6
+
+        desenhar_painel(tela, (x0, y0, larg_card, alt_card), "dourado", alfa=225, cantos=False)
+        dx = x0 + 6
+        dy = y0 + 6
+        # Ícone de disquete retrô 16-bit em pixel art
+        pygame.draw.rect(tela, (25, 60, 140), (dx, dy, 10, 10))
+        tela.set_at((dx + 9, dy), (16, 20, 32))
+        pygame.draw.rect(tela, (200, 205, 215), (dx + 2, dy, 5, 4))
+        pygame.draw.rect(tela, (40, 45, 60), (dx + 3, dy + 1, 2, 2))
+        pygame.draw.rect(tela, (240, 240, 245), (dx + 2, dy + 5, 6, 4))
+        led_ativo = int(self.tempo_cenario * 10.0) % 2 == 0
+        cor_led = (255, 60, 60) if led_ativo else (255, 180, 50)
+        tela.set_at((dx + 8, dy + 8), cor_led)
+
+        desenhar_texto(tela, fonte, "AUTOSAVE", (dx + 14, y0 + 3), (255, 230, 110))
+        sub = getattr(self, "aviso_autosave", "Entrada de Chefe")
+        if len(sub) > 17:
+            sub = sub[:16] + ".."
+        desenhar_texto(tela, fonte, sub, (dx + 14, y0 + 12), (210, 225, 245))
 
     def _desenhar_tela_derrota(self, tela, fonte, nome_checkpoint):
         escurecer(tela, 220)

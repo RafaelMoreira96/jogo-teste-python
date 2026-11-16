@@ -86,6 +86,15 @@ class Objeto3D:
         elif self.tipo == "obelisco":
             # Obeliscos são monumentos fixos, mas seu cristal no topo pulsa
             self.ry = 0.28
+        elif self.tipo == "braseiro":
+            self.ry = 0.0
+        elif self.tipo == "pilar_runico":
+            self.ry = 0.0
+        elif self.tipo == "farol_astral":
+            self.ry = tempo * 1.8 + self.fase
+            self.rx = 0.42 + math.sin(tempo * 1.2 + self.fase) * 0.18
+        elif self.tipo == "lanterna_poste":
+            self.ry = 0.0
 
     def desenhar(self, tela, ox, oy, tempo):
         sx_base = self.x - ox
@@ -93,11 +102,22 @@ class Objeto3D:
         if sx_base < -36 or sx_base > LARGURA + 36 or sy_base < -36 or sy_base > ALTURA + 48:
             return
 
-        flutuacao = math.sin(tempo * 2.8 + self.fase) * 2.8 if self.tipo != "obelisco" else 0.0
+        flutuacao = math.sin(tempo * 2.8 + self.fase) * 2.8 if self.tipo in ("cristal", "anel_cristal") else 0.0
         z_centro = self.z_base + flutuacao
 
         # Sombra projetada no chão abaixo do objeto 3D
-        raio_sombra = 6 if self.tipo == "cristal" else 8
+        if self.tipo == "cristal":
+            raio_sombra = 6
+        elif self.tipo in ("obelisco", "pilar_runico"):
+            raio_sombra = 8
+        elif self.tipo == "braseiro":
+            raio_sombra = 7
+        elif self.tipo == "farol_astral":
+            raio_sombra = 10
+        elif self.tipo == "lanterna_poste":
+            raio_sombra = 5
+        else:
+            raio_sombra = 7
         sombra = pygame.Surface((raio_sombra * 2 + 4, 6), pygame.SRCALPHA)
         pygame.draw.ellipse(sombra, (8, 12, 24, 95), sombra.get_rect())
         tela.blit(sombra, (round(sx_base) - raio_sombra - 2, round(sy_base) - 3))
@@ -121,12 +141,12 @@ class Objeto3D:
             p0, p1, p2 = v_rot[indices[0]], v_rot[indices[1]], v_rot[indices[2]]
             nx, ny, nz = _normal_face(p0, p1, p2)
             # Backface culling suave (descarta faces totalmente viradas para trás em malhas fechadas)
-            if nz < -0.35 and self.tipo != "anel_cristal":
+            if nz < -0.35 and self.tipo not in ("anel_cristal", "farol_astral"):
                 continue
             z_medio = sum(v_rot[i][2] for i in indices) / len(indices)
             dot_luz = max(0.0, nx * LUZ_DIR[0] + ny * LUZ_DIR[1] + nz * LUZ_DIR[2])
             intensidade = 0.52 + dot_luz * 0.68
-            especular = (dot_luz ** 5) * 0.55 if self.tipo != "obelisco" else (dot_luz ** 6) * 0.18
+            especular = (dot_luz ** 5) * 0.55 if self.tipo not in ("obelisco", "pilar_runico", "lanterna_poste") else (dot_luz ** 6) * 0.18
             cor_final = _sombrear_cor(cor_base, intensidade, especular)
             pts_2d = [(round(v_proj[i][0]), round(v_proj[i][1])) for i in indices]
             faces_ordenadas.append((z_medio, pts_2d, cor_final, cor_borda))
@@ -137,7 +157,7 @@ class Objeto3D:
             if cor_borda:
                 pygame.draw.polygon(tela, cor_borda, pts_2d, 1)
 
-        # Halo luminoso e partículas orbitando cristais 3D
+        # Efeitos visuais e iluminação dinâmica dos elementos 3D estilo Octopath Traveler (HD-2D)
         if self.tipo in ("cristal", "anel_cristal"):
             cx_proj, cy_proj = projetar_ponto_3d(sx_base, sy_base, z_centro)
             raio_halo = round(14 + math.sin(tempo * 5.0 + self.fase) * 2)
@@ -155,6 +175,76 @@ class Objeto3D:
                 px_orb, py_orb = projetar_ponto_3d(sx_base + ox_p, sy_base - oz_p * 0.5, z_centro + oy_p)
                 if 0 <= round(px_orb) < LARGURA and 0 <= round(py_orb) < ALTURA:
                     tela.set_at((round(px_orb), round(py_orb)), (240, 255, 255))
+        elif self.tipo == "braseiro":
+            # 1. Halo de fogo iluminando o chão
+            raio_halo = round(16 + math.sin(tempo * 8.0 + self.fase) * 2.0)
+            halo = pygame.Surface((raio_halo * 2, raio_halo * 2), pygame.SRCALPHA)
+            pygame.draw.circle(halo, (*self.cor_luz, 42), (raio_halo, raio_halo), raio_halo)
+            pygame.draw.circle(halo, (255, 235, 140, 52), (raio_halo, raio_halo), max(3, raio_halo // 2))
+            tela.blit(halo, (round(sx_base) - raio_halo, round(sy_base) - raio_halo + 1))
+
+            # 2. Chama volumétrica 3D oscilante no topo do cesto
+            z_fogo = self.z_base + 9.5
+            tremor = math.sin(tempo * 14.0 + self.fase) * 1.2
+            px_f, py_f = projetar_ponto_3d(sx_base + tremor, sy_base, z_fogo)
+            r_fogo = round(3.5 + math.sin(tempo * 10.0 + self.fase) * 0.8)
+            pygame.draw.circle(tela, self.cor_luz, (round(px_f), round(py_f)), r_fogo + 1)
+            pygame.draw.circle(tela, (255, 245, 180), (round(px_f), round(py_f)), max(1, r_fogo - 1))
+
+            # 3. Centelhas e brasas 3D flutuando para cima
+            for i in range(3):
+                prog_b = (tempo * 2.0 + self.fase + i * 0.33) % 1.0
+                ox_b = math.sin(tempo * 4.0 + i * 2.0) * (1.5 + prog_b * 3.0)
+                z_b = z_fogo + prog_b * 10.0
+                bx, by = projetar_ponto_3d(sx_base + ox_b, sy_base, z_b)
+                if 0 <= round(bx) < LARGURA and 0 <= round(by) < ALTURA:
+                    cor_b = (255, 240, 160) if prog_b < 0.4 else self.cor_luz
+                    tela.set_at((round(bx), round(by)), cor_b)
+        elif self.tipo == "pilar_runico":
+            # Runas luminosas esculpidas que pulsam
+            z_fuste = self.z_base + 9.0
+            px_r, py_r = projetar_ponto_3d(sx_base, sy_base, z_fuste)
+            pulso_r = 0.5 + 0.5 * math.sin(tempo * 3.5 + self.fase)
+            if pulso_r > 0.2:
+                r_cor = _sombrear_cor(self.cor_luz, pulso_r)
+                pygame.draw.line(tela, r_cor, (round(px_r), round(py_r) - 4), (round(px_r), round(py_r) + 4))
+                pygame.draw.line(tela, r_cor, (round(px_r) - 2, round(py_r) - 2), (round(px_r) + 2, round(py_r) - 2))
+                pygame.draw.line(tela, r_cor, (round(px_r) - 2, round(py_r) + 2), (round(px_r) + 2, round(py_r) + 2))
+            # Orbe rúnico no capitel
+            z_cap = self.z_base + 17.5
+            px_c, py_c = projetar_ponto_3d(sx_base, sy_base, z_cap)
+            tela.set_at((round(px_c), round(py_c)), (255, 255, 255))
+            if pulso_r > 0.5:
+                raio_cap = round(4 + pulso_r * 2)
+                halo_cap = pygame.Surface((raio_cap * 2, raio_cap * 2), pygame.SRCALPHA)
+                pygame.draw.circle(halo_cap, (*self.cor_luz, 40), (raio_cap, raio_cap), raio_cap)
+                tela.blit(halo_cap, (round(px_c) - raio_cap, round(py_c) - raio_cap))
+        elif self.tipo == "farol_astral":
+            # Halo celestial e centelhas cósmicas
+            z_ast = self.z_base + 13.5
+            px_a, py_a = projetar_ponto_3d(sx_base, sy_base, z_ast)
+            raio_ast = round(16 + math.sin(tempo * 2.8 + self.fase) * 2)
+            halo_a = pygame.Surface((raio_ast * 2, raio_ast * 2), pygame.SRCALPHA)
+            pygame.draw.circle(halo_a, (*self.cor_luz, 48), (raio_ast, raio_ast), raio_ast)
+            pygame.draw.circle(halo_a, (255, 255, 255, 70), (raio_ast, raio_ast), max(3, raio_ast // 3))
+            tela.blit(halo_a, (round(px_a) - raio_ast, round(py_a) - raio_ast))
+            for i in range(4):
+                ang = tempo * 2.8 + self.fase + i * (math.tau / 4)
+                ox_a = math.cos(ang) * 9.5
+                oz_a = math.sin(ang) * 9.5
+                oy_a = math.sin(tempo * 4.0 + i) * 3.2
+                px_orb, py_orb = projetar_ponto_3d(sx_base + ox_a, sy_base - oz_a * 0.55, z_ast + oy_a)
+                if 0 <= round(px_orb) < LARGURA and 0 <= round(py_orb) < ALTURA:
+                    tela.set_at((round(px_orb), round(py_orb)), (255, 255, 230))
+        elif self.tipo == "lanterna_poste":
+            # Cone de luz quente no chão
+            halo_ch = pygame.Surface((28, 16), pygame.SRCALPHA)
+            pygame.draw.ellipse(halo_ch, (*self.cor_luz, 35), halo_ch.get_rect())
+            tela.blit(halo_ch, (round(sx_base) - 14, round(sy_base) - 8))
+            # Bulbo incandescente
+            z_lamp = self.z_base + 16.5
+            px_l, py_l = projetar_ponto_3d(sx_base, sy_base, z_lamp)
+            pygame.draw.circle(tela, (255, 255, 210), (round(px_l), round(py_l)), 2)
 
 
 def criar_cristal_3d(x, y, z_base=11.0, raio=4.5, altura=8.5, cor=(85, 215, 255), cor_borda=(30, 95, 145)):
@@ -209,6 +299,193 @@ def criar_obelisco_3d(x, y, cor=(130, 136, 156), cor_topo=(255, 215, 110)):
         ((8, 7, 4), cor_topo, borda_topo),
     ]
     return Objeto3D(x, y, 0.0, vertices, faces, tipo="obelisco", cor_luz=cor_topo)
+
+
+def criar_braseiro_3d(x, y, z_base=0.0, cor_pedra=(95, 90, 105), cor_fogo=(255, 140, 45)):
+    """Cria um braseiro monumental 3D com pedestal de pedra, cesto de ferro forjado e chama animada."""
+    rb1, rb2, rc = 4.5, 3.2, 4.8
+    h1, h2, h3 = 3.0, 7.5, 9.5
+    vertices = [
+        # Base de pedra (0..7)
+        (-rb1, 0.0, rb1), (rb1, 0.0, rb1), (rb1, 0.0, -rb1), (-rb1, 0.0, -rb1),
+        (-rb2, h1, rb2), (rb2, h1, rb2), (rb2, h1, -rb2), (-rb2, h1, -rb2),
+        # Cesto de ferro (8..15)
+        (-rc, h2, rc), (rc, h2, rc), (rc, h2, -rc), (-rc, h2, -rc),
+        (-rc - 1.0, h3, rc + 1.0), (rc + 1.0, h3, rc + 1.0), (rc + 1.0, h3, -rc - 1.0), (-rc - 1.0, h3, -rc - 1.0),
+    ]
+    borda_pedra = (45, 42, 52)
+    cor_ferro = (55, 52, 65)
+    borda_ferro = (28, 25, 34)
+    faces = [
+        # Pedestal
+        ((0, 1, 5, 4), cor_pedra, borda_pedra),
+        ((1, 2, 6, 5), cor_pedra, borda_pedra),
+        ((2, 3, 7, 6), cor_pedra, borda_pedra),
+        ((3, 0, 4, 7), cor_pedra, borda_pedra),
+        # Cesto
+        ((4, 5, 9, 8), cor_ferro, borda_ferro),
+        ((5, 6, 10, 9), cor_ferro, borda_ferro),
+        ((6, 7, 11, 10), cor_ferro, borda_ferro),
+        ((7, 4, 8, 11), cor_ferro, borda_ferro),
+        # Borda externa
+        ((8, 9, 13, 12), cor_ferro, borda_ferro),
+        ((9, 10, 14, 13), cor_ferro, borda_ferro),
+        ((10, 11, 15, 14), cor_ferro, borda_ferro),
+        ((11, 8, 12, 15), cor_ferro, borda_ferro),
+    ]
+    return Objeto3D(x, y, z_base, vertices, faces, tipo="braseiro", cor_luz=cor_fogo)
+
+
+def criar_pilar_runico_3d(x, y, z_base=0.0, cor_pedra=(115, 120, 138), cor_runa=(90, 220, 255)):
+    """Cria um pilar monumental 3D com runas místicas gravadas e capitel em perspectiva HD-2D."""
+    rb = 4.6
+    rf = 3.2
+    rc = 4.8
+    h_b = 3.0
+    h_f = 14.5
+    h_c = 17.5
+    vertices = [
+        (-rb, 0.0, rb), (rb, 0.0, rb), (rb, 0.0, -rb), (-rb, 0.0, -rb),
+        (-rf, h_b, rf), (rf, h_b, rf), (rf, h_b, -rf), (-rf, h_b, -rf),
+        (-rf, h_f, rf), (rf, h_f, rf), (rf, h_f, -rf), (-rf, h_f, -rf),
+        (-rc, h_c, rc), (rc, h_c, rc), (rc, h_c, -rc), (-rc, h_c, -rc),
+    ]
+    borda = (48, 50, 62)
+    borda_cap = (65, 68, 85)
+    faces = [
+        ((0, 1, 5, 4), cor_pedra, borda),
+        ((1, 2, 6, 5), cor_pedra, borda),
+        ((2, 3, 7, 6), cor_pedra, borda),
+        ((3, 0, 4, 7), cor_pedra, borda),
+        ((4, 5, 9, 8), cor_pedra, borda),
+        ((5, 6, 10, 9), cor_pedra, borda),
+        ((6, 7, 11, 10), cor_pedra, borda),
+        ((7, 4, 8, 11), cor_pedra, borda),
+        ((8, 9, 13, 12), cor_pedra, borda_cap),
+        ((9, 10, 14, 13), cor_pedra, borda_cap),
+        ((10, 11, 15, 14), cor_pedra, borda_cap),
+        ((11, 8, 12, 15), cor_pedra, borda_cap),
+        ((12, 13, 14, 15), cor_pedra, borda_cap),
+    ]
+    return Objeto3D(x, y, z_base, vertices, faces, tipo="pilar_runico", cor_luz=cor_runa)
+
+
+def criar_farol_astral_3d(x, y, z_base=0.0, cor_anel=(235, 195, 80), cor_nucleo=(130, 240, 255)):
+    """Cria um monumento ancestral com anéis giroscópicos concêntricos 3D (estilo Octopath Traveler)."""
+    rb = 5.2
+    h_b = 4.5
+    h_centro = 13.5
+    raio_anel = 7.5
+    raio_nucleo = 3.6
+
+    vertices = [
+        (-rb, 0.0, rb), (rb, 0.0, rb), (rb, 0.0, -rb), (-rb, 0.0, -rb),
+        (-rb * 0.7, h_b, rb * 0.7), (rb * 0.7, h_b, rb * 0.7), (rb * 0.7, h_b, -rb * 0.7), (-rb * 0.7, h_b, -rb * 0.7),
+    ]
+    for k in range(8):
+        ang = k * (math.tau / 8)
+        vx = math.cos(ang) * raio_anel
+        vz = math.sin(ang) * raio_anel
+        vertices.append((vx, h_centro, vz))
+
+    vertices.extend([
+        (0.0, h_centro + raio_nucleo, 0.0),
+        (0.0, h_centro - raio_nucleo, 0.0),
+        (-raio_nucleo, h_centro, raio_nucleo),
+        (raio_nucleo, h_centro, raio_nucleo),
+        (raio_nucleo, h_centro, -raio_nucleo),
+        (-raio_nucleo, h_centro, -raio_nucleo),
+    ])
+
+    borda_pedra = (45, 42, 55)
+    borda_anel = (145, 105, 30)
+    borda_nucleo = (45, 110, 140)
+    faces = [
+        ((0, 1, 5, 4), (110, 105, 125), borda_pedra),
+        ((1, 2, 6, 5), (110, 105, 125), borda_pedra),
+        ((2, 3, 7, 6), (110, 105, 125), borda_pedra),
+        ((3, 0, 4, 7), (110, 105, 125), borda_pedra),
+        ((8, 9, 10, 11), cor_anel, borda_anel),
+        ((12, 13, 14, 15), cor_anel, borda_anel),
+        ((15, 8, 11, 12), cor_anel, borda_anel),
+        ((16, 18, 19), cor_nucleo, borda_nucleo),
+        ((16, 19, 20), cor_nucleo, borda_nucleo),
+        ((16, 20, 21), cor_nucleo, borda_nucleo),
+        ((16, 21, 18), cor_nucleo, borda_nucleo),
+        ((17, 19, 18), cor_nucleo, borda_nucleo),
+        ((17, 20, 19), cor_nucleo, borda_nucleo),
+        ((17, 21, 20), cor_nucleo, borda_nucleo),
+        ((17, 18, 21), cor_nucleo, borda_nucleo),
+    ]
+    return Objeto3D(x, y, z_base, vertices, faces, tipo="farol_astral", cor_luz=cor_nucleo)
+
+
+def criar_lanterna_poste_3d(x, y, z_base=0.0, cor_ferro=(52, 50, 64), cor_luz=(255, 225, 120)):
+    """Cria um poste de lanterna em ferro forjado 3D e vidro incandescente."""
+    rb = 2.6
+    rp = 1.3
+    rl = 3.2
+    h1 = 2.0
+    h2 = 13.5
+    h3 = 17.5
+    h4 = 19.5
+    vertices = [
+        (-rb, 0.0, rb), (rb, 0.0, rb), (rb, 0.0, -rb), (-rb, 0.0, -rb),
+        (-rp, h1, rp), (rp, h1, rp), (rp, h1, -rp), (-rp, h1, -rp),
+        (-rp, h2, rp), (rp, h2, rp), (rp, h2, -rp), (-rp, h2, -rp),
+        (-rl, h2, rl), (rl, h2, rl), (rl, h2, -rl), (-rl, h2, -rl),
+        (-rl, h3, rl), (rl, h3, rl), (rl, h3, -rl), (-rl, h3, -rl),
+        (0.0, h4, 0.0),
+    ]
+    borda = (26, 24, 34)
+    cor_vidro = (255, 235, 150)
+    borda_vidro = (180, 145, 60)
+    faces = [
+        ((0, 1, 5, 4), cor_ferro, borda),
+        ((1, 2, 6, 5), cor_ferro, borda),
+        ((2, 3, 7, 6), cor_ferro, borda),
+        ((3, 0, 4, 7), cor_ferro, borda),
+        ((4, 5, 9, 8), cor_ferro, borda),
+        ((5, 6, 10, 9), cor_ferro, borda),
+        ((6, 7, 11, 10), cor_ferro, borda),
+        ((7, 4, 8, 11), cor_ferro, borda),
+        ((12, 13, 17, 16), cor_vidro, borda_vidro),
+        ((13, 14, 18, 17), cor_vidro, borda_vidro),
+        ((14, 15, 19, 18), cor_vidro, borda_vidro),
+        ((15, 12, 16, 19), cor_vidro, borda_vidro),
+        ((20, 16, 17), cor_ferro, borda),
+        ((20, 17, 18), cor_ferro, borda),
+        ((20, 18, 19), cor_ferro, borda),
+        ((20, 19, 16), cor_ferro, borda),
+    ]
+    return Objeto3D(x, y, z_base, vertices, faces, tipo="lanterna_poste", cor_luz=cor_luz)
+
+
+_SURF_DOF = None
+
+
+def desenhar_tilt_shift_dof(tela, tempo):
+    """Efeito de Profundidade de Campo (Depth of Field) Tilt-Shift estilo Octopath Traveler (HD-2D).
+    Aplica difusão suave no horizonte distante (topo) e no primeiro plano extremo (base),
+    destacando o plano médio de ação dos personagens com estética de diorama em miniatura."""
+    global _SURF_DOF
+    if _SURF_DOF is None:
+        _SURF_DOF = pygame.Surface((LARGURA, ALTURA), pygame.SRCALPHA)
+        # Faixa superior de desfoque atmosférico / profundidade de campo (DoF superior: 0..24 px)
+        for y in range(24):
+            fator = (24 - y) / 24.0
+            alfa = int((fator ** 1.6) * 58)
+            cor = (14, 18, 34, alfa)
+            pygame.draw.line(_SURF_DOF, cor, (0, y), (LARGURA - 1, y))
+
+        # Faixa inferior de primeiro plano macro (DoF inferior: ALTURA-14..ALTURA)
+        for y in range(14):
+            fator = (14 - y) / 14.0
+            alfa = int((fator ** 1.8) * 42)
+            cor = (10, 12, 24, alfa)
+            pygame.draw.line(_SURF_DOF, cor, (0, ALTURA - 1 - y), (LARGURA - 1, ALTURA - 1 - y))
+
+    tela.blit(_SURF_DOF, (0, 0))
 
 
 def desenhar_relevo_3d_mapa(nivel, tela, ox, oy, tempo):
@@ -395,13 +672,85 @@ def gerar_objetos_3d_nivel(nivel):
         borda = (75, 20, 120) if eh_sombrio else (25, 90, 135)
         objetos.append(criar_cristal_3d(mx, my - 2, z_base=12.0, raio=4.2, altura=7.5, cor=cor, cor_borda=borda))
 
-    # Covis temáticos usam só a própria decoração (sem objetos genéricos da floresta)
-    if getattr(nivel, "tema", None):
+    # 2. Objetos 3D das Arenas de Chefes (HD-2D Octopath Traveler)
+    if "covil_rei_slime" in nome_arq:
+        objetos.append(criar_braseiro_3d(10 * TILE + 8, 14 * TILE + 8, cor_fogo=(60, 185, 255)))
+        objetos.append(criar_braseiro_3d(15 * TILE + 8, 14 * TILE + 8, cor_fogo=(60, 185, 255)))
+        objetos.append(criar_pilar_runico_3d(5 * TILE + 8, 8 * TILE + 8, cor_runa=(85, 215, 255)))
+        objetos.append(criar_pilar_runico_3d(20 * TILE + 8, 8 * TILE + 8, cor_runa=(85, 215, 255)))
+        return objetos
+    elif "camara_golem" in nome_arq:
+        objetos.append(criar_braseiro_3d(9 * TILE + 8, 14 * TILE, cor_fogo=(255, 160, 45)))
+        objetos.append(criar_braseiro_3d(16 * TILE + 8, 14 * TILE, cor_fogo=(255, 160, 45)))
+        objetos.append(criar_pilar_runico_3d(6 * TILE, 7 * TILE, cor_runa=(255, 205, 90)))
+        objetos.append(criar_pilar_runico_3d(19 * TILE, 7 * TILE, cor_runa=(255, 205, 90)))
+        return objetos
+    elif "abismo_dunas" in nome_arq:
+        objetos.append(criar_braseiro_3d(8 * TILE, 13 * TILE, cor_fogo=(255, 210, 60)))
+        objetos.append(criar_braseiro_3d(18 * TILE, 13 * TILE, cor_fogo=(255, 210, 60)))
+        objetos.append(criar_pilar_runico_3d(13 * TILE, 4 * TILE, cor_runa=(255, 210, 70)))
+        return objetos
+    elif "altar_colosso" in nome_arq:
+        cx_meio = (nivel.colunas // 2) * TILE
+        objetos.append(criar_farol_astral_3d(cx_meio, 6 * TILE, cor_anel=(255, 215, 80), cor_nucleo=(255, 240, 140)))
+        objetos.append(criar_pilar_runico_3d(6 * TILE, 6 * TILE, cor_runa=(255, 200, 70)))
+        objetos.append(criar_pilar_runico_3d(20 * TILE, 6 * TILE, cor_runa=(255, 200, 70)))
+        objetos.append(criar_braseiro_3d(8 * TILE, 13 * TILE, cor_fogo=(255, 190, 50)))
+        objetos.append(criar_braseiro_3d(18 * TILE, 13 * TILE, cor_fogo=(255, 190, 50)))
+        return objetos
+    elif "antro_bruxa" in nome_arq:
+        objetos.append(criar_braseiro_3d(9 * TILE, 13 * TILE, cor_fogo=(65, 245, 130)))
+        objetos.append(criar_braseiro_3d(17 * TILE, 13 * TILE, cor_fogo=(65, 245, 130)))
+        objetos.append(criar_cristal_3d(13 * TILE, 5 * TILE, cor=(95, 255, 160)))
+        return objetos
+    elif "sepulcro_ceifador" in nome_arq:
+        objetos.append(criar_braseiro_3d(8 * TILE, 14 * TILE, cor_fogo=(175, 75, 255)))
+        objetos.append(criar_braseiro_3d(18 * TILE, 14 * TILE, cor_fogo=(175, 75, 255)))
+        objetos.append(criar_pilar_runico_3d(6 * TILE, 7 * TILE, cor_runa=(190, 80, 255)))
+        objetos.append(criar_pilar_runico_3d(20 * TILE, 7 * TILE, cor_runa=(190, 80, 255)))
+        return objetos
+    elif "abismo_marinho" in nome_arq:
+        cx_meio = (nivel.colunas // 2) * TILE
+        objetos.append(criar_farol_astral_3d(cx_meio, 5 * TILE, cor_anel=(60, 200, 245), cor_nucleo=(130, 245, 255)))
+        objetos.append(criar_pilar_runico_3d(6 * TILE, 8 * TILE, cor_runa=(70, 230, 255)))
+        objetos.append(criar_pilar_runico_3d(20 * TILE, 8 * TILE, cor_runa=(70, 230, 255)))
+        return objetos
+    elif "nucleo_cristal" in nome_arq:
+        cx_meio = (nivel.colunas // 2) * TILE
+        objetos.append(criar_cristal_3d(cx_meio, 7 * TILE, z_base=16.0, raio=7.0, altura=13.0, cor=(140, 235, 255), cor_borda=(40, 110, 175)))
+        objetos.append(criar_braseiro_3d(8 * TILE, 13 * TILE, cor_fogo=(100, 220, 255)))
+        objetos.append(criar_braseiro_3d(18 * TILE, 13 * TILE, cor_fogo=(100, 220, 255)))
+        return objetos
+    elif "arena_cavaleiro" in nome_arq or "castelo_salao_trono" in nome_arq or "coliseu_eras" in nome_arq:
+        cx_meio = (nivel.colunas // 2) * TILE
+        objetos.append(criar_farol_astral_3d(cx_meio, 5 * TILE, cor_anel=(160, 45, 70), cor_nucleo=(255, 60, 95)))
+        objetos.append(criar_braseiro_3d(cx_meio - 4 * TILE, 14 * TILE, cor_fogo=(255, 60, 70)))
+        objetos.append(criar_braseiro_3d(cx_meio + 4 * TILE, 14 * TILE, cor_fogo=(255, 60, 70)))
+        objetos.append(criar_pilar_runico_3d(cx_meio - 5 * TILE, 8 * TILE, cor_runa=(255, 70, 95)))
+        objetos.append(criar_pilar_runico_3d(cx_meio + 5 * TILE, 8 * TILE, cor_runa=(255, 70, 95)))
+        return objetos
+    elif "observatorio_arquimago" in nome_arq:
+        cx_meio = (nivel.colunas // 2) * TILE
+        objetos.append(criar_farol_astral_3d(cx_meio, 6 * TILE, cor_anel=(215, 175, 255), cor_nucleo=(190, 80, 255)))
+        objetos.append(criar_pilar_runico_3d(7 * TILE, 9 * TILE, cor_runa=(210, 95, 255)))
+        objetos.append(criar_pilar_runico_3d(19 * TILE, 9 * TILE, cor_runa=(210, 95, 255)))
+        return objetos
+    elif "tribunal_paladino" in nome_arq:
+        cx_meio = (nivel.colunas // 2) * TILE
+        objetos.append(criar_farol_astral_3d(cx_meio, 5 * TILE, cor_anel=(240, 215, 110), cor_nucleo=(255, 245, 170)))
+        objetos.append(criar_pilar_runico_3d(6 * TILE, 8 * TILE, cor_runa=(255, 230, 110)))
+        objetos.append(criar_pilar_runico_3d(20 * TILE, 8 * TILE, cor_runa=(255, 230, 110)))
         return objetos
 
-    # 2. Cristais de Mana 3D e Obeliscos 3D específicos de cada região
+    # Covis temáticos restantes usam braseiros adaptados
+    if getattr(nivel, "tema", None):
+        cx_meio = (nivel.colunas // 2) * TILE
+        objetos.append(criar_braseiro_3d(cx_meio - 3 * TILE, 13 * TILE))
+        objetos.append(criar_braseiro_3d(cx_meio + 3 * TILE, 13 * TILE))
+        return objetos
+
+    # 3. Cristais de Mana 3D, Obeliscos e Monumentos específicos de cada região
     if "santuario" in nome_arq:
-        # Grande Cristal Arcano central no Santuário + 2 Obeliscos guardiões
         cx_meio = (nivel.colunas // 2) * TILE
         objetos.append(
             criar_cristal_3d(
@@ -409,26 +758,24 @@ def gerar_objetos_3d_nivel(nivel):
                 cor=(220, 65, 195), cor_borda=(90, 15, 95)
             )
         )
-        objetos.append(criar_obelisco_3d(cx_meio - 3 * TILE, 12 * TILE, cor=(95, 88, 120), cor_topo=(215, 75, 245)))
-        objetos.append(criar_obelisco_3d(cx_meio + 3 * TILE, 12 * TILE, cor=(95, 88, 120), cor_topo=(215, 75, 245)))
+        objetos.append(criar_farol_astral_3d(cx_meio, 6 * TILE, cor_anel=(220, 75, 245), cor_nucleo=(130, 235, 255)))
+        objetos.append(criar_pilar_runico_3d(cx_meio - 4 * TILE, 12 * TILE, cor_runa=(215, 75, 245)))
+        objetos.append(criar_pilar_runico_3d(cx_meio + 4 * TILE, 12 * TILE, cor_runa=(215, 75, 245)))
     elif "lago" in nome_arq:
-        # Cristal de Água 3D na ilha central e perto do Mago das Águas
         objetos.append(
             criar_cristal_3d(
                 8 * TILE + 8, 5 * TILE + 8, z_base=13.0, raio=5.0, altura=9.5,
                 cor=(75, 220, 255), cor_borda=(20, 95, 150)
             )
         )
-        objetos.append(
-            criar_cristal_3d(
-                24 * TILE + 8, 4 * TILE + 8, z_base=12.0, raio=4.2, altura=8.0,
-                cor=(120, 245, 220), cor_borda=(30, 115, 110)
-            )
-        )
+        objetos.append(criar_farol_astral_3d(16 * TILE, 7 * TILE, cor_anel=(70, 210, 245), cor_nucleo=(140, 245, 255)))
+        objetos.append(criar_braseiro_3d(12 * TILE, 10 * TILE, cor_fogo=(60, 210, 255)))
+        objetos.append(criar_braseiro_3d(20 * TILE, 10 * TILE, cor_fogo=(60, 210, 255)))
     elif "ruinas" in nome_arq:
-        # Obeliscos antigos 3D e Cristal de Relíquia Dourado nas Ruínas
         objetos.append(criar_obelisco_3d(19 * TILE + 8, 6 * TILE + 8, cor=(128, 132, 148), cor_topo=(255, 215, 95)))
         objetos.append(criar_obelisco_3d(25 * TILE + 8, 6 * TILE + 8, cor=(128, 132, 148), cor_topo=(255, 215, 95)))
+        objetos.append(criar_pilar_runico_3d(16 * TILE, 10 * TILE, cor_runa=(255, 215, 80)))
+        objetos.append(criar_pilar_runico_3d(28 * TILE, 10 * TILE, cor_runa=(255, 215, 80)))
         objetos.append(
             criar_cristal_3d(
                 22 * TILE, 11 * TILE, z_base=13.0, raio=4.8, altura=9.0,
@@ -436,11 +783,16 @@ def gerar_objetos_3d_nivel(nivel):
             )
         )
     elif "vila" in nome_arq:
-        # Obeliscos nas pontes da Vila Aurora
+        # Obeliscos na ponte, postes de ferro 3D e braseiros acolhedores
         objetos.append(criar_obelisco_3d(10 * TILE + 8, 11 * TILE + 8, cor=(142, 138, 152), cor_topo=(110, 225, 255)))
         objetos.append(criar_obelisco_3d(33 * TILE + 8, 11 * TILE + 8, cor=(142, 138, 152), cor_topo=(110, 225, 255)))
+        objetos.append(criar_lanterna_poste_3d(14 * TILE + 8, 8 * TILE + 8))
+        objetos.append(criar_lanterna_poste_3d(22 * TILE + 8, 8 * TILE + 8))
+        objetos.append(criar_lanterna_poste_3d(28 * TILE + 8, 12 * TILE + 8))
+        objetos.append(criar_lanterna_poste_3d(36 * TILE + 8, 12 * TILE + 8))
+        objetos.append(criar_braseiro_3d(18 * TILE, 9 * TILE, cor_fogo=(255, 160, 45)))
+        objetos.append(criar_braseiro_3d(25 * TILE, 9 * TILE, cor_fogo=(255, 160, 45)))
     elif "montanha" in nome_arq:
-        # Cristais de Vento 3D e Obeliscos do Pico
         cx_meio = (nivel.colunas // 2) * TILE
         objetos.append(
             criar_cristal_3d(
@@ -448,30 +800,30 @@ def gerar_objetos_3d_nivel(nivel):
                 cor=(145, 255, 220), cor_borda=(30, 120, 105)
             )
         )
-        objetos.append(criar_obelisco_3d(cx_meio - 3 * TILE, 16 * TILE, cor=(130, 140, 160), cor_topo=(145, 255, 220)))
-        objetos.append(criar_obelisco_3d(cx_meio + 3 * TILE, 16 * TILE, cor=(130, 140, 160), cor_topo=(145, 255, 220)))
+        objetos.append(criar_farol_astral_3d(cx_meio, 6 * TILE, cor_anel=(160, 240, 210), cor_nucleo=(130, 255, 225)))
+        objetos.append(criar_pilar_runico_3d(cx_meio - 4 * TILE, 16 * TILE, cor_runa=(145, 255, 220)))
+        objetos.append(criar_pilar_runico_3d(cx_meio + 4 * TILE, 16 * TILE, cor_runa=(145, 255, 220)))
     elif "pantano" in nome_arq:
-        # Cristais Bioluminescentes 3D no Pântano Nebuloso
         objetos.append(
             criar_cristal_3d(
                 22 * TILE + 8, 13 * TILE + 8, z_base=12.5, raio=4.6, altura=8.5,
                 cor=(95, 250, 175), cor_borda=(20, 110, 75)
             )
         )
-        objetos.append(criar_obelisco_3d(16 * TILE + 8, 7 * TILE + 8, cor=(95, 115, 105), cor_topo=(95, 250, 175)))
-        objetos.append(criar_obelisco_3d(28 * TILE + 8, 7 * TILE + 8, cor=(95, 115, 105), cor_topo=(95, 250, 175)))
+        objetos.append(criar_braseiro_3d(14 * TILE, 9 * TILE, cor_fogo=(65, 245, 130)))
+        objetos.append(criar_braseiro_3d(24 * TILE, 9 * TILE, cor_fogo=(65, 245, 130)))
+        objetos.append(criar_pilar_runico_3d(18 * TILE, 6 * TILE, cor_runa=(95, 250, 175)))
     elif "deserto" in nome_arq:
-        # Cristal Solar 3D no centro do Oásis Dourado e Obeliscos do Deserto
         objetos.append(
             criar_cristal_3d(
                 23 * TILE, 9 * TILE, z_base=14.0, raio=5.2, altura=9.8,
                 cor=(255, 210, 70), cor_borda=(150, 85, 20)
             )
         )
-        objetos.append(criar_obelisco_3d(12 * TILE + 8, 6 * TILE + 8, cor=(185, 155, 105), cor_topo=(255, 215, 80)))
-        objetos.append(criar_obelisco_3d(34 * TILE + 8, 6 * TILE + 8, cor=(185, 155, 105), cor_topo=(255, 215, 80)))
+        objetos.append(criar_farol_astral_3d(18 * TILE, 6 * TILE, cor_anel=(240, 190, 70), cor_nucleo=(255, 235, 110)))
+        objetos.append(criar_braseiro_3d(12 * TILE + 8, 6 * TILE + 8, cor_fogo=(255, 205, 60)))
+        objetos.append(criar_braseiro_3d(34 * TILE + 8, 6 * TILE + 8, cor_fogo=(255, 205, 60)))
     elif "castelo" in nome_arq:
-        # Grande Núcleo Abissal 3D e Obeliscos Negros na Cidadela Abissal
         cx_meio = (nivel.colunas // 2) * TILE
         objetos.append(
             criar_cristal_3d(
@@ -479,10 +831,13 @@ def gerar_objetos_3d_nivel(nivel):
                 cor=(255, 55, 105), cor_borda=(110, 10, 45)
             )
         )
-        objetos.append(criar_obelisco_3d(cx_meio - 3 * TILE, 11 * TILE, cor=(75, 65, 95), cor_topo=(255, 55, 105)))
-        objetos.append(criar_obelisco_3d(cx_meio + 3 * TILE, 11 * TILE, cor=(75, 65, 95), cor_topo=(255, 55, 105)))
+        objetos.append(criar_farol_astral_3d(cx_meio, 5 * TILE, cor_anel=(160, 45, 75), cor_nucleo=(255, 60, 95)))
+        objetos.append(criar_braseiro_3d(cx_meio - 3 * TILE, 11 * TILE, cor_fogo=(255, 55, 105)))
+        objetos.append(criar_braseiro_3d(cx_meio + 3 * TILE, 11 * TILE, cor_fogo=(255, 55, 105)))
+        objetos.append(criar_pilar_runico_3d(cx_meio - 4 * TILE, 7 * TILE, cor_runa=(255, 65, 100)))
+        objetos.append(criar_pilar_runico_3d(cx_meio + 4 * TILE, 7 * TILE, cor_runa=(255, 65, 100)))
     else:
-        # Floresta Esmeralda (mundo.txt): Cristal de Mana perto do Sábio e Obelisco nas ruínas da floresta
+        # Floresta Esmeralda (mundo.txt): Cristal perto do Sábio, Braseiros marcando a entrada das ruínas e Pilar Rúnico
         objetos.append(
             criar_cristal_3d(
                 9 * TILE + 8, 13 * TILE + 8, z_base=12.5, raio=4.4, altura=8.2,
@@ -490,5 +845,11 @@ def gerar_objetos_3d_nivel(nivel):
             )
         )
         objetos.append(criar_obelisco_3d(21 * TILE + 8, 9 * TILE + 8, cor=(128, 132, 148), cor_topo=(255, 215, 95)))
+        objetos.append(criar_braseiro_3d(18 * TILE, 12 * TILE, cor_fogo=(255, 150, 40)))
+        objetos.append(criar_braseiro_3d(24 * TILE, 12 * TILE, cor_fogo=(255, 150, 40)))
+        objetos.append(criar_pilar_runico_3d(15 * TILE + 8, 9 * TILE, cor_runa=(110, 240, 160)))
+        objetos.append(criar_lanterna_poste_3d(12 * TILE + 8, 14 * TILE + 8))
+
+    return objetos
 
     return objetos

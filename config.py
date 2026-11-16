@@ -18,6 +18,8 @@ PADRAO = {
     "alto_contraste": False,
     "intensidade_tremor": 1.0,  # 1.0 (100%), 0.5 (50%), 0.0 (Desligado)
     "camera_lookahead": True,   # Câmera Dinâmica com Antecipação (Fase 3 - Skills)
+    "tilt_shift_dof": True,     # Profundidade de campo Tilt-Shift HD-2D (Octopath Traveler)
+    "elementos_3d": True,       # Elementos 3D em tempo real poligonais (Octopath Traveler)
     "speedrun": False,
     "mapeamento_teclado": {},
     "mapeamento_controle": {},

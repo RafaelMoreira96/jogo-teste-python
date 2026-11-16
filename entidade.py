@@ -259,13 +259,17 @@ class Entidade:
 
     def desenhar_sombra(self, tela, camera, gfx, centro_chao=None):
         ponto = centro_chao or self.rect.midbottom
+        # Projeção de sombra 3D direcional estilo Octopath Traveler (HD-2D)
+        ox_luz = 1.5
+        oy_luz = 1.0
+        ponto_projetado = (ponto[0] + ox_luz, ponto[1] + oy_luz)
         fator = max(0.55, 1.0 - self.z / 55.0) * self.escala_x
         sombra = gfx.sombra
         if abs(fator - 1.0) > 0.06:
             larg = max(6, round(sombra.get_width() * fator))
             alt = max(3, round(sombra.get_height() * fator))
             sombra = pygame.transform.scale(sombra, (larg, alt))
-        tela.blit(sombra, camera.aplicar(sombra.get_rect(center=ponto)))
+        tela.blit(sombra, camera.aplicar(sombra.get_rect(center=ponto_projetado)))
 
     def offset_pose(self):
         """Deslocamento (dx, dy) extra para tremer ou pular."""
