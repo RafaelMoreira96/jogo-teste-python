@@ -1,7 +1,7 @@
 """Configurações gerais do jogo. Mexa aqui para ajustar o "feeling"."""
 from pathlib import Path
 
-TITULO = "A Lenda Perdida"
+TITULO = "PyMystic"
 
 # Resolução interna: o jogo é desenhado nesse tamanho e depois ampliado.
 LARGURA, ALTURA = 320, 180

@@ -178,21 +178,32 @@ class MenuPrincipal(Cena):
         pygame.draw.lines(self.colina, (200, 120, 90), False, pts2[:4], 1)
 
     def _gerar_logo(self):
-        """Título em letras douradas com gradiente, contorno e sombra (3x)."""
+        """Título 'PyMystic' em letras douradas/celestiais com gradiente, contorno e sombra (3x)."""
         fonte = self.app.fontes.normal
-        texto = "A LENDA PERDIDA"
+        texto = "PyMystic"
         base = fonte.render(texto, False, (255, 255, 255))
-        grande = pygame.transform.scale(base, (base.get_width() * 3, base.get_height() * 3))
-        gradiente = pygame.Surface(grande.get_size())
-        for y in range(grande.get_height()):
-            f = y / grande.get_height()
-            cor = _misturar((255, 248, 196), (255, 196, 60), min(1, f * 1.6)) if f < 0.62 else _misturar((255, 196, 60), (196, 92, 30), (f - 0.62) / 0.38)
-            gradiente.fill(cor, (0, y, grande.get_width(), 1))
+        escala = 3
+        grande = pygame.transform.scale(base, (base.get_width() * escala, base.get_height() * escala))
+        w_g, h_g = grande.get_size()
+        gradiente = pygame.Surface((w_g, h_g))
+        for y in range(h_g):
+            f = y / h_g
+            if f < 0.40:
+                cor = _misturar((255, 255, 225), (255, 215, 75), f / 0.40)
+            elif f < 0.65:
+                cor = _misturar((255, 215, 75), (225, 135, 40), (f - 0.40) / 0.25)
+            else:
+                cor = _misturar((225, 135, 40), (145, 55, 22), (f - 0.65) / 0.35)
+            gradiente.fill(cor, (0, y, w_g, 1))
         grande.blit(gradiente, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
-        logo = pygame.Surface((grande.get_width() + 4, grande.get_height() + 4), pygame.SRCALPHA)
-        sombra = pygame.mask.from_surface(grande).to_surface(setcolor=(40, 10, 30, 200), unsetcolor=(0, 0, 0, 0))
-        logo.blit(sombra, (3, 3))
-        logo.blit(grande, (0, 0))
+        logo = pygame.Surface((w_g + 8, h_g + 8), pygame.SRCALPHA)
+        mascara = pygame.mask.from_surface(grande)
+        contorno = mascara.to_surface(setcolor=(20, 10, 26, 255), unsetcolor=(0, 0, 0, 0))
+        for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1), (-2, -1), (2, 1)):
+            logo.blit(contorno, (4 + dx, 4 + dy))
+        sombra = mascara.to_surface(setcolor=(10, 6, 18, 200), unsetcolor=(0, 0, 0, 0))
+        logo.blit(sombra, (7, 7))
+        logo.blit(grande, (4, 4))
         return logo
 
     # ------------------------------------------------------------ lógica
@@ -810,66 +821,121 @@ class MenuPrincipal(Cena):
         y_logo = round(30 - queda * 60)
         cx = LARGURA // 2
 
-        # Brasão Celestial acima do título: Asas Seráficas com 3 camadas, anel místico e espada sagrada
+        # Brasão Celestial acima do título: Asas Seráficas douradas, anel rúnico e a Lâmina Mística
         brasao_y = y_logo - 14
         for lado in (-1, 1):
             for p in range(5):
-                comp = 34 - p * 6
-                y_pena = brasao_y - 4 + p * 2
-                ponta = (cx + lado * (8 + comp), y_pena - 9 + p * 3)
-                # Contorno escuro da pena
-                pygame.draw.line(tela, (55, 28, 22), (cx + lado * 7, y_pena + 1), (ponta[0], ponta[1] + 1), 2)
-                # Gradiente de ouro celestial
-                cor_pena = _misturar((255, 245, 190), (225, 160, 65), p / 5)
-                pygame.draw.line(tela, cor_pena, (cx + lado * 7, y_pena), ponta, 2)
+                comp = 30 - p * 5
+                y_pena = brasao_y - 3 + p * 2
+                ponta = (cx + lado * (9 + comp), y_pena - 10 + p * 3)
+                pygame.draw.line(tela, (45, 20, 28), (cx + lado * 8, y_pena + 1), (ponta[0], ponta[1] + 1), 2)
+                cor_pena = _misturar((255, 248, 200), (225, 165, 70), p / 5)
+                pygame.draw.line(tela, cor_pena, (cx + lado * 8, y_pena), ponta, 2)
+                tela.set_at(ponta, (255, 255, 230))
 
         # Anel de Runas Místicas girando em torno do brasão
         for k in range(12):
-            a = t * 0.75 + k * math.tau / 12
-            px, py = cx + round(math.cos(a) * 13), brasao_y + round(math.sin(a) * 5)
-            tela.set_at((px, py), (255, 225, 140) if k % 2 else (135, 235, 255))
+            a = t * 0.8 + k * math.tau / 12
+            px, py = cx + round(math.cos(a) * 14), brasao_y - 2 + round(math.sin(a) * 5)
+            tela.set_at((px, py), (255, 225, 130) if k % 2 == 0 else (120, 230, 255))
 
-        # Espada Sagrada atravessando o topo
-        espada_topo = brasao_y - 6
-        # Bainha / Lâmina
-        pygame.draw.polygon(tela, (36, 26, 48), [(cx - 3, espada_topo), (cx + 3, espada_topo), (cx + 2, y_logo + 25), (cx, y_logo + 29), (cx - 2, y_logo + 25)])
-        pygame.draw.polygon(tela, (225, 235, 255), [(cx - 2, espada_topo + 1), (cx + 2, espada_topo + 1), (cx + 1, y_logo + 24), (cx, y_logo + 27), (cx - 1, y_logo + 24)])
-        pygame.draw.line(tela, (255, 255, 255), (cx - 1, espada_topo + 1), (cx - 1, y_logo + 23))
+        # A LÂMINA MÍSTICA (ESPADA SAGRADA REALISTA E DETALHADA)
+        espada_y_guarda = brasao_y - 2
+        comp_lamina = 52
+        y_fim_lamina = espada_y_guarda + comp_lamina
 
-        # Guarda e empunhadura dourada
-        pygame.draw.rect(tela, (230, 185, 75), (cx - 9, espada_topo - 2, 19, 3))
-        pygame.draw.rect(tela, (135, 75, 42), (cx - 1, espada_topo - 9, 3, 7))
+        # Lâmina de Aço Estelar com canaleta central e bisel duplo
+        pts_lamina_ext = [
+            (cx - 3, espada_y_guarda),
+            (cx + 3, espada_y_guarda),
+            (cx + 2, y_fim_lamina - 5),
+            (cx, y_fim_lamina),
+            (cx - 2, y_fim_lamina - 5),
+        ]
+        pygame.draw.polygon(tela, (28, 20, 38), pts_lamina_ext)
+        pygame.draw.polygon(tela, (185, 215, 245), [
+            (cx - 2, espada_y_guarda + 1),
+            (cx, espada_y_guarda + 1),
+            (cx, y_fim_lamina - 1),
+            (cx - 1, y_fim_lamina - 5),
+        ])
+        pygame.draw.polygon(tela, (245, 250, 255), [
+            (cx, espada_y_guarda + 1),
+            (cx + 2, espada_y_guarda + 1),
+            (cx + 1, y_fim_lamina - 5),
+            (cx, y_fim_lamina - 1),
+        ])
+        # Canaleta central da lâmina
+        pygame.draw.line(tela, (135, 160, 195), (cx, espada_y_guarda + 2), (cx, y_fim_lamina - 8))
+        pygame.draw.line(tela, (255, 255, 255), (cx + 2, espada_y_guarda + 2), (cx + 1, y_fim_lamina - 6))
 
-        # Joia sagrada no pomo com pulso
-        halo_c = pygame.Surface((16, 16), pygame.SRCALPHA)
-        pulso_joia = 0.5 + 0.5 * math.sin(t * 3.5)
-        pygame.draw.circle(halo_c, (110, 230, 255, round(70 + 40 * pulso_joia)), (8, 8), 7)
-        tela.blit(halo_c, (cx - 7, espada_topo - 17))
-        pygame.draw.circle(tela, (130, 240, 255), (cx + 1, espada_topo - 10), 2)
-        tela.set_at((cx + 1, espada_topo - 10), (255, 255, 255))
+        # Runas mágicas gravadas na lâmina que pulsam suavemente
+        pulso_runa = 0.5 + 0.5 * math.sin(t * 4.0)
+        cor_runa = _misturar((110, 220, 255), (255, 240, 180), pulso_runa)
+        for ry in (espada_y_guarda + 6, espada_y_guarda + 12, espada_y_guarda + 18):
+            tela.set_at((cx, ry), cor_runa)
 
-        # Título principal renderizado
-        tela.blit(self.logo, self.logo.get_rect(center=(cx, y_logo + 8)))
+        # Guarda Cruzada (Quillons esculpidos em arco gótico dourado)
+        pts_guarda = [
+            (cx - 14, espada_y_guarda - 3),
+            (cx - 12, espada_y_guarda - 1),
+            (cx - 5, espada_y_guarda + 2),
+            (cx, espada_y_guarda + 1),
+            (cx + 5, espada_y_guarda + 2),
+            (cx + 12, espada_y_guarda - 1),
+            (cx + 14, espada_y_guarda - 3),
+            (cx + 11, espada_y_guarda - 4),
+            (cx + 4, espada_y_guarda - 1),
+            (cx, espada_y_guarda),
+            (cx - 4, espada_y_guarda - 1),
+            (cx - 11, espada_y_guarda - 4),
+        ]
+        pygame.draw.polygon(tela, (45, 24, 16), pts_guarda)
+        pygame.draw.polygon(tela, (235, 190, 75), [(p[0], p[1] + 0.5) for p in pts_guarda])
+        # Safira mística cravada no centro da guarda
+        pygame.draw.rect(tela, (25, 15, 30), (cx - 2, espada_y_guarda - 2, 5, 5))
+        pygame.draw.rect(tela, (110, 225, 255), (cx - 1, espada_y_guarda - 1, 3, 3))
+        tela.set_at((cx, espada_y_guarda), (255, 255, 255))
 
-        # Varredura Especular e Cintilações de Estrela no Título "A LENDA PERDIDA"
-        ciclo = (t % 3.6) / 1.4
+        # Empunhadura (Hilt de couro azul-noite com fio de ouro trançado)
+        y_cabo = espada_y_guarda - 10
+        pygame.draw.rect(tela, (24, 18, 36), (cx - 2, y_cabo, 5, 8))
+        pygame.draw.rect(tela, (36, 42, 75), (cx - 1, y_cabo, 3, 8))
+        for cy_fio in range(y_cabo + 1, y_cabo + 7, 2):
+            pygame.draw.line(tela, (235, 195, 85), (cx - 1, cy_fio), (cx + 1, cy_fio + 1))
+
+        # Pomo Real esculpido com safira e halo pulsante
+        y_pomo = y_cabo - 3
+        pygame.draw.circle(tela, (45, 24, 16), (cx, y_pomo), 4)
+        pygame.draw.circle(tela, (235, 190, 75), (cx, y_pomo), 3)
+        pulso_pomo = 0.5 + 0.5 * math.sin(t * 3.2)
+        s_halo_pomo = pygame.Surface((16, 16), pygame.SRCALPHA)
+        pygame.draw.circle(s_halo_pomo, (110, 220, 255, round(65 + 45 * pulso_pomo)), (8, 8), 7)
+        tela.blit(s_halo_pomo, (cx - 8, y_pomo - 8))
+        pygame.draw.circle(tela, (130, 240, 255), (cx, y_pomo), 1)
+        tela.set_at((cx, y_pomo), (255, 255, 255))
+
+        # Título principal PyMystic renderizado
         r_logo = self.logo.get_rect(center=(cx, y_logo + 8))
+        tela.blit(self.logo, r_logo)
+
+        # Varredura Especular e Cintilações de Estrela no Título PyMystic
+        ciclo = (t % 3.2) / 1.2
         if 0 <= ciclo <= 1 and tela.get_rect().contains(r_logo):
-            x_brilho = round(cx - 120 + ciclo * 240)
-            faixa = pygame.Surface((10, 30), pygame.SRCALPHA)
-            pygame.draw.polygon(faixa, (255, 255, 255, 110), [(4, 0), (10, 0), (6, 30), (0, 30)])
-            r = self.logo.get_rect(center=(cx, y_logo + 8))
-            alvo = tela.subsurface(r).copy()
+            x_brilho = round(cx - 80 + ciclo * 160)
+            faixa = pygame.Surface((10, 32), pygame.SRCALPHA)
+            pygame.draw.polygon(faixa, (255, 255, 255, 120), [(4, 0), (10, 0), (6, 32), (0, 32)])
+            alvo = tela.subsurface(r_logo).copy()
             mascara = pygame.mask.from_surface(self.logo)
-            brilho = pygame.Surface(r.size, pygame.SRCALPHA)
-            brilho.blit(faixa, (x_brilho - r.x, 0))
+            brilho = pygame.Surface(r_logo.size, pygame.SRCALPHA)
+            brilho.blit(faixa, (x_brilho - r_logo.x, 0))
             brilho.blit(mascara.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0)), (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
             alvo.blit(brilho, (0, 0))
-            tela.blit(alvo, r)
+            tela.blit(alvo, r_logo)
 
             # Estrela reluzente no ponto ápice do brilho
             if 0.2 < ciclo < 0.8:
-                gx = round(cx - 90 + ciclo * 180)
+                gx = round(cx - 60 + ciclo * 120)
                 gy = y_logo + 4
                 s_glint = pygame.Surface((9, 9), pygame.SRCALPHA)
                 pygame.draw.line(s_glint, (255, 255, 255, 220), (4, 0), (4, 8), 1)
@@ -877,18 +943,19 @@ class MenuPrincipal(Cena):
                 pygame.draw.circle(s_glint, (255, 240, 180, 240), (4, 4), 1)
                 tela.blit(s_glint, (gx - 4, gy - 4))
 
-        # Faixa Rubro-Carmensim Ornamental com Bordado Dourado
-        fita_y = y_logo + 26
-        largura_fita = 172
+        # Faixa Rubro-Carmensim Ornamental com Bordado Dourado e Subtítulo
+        fita_y = y_logo + 25
+        largura_fita = 160
+        x_faixa = cx - largura_fita // 2
         # Pontas bipartidas da flâmula
-        pygame.draw.polygon(tela, (100, 26, 36), [(cx - largura_fita // 2 - 10, fita_y + 2), (cx - largura_fita // 2, fita_y - 2), (cx - largura_fita // 2, fita_y + 10), (cx - largura_fita // 2 - 10, fita_y + 12), (cx - largura_fita // 2 - 5, fita_y + 7)])
-        pygame.draw.polygon(tela, (100, 26, 36), [(cx + largura_fita // 2 + 10, fita_y + 2), (cx + largura_fita // 2, fita_y - 2), (cx + largura_fita // 2, fita_y + 10), (cx + largura_fita // 2 + 10, fita_y + 12), (cx + largura_fita // 2 + 5, fita_y + 7)])
+        pygame.draw.polygon(tela, (100, 26, 36), [(x_faixa - 7, fita_y + 2), (x_faixa + 3, fita_y - 2), (x_faixa + 3, fita_y + 10), (x_faixa - 7, fita_y + 12), (x_faixa - 3, fita_y + 7)])
+        pygame.draw.polygon(tela, (100, 26, 36), [(x_faixa + largura_fita + 7, fita_y + 2), (x_faixa + largura_fita - 3, fita_y - 2), (x_faixa + largura_fita - 3, fita_y + 10), (x_faixa + largura_fita + 7, fita_y + 12), (x_faixa + largura_fita + 3, fita_y + 7)])
         # Corpo da fita
-        pygame.draw.rect(tela, (168, 40, 52), (cx - largura_fita // 2, fita_y - 3, largura_fita, 13))
-        # Friso dourado superior e inferior com cantos estilizados
-        pygame.draw.line(tela, (255, 215, 120), (cx - largura_fita // 2, fita_y - 3), (cx + largura_fita // 2, fita_y - 3))
-        pygame.draw.line(tela, (230, 180, 85), (cx - largura_fita // 2, fita_y + 9), (cx + largura_fita // 2, fita_y + 9))
-        desenhar_texto(tela, fonte, "Crônicas do Reino Esquecido", (cx, fita_y + 3), (255, 242, 210), centro=True)
+        r_faixa = pygame.Rect(x_faixa, fita_y - 2, largura_fita, 13)
+        pygame.draw.rect(tela, (26, 10, 18), r_faixa.inflate(2, 2))
+        pygame.draw.rect(tela, (168, 38, 50), r_faixa)
+        pygame.draw.rect(tela, (245, 205, 85), r_faixa, 1)
+        desenhar_texto(tela, fonte, "Crônicas do Reino Esquecido", (cx, fita_y + 4), (255, 245, 215), centro=True)
 
     def _desenhar_menu(self, tela):
         fonte = self.app.fontes.normal
