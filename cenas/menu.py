@@ -21,7 +21,6 @@ DESCRICOES = {
     "Continuar": "Retome sua jornada de onde parou.",
     "Novo jogo": "Comece uma nova lenda desde o despertar do herói.",
     "Modo Chefões": "Enfrente qualquer Guardião direto na arena dele.",
-    "Editor de jogo": "Crie e edite mapas e cenas no próprio jogo.",
     "Configurações": "Som, vídeo, texto, bússola e controles.",
     "Sair": "Até a próxima aventura!",
 }
@@ -78,7 +77,7 @@ class MenuPrincipal(Cena):
         self.transicao = 1.0 if pular_abertura else 0.0  # 0 = título, 1 = menu aberto
         self.modo_chefes_liberado = jogo_foi_zerado(app)
         self.aviso_bloqueado = 0.0
-        self.opcoes = ["Novo jogo", "Modo Chefões", "Editor de jogo", "Configurações", "Sair"]
+        self.opcoes = ["Novo jogo", "Modo Chefões", "Configurações", "Sair"]
         if existe_save():
             self.opcoes.insert(0, "Continuar")
         self.indice = 0
@@ -199,7 +198,6 @@ class MenuPrincipal(Cena):
     # ------------------------------------------------------------ lógica
     def atualizar(self, dt):
         from cenas.configuracoes import Configuracoes
-        from cenas.editor import Editor
         from cenas.jogo import Jogo
 
         self.t += dt
@@ -282,8 +280,6 @@ class MenuPrincipal(Cena):
         elif escolha == "Modo Chefões":
             from cenas.modo_chefes import SelecaoChefes
             self.app.trocar(SelecaoChefes(self.app))
-        elif escolha == "Editor de jogo":
-            self.app.trocar(Editor(self.app))
         elif escolha == "Configurações":
             self.app.empilhar(Configuracoes(self.app))
         elif escolha == "Sair":
@@ -295,14 +291,32 @@ class MenuPrincipal(Cena):
         tela.blit(self.ceu, (0, 0))
         self._desenhar_ceu_vivo(tela, t)
 
-        # Sol nascendo atrás do castelo
-        sol = (250, 112)
-        brilho = pygame.Surface((120, 60), pygame.SRCALPHA)
-        for r in range(60, 0, -6):
-            pygame.draw.circle(brilho, (255, 210, 140, round(70 * (1 - r / 60)) + 6), (60, 60), r)
-        tela.blit(brilho, (sol[0] - 60, sol[1] - 60))
-        pygame.draw.circle(tela, (255, 236, 180), sol, 13)
-        pygame.draw.circle(tela, (255, 250, 220), sol, 9)
+        # Sol nascendo atrás do castelo com múltiplos halos
+        sol = (252, 110)
+        for r in range(68, 0, -6):
+            alfa_halo = round(65 * (1 - r / 68) ** 1.5)
+            s_halo = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(s_halo, (255, 205, 130, alfa_halo), (r, r), r)
+            tela.blit(s_halo, (sol[0] - r, sol[1] - r))
+        pygame.draw.circle(tela, (255, 235, 175), sol, 14)
+        pygame.draw.circle(tela, (255, 252, 225), sol, 10)
+
+        # Feixes de Luz Crepuscular Volumétrica (God Rays)
+        raios = pygame.Surface((LARGURA, ALTURA), pygame.SRCALPHA)
+        feixes_def = [
+            (-2.25, 0.14, 30),
+            (-2.55, 0.18, 42),
+            (-2.88, 0.16, 36),
+            (-3.18, 0.14, 28),
+        ]
+        for i, (ang_c, larg_c, inten) in enumerate(feixes_def):
+            pulso = math.sin(t * 1.3 + i * 1.6) * 7
+            alfa_raio = round(max(0, inten + pulso))
+            p1 = sol
+            p2 = (sol[0] + math.cos(ang_c - larg_c / 2) * 240, sol[1] + math.sin(ang_c - larg_c / 2) * 240)
+            p3 = (sol[0] + math.cos(ang_c + larg_c / 2) * 240, sol[1] + math.sin(ang_c + larg_c / 2) * 240)
+            pygame.draw.polygon(raios, (255, 215, 140, alfa_raio), [p1, p2, p3])
+        tela.blit(raios, (0, 0))
 
         # Montanhas em paralaxe
         for surf, vel in self.camadas:
@@ -310,23 +324,14 @@ class MenuPrincipal(Cena):
             tela.blit(surf, (-desloc, 0))
             tela.blit(surf, (self.LARG_PARALAXE - desloc, 0))
 
-        # Castelo com janelas acesas e farol de cristal
-        cx, cy = 214, 64
-        tela.blit(self.castelo, (cx, cy))
-        for wx, wy in ((cx + 18, cy + 32), (cx + 34, cy + 22), (cx + 35, cy + 30), (cx + 51, cy + 36), (cx + 27, cy + 40)):
-            if math.sin(t * 3 + wx) > -0.6:
-                tela.set_at((wx, wy), (255, 214, 120))
-        farol = (cx + 35, cy - 2)
-        pulso = 0.5 + 0.5 * math.sin(t * 3)
-        feixe = pygame.Surface((14, 60), pygame.SRCALPHA)
-        pygame.draw.polygon(feixe, (140, 230, 255, round(30 + 30 * pulso)), [(5, 60), (9, 60), (14, 0), (0, 0)])
-        tela.blit(feixe, (farol[0] - 7, farol[1] - 60))
-        pygame.draw.circle(tela, (140, 230, 255), farol, 2)
-        tela.set_at(farol, (255, 255, 255))
+        # Castelo gótico com rim-lighting, ameias e pontes aéreas
+        cx, cy = 212, 62
+        self._desenhar_castelo_vivo(tela, cx, cy, t)
 
-        self._desenhar_lago(tela, t)
+        self._desenhar_lago(tela, t, sol, cx)
         tela.blit(self.colina, (0, 0))
         self._desenhar_heroi(tela, t)
+        self._desenhar_petalas_vento(tela, t)
 
         # Vagalumes / pólen dourado
         for x, y, fase in self.vagalumes:
@@ -349,12 +354,28 @@ class MenuPrincipal(Cena):
             return
 
         if self.transicao < 0.5:
-            if int(self.t * 2.2) % 2 == 0:
-                txt = "PRESSIONE ENTER"
-                desenhar_texto(tela, self.app.fontes.normal, txt, (LARGURA // 2, 132), (255, 244, 210), centro=True)
-            desenhar_texto(tela, self.app.fontes.normal, "Versão 2.0  •  2026", (LARGURA // 2, ALTURA - 8), (200, 170, 190), centro=True)
+            # Cápsula de Prompt Vítrea Retrô com Bordas Douradas e Respiração Suave
+            pulso_enter = 0.5 + 0.5 * math.sin(self.t * 3.4)
+            cor_txt_enter = _misturar((255, 235, 140), (255, 255, 245), pulso_enter)
+            larg_prompt = 172
+            alt_prompt = 15
+            rect_prompt = pygame.Rect(LARGURA // 2 - larg_prompt // 2, 126, larg_prompt, alt_prompt)
+
+            s_prompt = pygame.Surface((larg_prompt, alt_prompt), pygame.SRCALPHA)
+            s_prompt.fill((14, 18, 38, round(195 + 35 * pulso_enter)))
+            pygame.draw.rect(s_prompt, (85, 55, 30), s_prompt.get_rect(), 1)
+            pygame.draw.rect(s_prompt, (235, 195, 95), s_prompt.get_rect().inflate(-2, -2), 1)
+            tela.blit(s_prompt, rect_prompt.topleft)
+
+            desenhar_texto(tela, self.app.fontes.normal, "◆  PRESSIONE ENTER  ◆", (LARGURA // 2, 133), cor_txt_enter, centro=True)
+            desenhar_texto(tela, self.app.fontes.normal, "✦  Versão 2.0  •  2026  ✦", (LARGURA // 2, ALTURA - 9), (210, 180, 205), centro=True)
+
         if self.transicao > 0.02:
             self._desenhar_menu(tela)
+
+        # Filtro de Profundidade de Campo HD-2D sutil
+        from render3d import desenhar_tilt_shift_dof
+        desenhar_tilt_shift_dof(tela, t)
 
     def _desenhar_ceu_vivo(self, tela, t):
         for x, y, freq, fase in self.estrelas:
@@ -385,53 +406,219 @@ class MenuPrincipal(Cena):
                 pygame.draw.line(tela, (40, 26, 60), (bx - 2, by + asa), (bx, by))
                 pygame.draw.line(tela, (40, 26, 60), (bx, by), (bx + 2, by + asa))
 
-    def _desenhar_lago(self, tela, t):
+    def _desenhar_castelo_vivo(self, tela, cx, cy, t):
+        """Castelo gótico com rim-lighting do nascer do sol, ameias, janelas acesas e farol místico."""
+        # Silhueta base do castelo e muralhas
+        sombra = (32, 22, 48)
+        pedra = (48, 36, 68)
+        pedra_luz = (86, 64, 102)
+        rim_sol = (255, 210, 140)
+
+        # Torres laterais e muralhas
+        # Muralha de fundo
+        pygame.draw.rect(tela, sombra, (cx - 36, cy + 30, 72, 34))
+        pygame.draw.rect(tela, pedra, (cx - 34, cy + 32, 68, 30))
+
+        # Ameias da muralha
+        for bx in range(cx - 34, cx + 34, 6):
+            pygame.draw.rect(tela, pedra, (bx, cy + 27, 4, 5))
+            pygame.draw.line(tela, rim_sol, (bx + 3, cy + 27), (bx + 3, cy + 31))
+
+        # Torre esquerda
+        pygame.draw.rect(tela, sombra, (cx - 42, cy + 14, 18, 50))
+        pygame.draw.rect(tela, pedra, (cx - 40, cy + 16, 15, 48))
+        # Telhado cônico esquerdo
+        pygame.draw.polygon(tela, sombra, [(cx - 44, cy + 14), (cx - 31, cy - 8), (cx - 20, cy + 14)])
+        pygame.draw.polygon(tela, pedra_luz, [(cx - 42, cy + 14), (cx - 31, cy - 7), (cx - 22, cy + 14)])
+        pygame.draw.line(tela, rim_sol, (cx - 31, cy - 7), (cx - 22, cy + 14))
+
+        # Torre direita (mais próxima do sol, rim-light acentuado)
+        pygame.draw.rect(tela, sombra, (cx + 24, cy + 10, 20, 54))
+        pygame.draw.rect(tela, pedra, (cx + 26, cy + 12, 17, 52))
+        pygame.draw.polygon(tela, sombra, [(cx + 22, cy + 10), (cx + 35, cy - 14), (cx + 47, cy + 10)])
+        pygame.draw.polygon(tela, pedra_luz, [(cx + 24, cy + 10), (cx + 35, cy - 13), (cx + 45, cy + 10)])
+        pygame.draw.line(tela, rim_sol, (cx + 35, cy - 13), (cx + 45, cy + 10), 2)
+        pygame.draw.line(tela, rim_sol, (cx + 43, cy + 12), (cx + 43, cy + 62))
+
+        # Torre Central de Menagem (a mais imponente)
+        pygame.draw.rect(tela, sombra, (cx - 16, cy - 6, 32, 70))
+        pygame.draw.rect(tela, pedra, (cx - 14, cy - 4, 28, 68))
+        # Spire central
+        pygame.draw.polygon(tela, sombra, [(cx - 18, cy - 6), (cx, cy - 38), (cx + 18, cy - 6)])
+        pygame.draw.polygon(tela, pedra_luz, [(cx - 16, cy - 6), (cx, cy - 36), (cx + 16, cy - 6)])
+        pygame.draw.line(tela, rim_sol, (cx, cy - 36), (cx + 16, cy - 6))
+
+        # Ameias da torre central
+        for bx in range(cx - 14, cx + 16, 7):
+            pygame.draw.rect(tela, pedra, (bx, cy - 10, 4, 5))
+            pygame.draw.line(tela, rim_sol, (bx + 3, cy - 10), (bx + 3, cy - 6))
+
+        # Farol místico no topo da torre central
+        pulso_farol = 0.5 + 0.5 * math.sin(t * 3.0)
+        s_farol = pygame.Surface((18, 18), pygame.SRCALPHA)
+        pygame.draw.circle(s_farol, (180, 235, 255, round(60 + 50 * pulso_farol)), (9, 9), 8)
+        pygame.draw.circle(s_farol, (255, 255, 255, round(160 + 90 * pulso_farol)), (9, 9), 3)
+        tela.blit(s_farol, (cx - 9, cy - 44))
+        tela.set_at((cx, cy - 35), (255, 255, 255))
+
+        # Janelas góticas iluminadas por tochas/vitrais
+        janelas = [
+            (cx - 34, cy + 26), (cx - 34, cy + 40),
+            (cx - 6, cy + 12), (cx + 4, cy + 12),
+            (cx - 6, cy + 30), (cx + 4, cy + 30),
+            (cx + 33, cy + 22), (cx + 33, cy + 38),
+        ]
+        for jx, jy in janelas:
+            cintila = math.sin(t * 4.5 + jx * 1.7) * 20
+            cor_janela = (min(255, round(255 + cintila)), round(205 + cintila), 80)
+            pygame.draw.rect(tela, (20, 14, 30), (jx - 1, jy - 1, 5, 8))
+            pygame.draw.rect(tela, cor_janela, (jx, jy, 3, 6))
+            tela.set_at((jx + 1, jy), (255, 255, 220))
+
+    def _desenhar_lago(self, tela, t, sol, cx_castelo):
         topo = 124
-        lago = pygame.Surface((LARGURA, ALTURA - topo), pygame.SRCALPHA)
-        for y in range(ALTURA - topo):
-            espelho = self.ceu.get_at((0, max(0, topo - 1 - y * 2)))
-            cor = _misturar(espelho, (30, 40, 80), 0.45 + y / (ALTURA - topo) * 0.4)
-            lago.fill((*cor, 255), (0, y, LARGURA, 1))
-        # Reflexo do sol e brilhos ondulando
-        for k in range(14):
-            y = 2 + k * 3
-            larg = max(2, 26 - k * 2 + round(math.sin(t * 3 + k) * 3))
-            pygame.draw.line(lago, (255, 220, 150, 170 - k * 10), (250 - larg // 2, y), (250 + larg // 2, y))
-        for k in range(18):
-            x = (k * 47 + round(t * 9)) % LARGURA
-            y = 4 + (k * 13) % (ALTURA - topo - 6)
-            if math.sin(t * 4 + k) > 0.3:
-                pygame.draw.line(lago, (210, 200, 255, 120), (x, y), (x + 4, y))
+        larg = LARGURA
+        alt = ALTURA - topo
+        lago = pygame.Surface((larg, alt), pygame.SRCALPHA)
+
+        # Gradiente da água com absorção de profundidade
+        for y in range(alt):
+            fator_prof = y / alt
+            # Mistura do reflexo do céu escuro com azul marinho crepuscular
+            cor = _misturar((26, 28, 58), (14, 18, 40), fator_prof * 0.8)
+            lago.fill((*cor, 255), (0, y, larg, 1))
+
+        # Reflexo invertido da silhueta do castelo na água
+        for y in range(alt - 4):
+            desloc_onda = math.sin(t * 3.8 + y * 0.6) * (1.2 + y * 0.1)
+            alfa_refl = round(max(0, 110 - y * 4))
+            if alfa_refl > 0:
+                refl_x = round(cx_castelo + desloc_onda)
+                larg_refl = max(4, round(36 - y * 0.8))
+                pygame.draw.line(lago, (18, 14, 32, alfa_refl), (refl_x - larg_refl // 2, y), (refl_x + larg_refl // 2, y))
+
+        # Trilha de reflexo dourado do sol ondulando
+        sx = sol[0]
+        for k in range(alt - 6):
+            onda = math.sin(t * 4.2 + k * 0.45) * (2.0 + k * 0.08)
+            larg_sol = max(2, round(24 - k * 0.5 + onda))
+            alfa_sol = round(max(0, 175 - k * 4.5))
+            if alfa_sol > 0:
+                pygame.draw.line(lago, (255, 215, 130, alfa_sol), (round(sx - larg_sol // 2 + onda), k), (round(sx + larg_sol // 2 + onda), k))
+
+        # Brilhos esparsos cintilantes na água
+        for k in range(22):
+            x = (k * 43 + round(t * 11)) % larg
+            y = 2 + (k * 11) % (alt - 6)
+            if math.sin(t * 3.6 + k * 2.1) > 0.2:
+                pygame.draw.line(lago, (230, 225, 255, 140), (x, y), (x + 3, y))
+
+        # Névoa matinal flutuando sobre a lâmina d'água
+        nevoa = pygame.Surface((larg, 14), pygame.SRCALPHA)
+        for x in range(0, larg, 3):
+            alt_nev = 3 + math.sin(x * 0.04 + t * 0.8) * 2 + math.sin(x * 0.1 - t * 0.5) * 1.5
+            alfa_nev = round(32 + 18 * math.sin(x * 0.03 + t * 0.6))
+            pygame.draw.line(nevoa, (215, 225, 255, alfa_nev), (x, round(7 - alt_nev)), (x, round(7 + alt_nev)), 3)
+        lago.blit(nevoa, (0, 0))
+
         tela.blit(lago, (0, topo))
-        pygame.draw.line(tela, (255, 220, 170), (0, topo), (LARGURA, topo))
+        # Linha de horizonte reluzente na borda do lago
+        pygame.draw.line(tela, (255, 225, 175), (0, topo), (larg, topo))
 
     def _desenhar_heroi(self, tela, t):
-        """O herói de costas na colina, olhando o castelo, com a fada-guia em volta."""
+        """O herói contemplando o castelo na colina, fogueira aconchegante com brasas e fada-guia."""
+        hx, hy = 72, 140
+
+        # --- Fogueira de acampamento em pedras (cx=44, cy=142) ---
+        fx, fy = 44, 142
+        # Círculo de pedras
+        pedras = [(-6, 2), (-3, 3), (2, 3), (6, 2), (-4, -1), (4, -1)]
+        for dx, dy in pedras:
+            tela.set_at((fx + dx, fy + dy), (75, 70, 78))
+            tela.set_at((fx + dx + 1, fy + dy), (105, 100, 110))
+
+        # Troncos de madeira cruzados
+        pygame.draw.line(tela, (65, 38, 22), (fx - 5, fy + 1), (fx + 5, fy - 1), 2)
+        pygame.draw.line(tela, (85, 48, 28), (fx - 4, fy - 1), (fx + 4, fy + 1), 2)
+
+        # Resplendor quente no chão
+        pulso_fogo = 0.5 + 0.5 * math.sin(t * 14.0)
+        s_brilho_chao = pygame.Surface((32, 20), pygame.SRCALPHA)
+        pygame.draw.ellipse(s_brilho_chao, (255, 130, 40, round(45 + 25 * pulso_fogo)), (0, 0, 32, 20))
+        tela.blit(s_brilho_chao, (fx - 16, fy - 9))
+
+        # Chamas animadas da fogueira
+        alt_chama = 7 + math.sin(t * 18.0) * 2 + math.cos(t * 24.0) * 1.5
+        chama_pts = [
+            (fx - 4, fy + 1),
+            (fx + 4, fy + 1),
+            (fx + 2, round(fy - alt_chama * 0.6)),
+            (fx + math.sin(t * 12.0) * 1.5, round(fy - alt_chama)),
+            (fx - 2, round(fy - alt_chama * 0.6)),
+        ]
+        pygame.draw.polygon(tela, (230, 60, 25), chama_pts)
+        chama_miolo = [
+            (fx - 2, fy + 1),
+            (fx + 2, fy + 1),
+            (fx, round(fy - alt_chama * 0.75)),
+        ]
+        pygame.draw.polygon(tela, (255, 230, 110), chama_miolo)
+        tela.set_at((round(fx), round(fy - alt_chama * 0.4)), (255, 255, 240))
+
+        # Faíscas / brasas subindo da fogueira
+        for i in range(6):
+            fase_faisca = (t * (2.2 + i * 0.4) + i * 1.4) % 1.0
+            px = fx + math.sin(t * 5.0 + i * 2.0) * 3 + (i - 2.5) * 1.5
+            py = fy - 4 - fase_faisca * 24
+            alfa_f = 1.0 - fase_faisca
+            if alfa_f > 0.15:
+                cor_f = _misturar((255, 110, 30), (255, 240, 160), alfa_f)
+                tela.set_at((round(px), round(py)), cor_f)
+
+        # --- Herói ---
         quadro = self.app.gfx.jogador["cima"][6 if math.sin(t * 2.8) > 0.35 else 2]
-        hx, hy = 70, 140
         tela.blit(quadro, quadro.get_rect(midbottom=(hx, hy + 1)))
-        # Cachecol ao vento
-        for i in range(4):
+
+        # Cachecol carmesim esvoaçando ao vento
+        for i in range(5):
             px = hx + 3 + i * 3
-            py = hy - 17 + round(math.sin(t * 8 - i) * 1.5) + i // 2
-            pygame.draw.rect(tela, (220, 50, 56) if i % 2 == 0 else (160, 28, 40), (px, py, 3, 2))
-        # Fada-guia
-        ang = t * 2.2
-        fx = hx + math.cos(ang) * 14
-        fy = hy - 20 + math.sin(ang * 1.3) * 6
-        halo = pygame.Surface((14, 14), pygame.SRCALPHA)
-        pygame.draw.circle(halo, (170, 230, 255, 70), (7, 7), 7)
-        pygame.draw.circle(halo, (220, 245, 255, 140), (7, 7), 4)
-        tela.blit(halo, (round(fx) - 7, round(fy) - 7))
-        pygame.draw.circle(tela, (255, 255, 255), (round(fx), round(fy)), 1)
-        for i in range(1, 5):
-            a = ang - i * 0.18
-            tela.set_at((round(hx + math.cos(a) * 14), round(hy - 20 + math.sin(a * 1.3) * 6)), (150 + i * 20, 220, 255))
-        # Grama alta balançando
+            py = hy - 17 + round(math.sin(t * 8.5 - i * 0.9) * 1.8) + i // 2
+            cor_cachecol = (235, 52, 60) if i % 2 == 0 else (175, 30, 42)
+            pygame.draw.rect(tela, cor_cachecol, (px, py, 3, 2))
+
+        # Fada-guia orbitando com rastro de poeira estelar
+        ang = t * 2.4
+        fx_fada = hx + math.cos(ang) * 15
+        fy_fada = hy - 21 + math.sin(ang * 1.4) * 7
+        halo = pygame.Surface((16, 16), pygame.SRCALPHA)
+        pygame.draw.circle(halo, (150, 225, 255, 65), (8, 8), 8)
+        pygame.draw.circle(halo, (215, 245, 255, 145), (8, 8), 4)
+        tela.blit(halo, (round(fx_fada) - 8, round(fy_fada) - 8))
+        pygame.draw.circle(tela, (255, 255, 255), (round(fx_fada), round(fy_fada)), 1)
+        for i in range(1, 6):
+            a = ang - i * 0.16
+            r_x = round(hx + math.cos(a) * 15)
+            r_y = round(hy - 21 + math.sin(a * 1.4) * 7)
+            if 0 <= r_x < LARGURA and 0 <= r_y < ALTURA:
+                tela.set_at((r_x, r_y), (140 + i * 18, 215, 255))
+
+        # Grama alta balançando ao vento
         for i, gx in enumerate(range(4, 150, 5)):
             base_y = 150 - (gx // 40) + (4 if gx > 110 else 0) + (gx - 110) // 3 * (1 if gx > 110 else 0)
-            balanco = round(math.sin(t * 2.5 + gx * 0.2) * 2)
+            balanco = round(math.sin(t * 2.6 + gx * 0.22) * 2)
             pygame.draw.line(tela, (34, 70, 46), (gx, base_y), (gx + balanco, base_y - 5 - i % 3))
+
+    def _desenhar_petalas_vento(self, tela, t):
+        """Pétalas e pólen dourado levados suavemente pela brisa crepuscular."""
+        for i in range(12):
+            vel_x = 18 + (i % 4) * 6
+            px = (i * 31 + t * vel_x) % (LARGURA + 30) - 15
+            py = 35 + (i * 23 + math.sin(t * 2.4 + i * 1.3) * 10) % 115
+            cor_petala = (255, 195, 215) if i % 2 == 0 else (255, 235, 165)
+            # Desenha pétala levemente inclinada
+            tela.set_at((round(px), round(py)), cor_petala)
+            tela.set_at((round(px + 1), round(py)), cor_petala)
+            tela.set_at((round(px), round(py + 1)), (210, 150, 175))
 
     def _desenhar_logo(self, tela, t):
         fonte = self.app.fontes.normal
@@ -443,39 +630,54 @@ class MenuPrincipal(Cena):
         y_logo = round(30 - queda * 60)
         cx = LARGURA // 2
 
-        # Brasão acima do título: asas abertas, anel rúnico e cristal; a espada atravessa o título
-        brasao_y = y_logo - 13
+        # Brasão Celestial acima do título: Asas Seráficas com 3 camadas, anel místico e espada sagrada
+        brasao_y = y_logo - 14
         for lado in (-1, 1):
-            for p in range(4):
-                comp = 30 - p * 6
-                y_pena = brasao_y - 3 + p * 2
-                ponta = (cx + lado * (9 + comp), y_pena - 7 + p * 3)
-                pygame.draw.line(tela, (60, 30, 20), (cx + lado * 8, y_pena + 1), (ponta[0], ponta[1] + 1), 2)
-                pygame.draw.line(tela, _misturar((255, 240, 180), (220, 150, 60), p / 4), (cx + lado * 8, y_pena), ponta, 2)
-        for k in range(12):
-            a = t * 0.6 + k * math.tau / 12
-            px, py = cx + round(math.cos(a) * 11), brasao_y + round(math.sin(a) * 4)
-            tela.set_at((px, py), (255, 220, 140) if k % 2 else (140, 230, 255))
-        espada_topo = brasao_y - 4
-        pygame.draw.polygon(tela, (40, 30, 50), [(cx - 3, espada_topo), (cx + 3, espada_topo), (cx + 2, y_logo + 24), (cx, y_logo + 28), (cx - 2, y_logo + 24)])
-        pygame.draw.polygon(tela, (214, 226, 246), [(cx - 2, espada_topo + 1), (cx + 2, espada_topo + 1), (cx + 1, y_logo + 23), (cx, y_logo + 26), (cx - 1, y_logo + 23)])
-        pygame.draw.line(tela, (255, 255, 255), (cx - 1, espada_topo + 1), (cx - 1, y_logo + 22))
-        pygame.draw.rect(tela, (220, 170, 60), (cx - 8, espada_topo - 2, 17, 3))
-        pygame.draw.rect(tela, (120, 70, 40), (cx - 1, espada_topo - 9, 3, 7))
-        halo_c = pygame.Surface((12, 12), pygame.SRCALPHA)
-        pygame.draw.circle(halo_c, (120, 230, 255, 90), (6, 6), 6)
-        tela.blit(halo_c, (cx - 6 + 1, espada_topo - 16))
-        pygame.draw.circle(tela, (90, 230, 255), (cx + 1, espada_topo - 10), 2)
+            for p in range(5):
+                comp = 34 - p * 6
+                y_pena = brasao_y - 4 + p * 2
+                ponta = (cx + lado * (8 + comp), y_pena - 9 + p * 3)
+                # Contorno escuro da pena
+                pygame.draw.line(tela, (55, 28, 22), (cx + lado * 7, y_pena + 1), (ponta[0], ponta[1] + 1), 2)
+                # Gradiente de ouro celestial
+                cor_pena = _misturar((255, 245, 190), (225, 160, 65), p / 5)
+                pygame.draw.line(tela, cor_pena, (cx + lado * 7, y_pena), ponta, 2)
 
-        # Título
+        # Anel de Runas Místicas girando em torno do brasão
+        for k in range(12):
+            a = t * 0.75 + k * math.tau / 12
+            px, py = cx + round(math.cos(a) * 13), brasao_y + round(math.sin(a) * 5)
+            tela.set_at((px, py), (255, 225, 140) if k % 2 else (135, 235, 255))
+
+        # Espada Sagrada atravessando o topo
+        espada_topo = brasao_y - 6
+        # Bainha / Lâmina
+        pygame.draw.polygon(tela, (36, 26, 48), [(cx - 3, espada_topo), (cx + 3, espada_topo), (cx + 2, y_logo + 25), (cx, y_logo + 29), (cx - 2, y_logo + 25)])
+        pygame.draw.polygon(tela, (225, 235, 255), [(cx - 2, espada_topo + 1), (cx + 2, espada_topo + 1), (cx + 1, y_logo + 24), (cx, y_logo + 27), (cx - 1, y_logo + 24)])
+        pygame.draw.line(tela, (255, 255, 255), (cx - 1, espada_topo + 1), (cx - 1, y_logo + 23))
+
+        # Guarda e empunhadura dourada
+        pygame.draw.rect(tela, (230, 185, 75), (cx - 9, espada_topo - 2, 19, 3))
+        pygame.draw.rect(tela, (135, 75, 42), (cx - 1, espada_topo - 9, 3, 7))
+
+        # Joia sagrada no pomo com pulso
+        halo_c = pygame.Surface((16, 16), pygame.SRCALPHA)
+        pulso_joia = 0.5 + 0.5 * math.sin(t * 3.5)
+        pygame.draw.circle(halo_c, (110, 230, 255, round(70 + 40 * pulso_joia)), (8, 8), 7)
+        tela.blit(halo_c, (cx - 7, espada_topo - 17))
+        pygame.draw.circle(tela, (130, 240, 255), (cx + 1, espada_topo - 10), 2)
+        tela.set_at((cx + 1, espada_topo - 10), (255, 255, 255))
+
+        # Título principal renderizado
         tela.blit(self.logo, self.logo.get_rect(center=(cx, y_logo + 8)))
-        # Brilho que percorre as letras
-        ciclo = (t % 4.0) / 1.2
+
+        # Varredura Especular e Cintilações de Estrela no Título "A LENDA PERDIDA"
+        ciclo = (t % 3.6) / 1.4
         r_logo = self.logo.get_rect(center=(cx, y_logo + 8))
         if 0 <= ciclo <= 1 and tela.get_rect().contains(r_logo):
             x_brilho = round(cx - 120 + ciclo * 240)
-            faixa = pygame.Surface((8, 30), pygame.SRCALPHA)
-            pygame.draw.polygon(faixa, (255, 255, 255, 90), [(3, 0), (8, 0), (5, 30), (0, 30)])
+            faixa = pygame.Surface((10, 30), pygame.SRCALPHA)
+            pygame.draw.polygon(faixa, (255, 255, 255, 110), [(4, 0), (10, 0), (6, 30), (0, 30)])
             r = self.logo.get_rect(center=(cx, y_logo + 8))
             alvo = tela.subsurface(r).copy()
             mascara = pygame.mask.from_surface(self.logo)
@@ -485,15 +687,28 @@ class MenuPrincipal(Cena):
             alvo.blit(brilho, (0, 0))
             tela.blit(alvo, r)
 
-        # Fita com o subtítulo
+            # Estrela reluzente no ponto ápice do brilho
+            if 0.2 < ciclo < 0.8:
+                gx = round(cx - 90 + ciclo * 180)
+                gy = y_logo + 4
+                s_glint = pygame.Surface((9, 9), pygame.SRCALPHA)
+                pygame.draw.line(s_glint, (255, 255, 255, 220), (4, 0), (4, 8), 1)
+                pygame.draw.line(s_glint, (255, 255, 255, 220), (0, 4), (8, 4), 1)
+                pygame.draw.circle(s_glint, (255, 240, 180, 240), (4, 4), 1)
+                tela.blit(s_glint, (gx - 4, gy - 4))
+
+        # Faixa Rubro-Carmensim Ornamental com Bordado Dourado
         fita_y = y_logo + 26
-        largura_fita = 170
-        pygame.draw.polygon(tela, (110, 30, 40), [(cx - largura_fita // 2 - 10, fita_y + 2), (cx - largura_fita // 2, fita_y - 2), (cx - largura_fita // 2, fita_y + 10), (cx - largura_fita // 2 - 10, fita_y + 12), (cx - largura_fita // 2 - 5, fita_y + 7)])
-        pygame.draw.polygon(tela, (110, 30, 40), [(cx + largura_fita // 2 + 10, fita_y + 2), (cx + largura_fita // 2, fita_y - 2), (cx + largura_fita // 2, fita_y + 10), (cx + largura_fita // 2 + 10, fita_y + 12), (cx + largura_fita // 2 + 5, fita_y + 7)])
-        pygame.draw.rect(tela, (170, 44, 54), (cx - largura_fita // 2, fita_y - 3, largura_fita, 13))
-        pygame.draw.line(tela, (230, 110, 110), (cx - largura_fita // 2, fita_y - 3), (cx + largura_fita // 2, fita_y - 3))
-        pygame.draw.line(tela, (230, 180, 90), (cx - largura_fita // 2, fita_y + 9), (cx + largura_fita // 2, fita_y + 9))
-        desenhar_texto(tela, fonte, "Crônicas do Reino Esquecido", (cx, fita_y + 3), (255, 236, 200), centro=True)
+        largura_fita = 172
+        # Pontas bipartidas da flâmula
+        pygame.draw.polygon(tela, (100, 26, 36), [(cx - largura_fita // 2 - 10, fita_y + 2), (cx - largura_fita // 2, fita_y - 2), (cx - largura_fita // 2, fita_y + 10), (cx - largura_fita // 2 - 10, fita_y + 12), (cx - largura_fita // 2 - 5, fita_y + 7)])
+        pygame.draw.polygon(tela, (100, 26, 36), [(cx + largura_fita // 2 + 10, fita_y + 2), (cx + largura_fita // 2, fita_y - 2), (cx + largura_fita // 2, fita_y + 10), (cx + largura_fita // 2 + 10, fita_y + 12), (cx + largura_fita // 2 + 5, fita_y + 7)])
+        # Corpo da fita
+        pygame.draw.rect(tela, (168, 40, 52), (cx - largura_fita // 2, fita_y - 3, largura_fita, 13))
+        # Friso dourado superior e inferior com cantos estilizados
+        pygame.draw.line(tela, (255, 215, 120), (cx - largura_fita // 2, fita_y - 3), (cx + largura_fita // 2, fita_y - 3))
+        pygame.draw.line(tela, (230, 180, 85), (cx - largura_fita // 2, fita_y + 9), (cx + largura_fita // 2, fita_y + 9))
+        desenhar_texto(tela, fonte, "Crônicas do Reino Esquecido", (cx, fita_y + 3), (255, 242, 210), centro=True)
 
     def _desenhar_menu(self, tela):
         fonte = self.app.fontes.normal

@@ -182,6 +182,9 @@ class Jogo(Cena):
         self.tochas_acesas = set()
         self.missoes = GerenciadorMissoes()
         self.hitstop = 0.0
+        self.combo_acertos = 0
+        self.tempo_combo = 0.0
+        self.combo_pulso = 0.0
         self.relogio_dia_noite = 0.35
 
         # Pilares do Prompt 2: Portais Místicos, Viagem Rápida, Vasos, Relíquias e Navegação
@@ -1013,6 +1016,26 @@ class Jogo(Cena):
         self.jogador.vida_maxima = self.vida_max_total()
         self.jogador.fator_velocidade_rpg = self.rpg.fator_velocidade
         self.ambiente.atualizar(dt)
+
+        # Sistema Hack & Slash: decaimento de combo e frenesi
+        if self.tempo_combo > 0:
+            self.tempo_combo = max(0.0, self.tempo_combo - dt)
+            if self.tempo_combo <= 0:
+                self.combo_acertos = 0
+        if self.combo_pulso > 0:
+            self.combo_pulso = max(0.0, self.combo_pulso - dt * 3.5)
+
+        if self.combo_acertos >= 12:
+            self.jogador.fator_frenesi = 1.25
+        elif self.combo_acertos >= 8:
+            self.jogador.fator_frenesi = 1.15
+        elif self.combo_acertos >= 4:
+            self.jogador.fator_frenesi = 1.08
+        else:
+            self.jogador.fator_frenesi = 1.0
+
+        self.camera.atualizar_tremor(dt)
+
         self.destaque_bussola = max(0.0, getattr(self, "destaque_bussola", 0.0) - dt)
         self.tempo_objetivo_visivel = max(0.0, getattr(self, "tempo_objetivo_visivel", 0.0) - dt)
         self.tempo_autosave = max(0.0, getattr(self, "tempo_autosave", 0.0) - dt)
@@ -1373,26 +1396,66 @@ class Jogo(Cena):
                 if not vaso.quebrado and espada.colliderect(vaso.rect):
                     vaso.quebrar(self)
 
-            dano_esp = self.rpg.dano_espada
+            # Multiplicadores de Dano Hack & Slash
+            mult_golpe = 1.0
+            if getattr(jogador, "dash_strike", False):
+                mult_golpe = 1.45
+            elif getattr(jogador, "combo_etapa", 0) == 1:
+                mult_golpe = 1.20
+            elif getattr(jogador, "combo_etapa", 0) == 2:
+                mult_golpe = 1.70  # Finalizador
+
+            mult_estilo = 1.0
+            if self.combo_acertos >= 12:
+                mult_estilo = 1.50
+            elif self.combo_acertos >= 8:
+                mult_estilo = 1.30
+            elif self.combo_acertos >= 4:
+                mult_estilo = 1.15
+
+            dano_esp = max(1, round(self.rpg.dano_espada * mult_golpe * mult_estilo))
+            eh_finalizador = getattr(jogador, "combo_etapa", 0) == 2
+            eh_dash_strike = getattr(jogador, "dash_strike", False)
+
             for slime in self.inimigos:
                 if espada.colliderect(slime.rect):
                     if slime.receber_golpe(jogador.golpe_id, jogador.rect.center, dano=dano_esp):
-                        self.hitstop = 0.045
+                        self.combo_acertos += 1
+                        self.tempo_combo = 2.4
+                        self.combo_pulso = 1.4
+                        if eh_finalizador or eh_dash_strike:
+                            self.hitstop = 0.075
+                            self.camera.tremer(3.2, 0.12)
+                        else:
+                            self.hitstop = 0.045
                         if audio:
                             audio.sfx("hit_inimigo")
-                        self.rpg.mana = min(self.rpg.mana_maxima, self.rpg.mana + 1.5)
+                        mana_ganho = 3.0 if eh_finalizador else 1.5
+                        self.rpg.mana = min(self.rpg.mana_maxima, self.rpg.mana + mana_ganho)
+                        cor_txt = (255, 220, 80) if eh_finalizador else ((130, 235, 255) if eh_dash_strike else (255, 240, 150))
+                        sufixo = "!" if eh_finalizador else ""
                         self.textos_flutuantes.append(
-                            TextoFlutuante(slime.rect.midtop, f"-{dano_esp}", (255, 240, 150))
+                            TextoFlutuante(slime.rect.midtop, f"-{dano_esp}{sufixo}", cor_txt)
                         )
             for chefe in self.chefes:
                 if not chefe.morrendo and espada.colliderect(chefe.rect):
                     if chefe.receber_golpe(jogador.golpe_id, jogador.rect.center, dano=dano_esp):
-                        self.hitstop = 0.045
+                        self.combo_acertos += 1
+                        self.tempo_combo = 2.4
+                        self.combo_pulso = 1.4
+                        if eh_finalizador or eh_dash_strike:
+                            self.hitstop = 0.08
+                            self.camera.tremer(3.5, 0.14)
+                        else:
+                            self.hitstop = 0.045
                         if audio:
                             audio.sfx("hit_inimigo")
-                        self.rpg.mana = min(self.rpg.mana_maxima, self.rpg.mana + 1.5)
+                        mana_ganho = 3.0 if eh_finalizador else 1.5
+                        self.rpg.mana = min(self.rpg.mana_maxima, self.rpg.mana + mana_ganho)
+                        cor_txt = (255, 220, 80) if eh_finalizador else ((130, 235, 255) if eh_dash_strike else (255, 240, 150))
+                        sufixo = "!" if eh_finalizador else ""
                         self.textos_flutuantes.append(
-                            TextoFlutuante(chefe.rect.midtop, f"-{dano_esp}", (255, 240, 150))
+                            TextoFlutuante(chefe.rect.midtop, f"-{dano_esp}{sufixo}", cor_txt)
                         )
 
         # Atualiza projéteis mágicos (ex.: Esfera de Fogo)
@@ -1418,6 +1481,9 @@ class Jogo(Cena):
             for slime in self.inimigos:
                 if proj.rect.colliderect(slime.rect):
                     slime.receber_golpe(proj.golpe_id, proj.pos, dano=proj.dano)
+                    self.combo_acertos += 1
+                    self.tempo_combo = 2.4
+                    self.combo_pulso = 1.25
                     if audio:
                         audio.sfx("hit_inimigo")
                     self.particulas += explosao(proj.pos, CORES_FOGO, 12)
@@ -1431,6 +1497,9 @@ class Jogo(Cena):
                 for chefe in self.chefes:
                     if not chefe.morrendo and proj.rect.colliderect(chefe.rect):
                         chefe.receber_golpe(proj.golpe_id, proj.pos, dano=proj.dano)
+                        self.combo_acertos += 1
+                        self.tempo_combo = 2.4
+                        self.combo_pulso = 1.25
                         if audio:
                             audio.sfx("hit_inimigo")
                         self.particulas += explosao(proj.pos, CORES_FOGO, 12)
@@ -1790,6 +1859,9 @@ class Jogo(Cena):
             if getattr(self, "tempo_autosave", 0.0) > 0 and getattr(self, "aviso_autosave", None):
                 self._desenhar_badge_autosave(tela, fonte)
 
+            # Contador de Combo e Classificação de Estilo Hack & Slash
+            self._desenhar_combo(tela, fonte)
+
         if self.clarao > 0:
             camada = pygame.Surface(tela.get_size(), pygame.SRCALPHA)
             camada.fill((*self.cor_clarao, int(min(1.0, self.clarao) * 200)))
@@ -1887,6 +1959,69 @@ class Jogo(Cena):
         if len(sub) > 17:
             sub = sub[:16] + ".."
         desenhar_texto(tela, fonte, sub, (dx + 14, y0 + 12), (210, 225, 245))
+
+    def _desenhar_combo(self, tela, fonte):
+        """Exibe o contador de combo dinâmico e estilo frenético do combate Hack & Slash."""
+        if getattr(self, "combo_acertos", 0) < 2 or getattr(self, "tempo_combo", 0.0) <= 0:
+            return
+
+        acertos = self.combo_acertos
+        tempo_restante = self.tempo_combo
+        frac = min(1.0, max(0.0, tempo_restante / 2.4))
+        pulso = getattr(self, "combo_pulso", 0.0)
+
+        # Classificação de Estilo
+        if acertos >= 12:
+            rank = "LENDÁRIO!"
+            cor_rank = (255, 235, 110)
+            cor_borda = (255, 215, 60)
+            cor_bg = (55, 42, 16, 230)
+            cor_barra = (255, 220, 80)
+        elif acertos >= 8:
+            rank = "FRENÉTICO!"
+            cor_rank = (255, 85, 95)
+            cor_borda = (235, 60, 70)
+            cor_bg = (60, 20, 28, 230)
+            cor_barra = (255, 80, 90)
+        elif acertos >= 4:
+            rank = "FEROZ!"
+            cor_rank = (255, 180, 50)
+            cor_borda = (230, 140, 40)
+            cor_bg = (55, 34, 16, 225)
+            cor_barra = (255, 170, 40)
+        else:
+            rank = "BOM!"
+            cor_rank = (190, 220, 255)
+            cor_borda = (130, 180, 240)
+            cor_bg = (24, 34, 58, 220)
+            cor_barra = (140, 210, 255)
+
+        larg = 60
+        alt = 23
+        # Posicionado no canto direito da tela
+        x = LARGURA - larg - 6
+        y = 52 + (16 if self.chefes else 0)
+
+        desloc_y = round(pulso * -2.5)
+
+        s_badge = pygame.Surface((larg, alt), pygame.SRCALPHA)
+        s_badge.fill(cor_bg)
+        pygame.draw.rect(s_badge, (20, 16, 30), s_badge.get_rect(), 1)
+        pygame.draw.rect(s_badge, cor_borda, s_badge.get_rect().inflate(-2, -2), 1)
+
+        # Micro-barra de tempo do combo
+        larg_barra = max(0, round((larg - 6) * frac))
+        if larg_barra > 0:
+            pygame.draw.rect(s_badge, (30, 24, 40), (3, alt - 3, larg - 6, 2))
+            pygame.draw.rect(s_badge, cor_barra, (3, alt - 3, larg_barra, 2))
+
+        tela.blit(s_badge, (x, y + desloc_y))
+
+        # Texto do rank de estilo
+        desenhar_texto(tela, fonte, rank, (x + larg // 2, y + 4 + desloc_y), cor_rank, centro=True)
+        # Texto do número de acertos
+        txt_combo = f"x{acertos}"
+        desenhar_texto(tela, fonte, txt_combo, (x + larg // 2, y + 14 + desloc_y), (255, 255, 255), centro=True)
 
     def _desenhar_tela_derrota(self, tela, fonte, nome_checkpoint):
         escurecer(tela, 220)

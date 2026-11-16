@@ -74,7 +74,6 @@ class App:
 
     # ------------------------------------------------------------ loop
     def processar_eventos(self):
-        from cenas.editor import Editor
         from cenas.jogo import Jogo
 
         self.entrada.iniciar_quadro()
@@ -87,9 +86,6 @@ class App:
                     self.config["tela_cheia"] = not self.config["tela_cheia"]
                     self.aplicar_video()
                     config.salvar(self.config)
-                elif evento.key == pygame.K_F2 and not isinstance(self.cenas[-1], Editor):
-                    mapa_atual = getattr(getattr(self.cenas[-1], "nivel", None), "caminho", None)
-                    self.trocar(Editor(self, mapa_atual))
                 elif evento.key == pygame.K_F5 and isinstance(self.cenas[-1], Jogo):
                     # Salvamento Rápido (Quick Save)
                     jogo = self.cenas[-1]

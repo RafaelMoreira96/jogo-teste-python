@@ -13,6 +13,29 @@ class Camera:
         self.lookahead = pygame.Vector2()
         self.suavidade_lookahead = 4.5
         self.suavidade_camera = 7.5
+        self.tremor_intensidade = 0.0
+        self.tremor_duracao = 0.0
+        self.tremor_total = 0.0
+        self.offset_tremor = pygame.Vector2()
+
+    def tremer(self, intensidade=2.5, duracao=0.12):
+        self.tremor_intensidade = max(self.tremor_intensidade, intensidade)
+        self.tremor_duracao = max(self.tremor_duracao, duracao)
+        self.tremor_total = max(self.tremor_total, duracao)
+
+    def atualizar_tremor(self, dt):
+        if self.tremor_duracao > 0:
+            import random
+            self.tremor_duracao = max(0.0, self.tremor_duracao - dt)
+            if self.tremor_duracao <= 0:
+                self.offset_tremor = pygame.Vector2()
+                self.tremor_intensidade = 0.0
+            else:
+                frac = self.tremor_duracao / max(0.01, self.tremor_total)
+                amp = self.tremor_intensidade * frac
+                self.offset_tremor = pygame.Vector2(random.uniform(-amp, amp), random.uniform(-amp, amp))
+        else:
+            self.offset_tremor = pygame.Vector2()
 
     def _alvo(self, rect, offset_lookahead=None):
         centro_x = rect.centerx + (offset_lookahead.x if offset_lookahead else 0.0)
@@ -46,7 +69,9 @@ class Camera:
 
     @property
     def offset(self):
-        return round(self.pos.x), round(self.pos.y)
+        tx = getattr(self, "offset_tremor", pygame.Vector2()).x
+        ty = getattr(self, "offset_tremor", pygame.Vector2()).y
+        return round(self.pos.x + tx), round(self.pos.y + ty)
 
     def aplicar(self, rect):
         ox, oy = self.offset

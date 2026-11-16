@@ -109,19 +109,63 @@ class Jogador(Entidade):
         self.tunica_equipada = "tunica_verde"
         self.arma_equipada = "espada_ferro"
 
+        # Sistema Hack & Slash (Combos, Buffering e Cancelamentos)
+        self.combo_etapa = 0  # 0: corte ágil, 1: corte cruzado, 2: finalizador giratório 360°
+        self.tempo_combo_janela = 0.0
+        self.buffer_ataque = False
+        self.duracao_ataque_atual = 0.16
+        self.dash_strike = False
+        self.fator_frenesi = 1.0
+
     @property
     def atacando(self):
         return self.tempo_ataque > 0
 
     def atacar(self):
-        if not self.atacando and not self.defendendo and self.tempo_empurrao <= 0 and self.pose == "normal":
-            self.tempo_ataque = TEMPO_ATAQUE
+        if self.tempo_empurrao > 0 or self.pose != "normal":
+            return
+
+        if self.atacando:
+            # Buffer de input nos últimos 0.11s do golpe para encadear sem perder frame
+            if self.tempo_ataque <= 0.11:
+                self.buffer_ataque = True
+            return
+
+        # Solta o escudo para atacar de imediato se estiver defendendo
+        self.defendendo = False
+
+        if self.tempo_dash > 0:
+            # Dash-Strike (Estocada de Choque em arrancada)
+            self.dash_strike = True
+            self.combo_etapa = 0
+            self.duracao_ataque_atual = 0.16
+            self.tempo_ataque = self.duracao_ataque_atual
             self.golpe_id += 1
             self.impulso_ataque = True
-            self.deformar(1.18, 0.85)
+            self.deformar(1.32, 0.70)
+            return
+
+        self.dash_strike = False
+        if self.tempo_combo_janela > 0:
+            self.combo_etapa = (self.combo_etapa + 1) % 3
+        else:
+            self.combo_etapa = 0
+
+        # Tempos frenéticos: 0.15s, 0.16s, 0.24s (Finalizador)
+        duracoes = (0.15, 0.16, 0.24)
+        self.duracao_ataque_atual = duracoes[self.combo_etapa]
+        self.tempo_ataque = self.duracao_ataque_atual
+        self.tempo_combo_janela = 0.0
+        self.golpe_id += 1
+        self.impulso_ataque = True
+        self.deformar(1.22 if self.combo_etapa < 2 else 1.36, 0.82 if self.combo_etapa < 2 else 0.70)
 
     def levar_dano(self, quantidade, origem, rpg=None, audio=None):
         if self.invencivel > 0:
+            return False
+
+        # Esquiva perfeita com i-frames durante o Dash (Hack and Slash)
+        if self.tempo_dash > 0:
             return False
 
         # Bloqueio frontal com escudo (suporta os 8 eixos)
@@ -172,7 +216,18 @@ class Jogador(Entidade):
         self.atualizar_base(dt, nivel)
 
     def atualizar(self, dt, entrada, nivel):
+        tempo_ataque_ant = self.tempo_ataque
         self.tempo_ataque = max(0.0, self.tempo_ataque - dt)
+        if tempo_ataque_ant > 0 and self.tempo_ataque <= 0:
+            self.tempo_combo_janela = 0.42
+            if self.buffer_ataque:
+                self.buffer_ataque = False
+                self.atacar()
+
+        self.tempo_combo_janela = max(0.0, self.tempo_combo_janela - dt)
+        if self.tempo_combo_janela <= 0 and not self.atacando:
+            self.combo_etapa = 0
+
         self.invencivel = max(0.0, self.invencivel - dt)
         self.tempo_dash = max(0.0, self.tempo_dash - dt)
         self.recarga_dash = max(0.0, self.recarga_dash - dt)
@@ -196,6 +251,16 @@ class Jogador(Entidade):
         if self.pose != "normal":
             return
 
+        # Dash e Dash-Cancel (cancela animação de ataque com esquiva instantânea)
+        if entrada.apertou("correr") and self.recarga_dash <= 0 and not self.nadando and self.tempo_empurrao <= 0:
+            if self.atacando:
+                self.tempo_ataque = 0.0
+                self.buffer_ataque = False
+                self.tempo_combo_janela = 0.38
+            self.tempo_dash = 0.16
+            self.recarga_dash = 0.35
+            self.deformar(1.25, 0.78)
+
         if entrada.apertou("pular"):
             self.pular(160.0)
 
@@ -203,7 +268,8 @@ class Jogador(Entidade):
 
         if self.impulso_ataque:
             self.impulso_ataque = False
-            self.mover(VETORES[self.direcao] * 3.5, nivel)
+            mult_imp = 6.0 if getattr(self, "dash_strike", False) else (5.0 if getattr(self, "combo_etapa", 0) == 2 else 3.8)
+            self.mover(VETORES[self.direcao] * mult_imp, nivel)
 
         if self.atualizar_empurrao(dt, nivel) or self.atacando:
             self.vel_atual *= max(0.0, 1.0 - dt * 18)
@@ -227,15 +293,10 @@ class Jogador(Entidade):
                     self.timer_manter_diagonal = 0.0
                     self.direcao = nova_dir
 
-            if entrada.apertou("correr") and self.recarga_dash <= 0:
-                self.tempo_dash = 0.15
-                self.recarga_dash = 0.45
-                self.deformar(1.25, 0.78)
-
             self.correndo = (entrada.segurando("correr") or self.tempo_dash > 0) and not self.defendendo
             fator_agua = 0.78 if self.nadando else 1.0
             fator_defesa = 0.65 if self.defendendo else 1.0
-            fator_vel = (2.15 if self.tempo_dash > 0 else (1.45 if self.correndo else 1.0)) * self.fator_velocidade_rpg * fator_agua * fator_defesa
+            fator_vel = (2.2 if self.tempo_dash > 0 else (1.45 if self.correndo else 1.0)) * self.fator_velocidade_rpg * fator_agua * fator_defesa * getattr(self, "fator_frenesi", 1.0)
             vel_alvo = movimento.normalize() * (VELOCIDADE_JOGADOR * fator_vel)
             self.vel_atual += (vel_alvo - self.vel_atual) * min(1.0, dt * 18.0)
             self.andando = True
@@ -294,7 +355,7 @@ class Jogador(Entidade):
             "baixo_esquerda": ("topright", (c.centerx - 2, c.bottom - 10)),
         }[self.direcao]
 
-    def rect_espada(self):
+    def rect_espada_normal(self):
         attr, ponto = self._ancora_espada()
         r = pygame.Rect(0, 0, TILE, TILE)
         setattr(r, attr, ponto)
@@ -306,6 +367,16 @@ class Jogador(Entidade):
             r.inflate_ip(-2, -2)
         # Inclui o corpo, para acertar também inimigos colados no jogador.
         return r.union(self.rect_corpo().inflate(-2, -2))
+
+    def rect_espada(self):
+        if getattr(self, "combo_etapa", 0) == 2:
+            # Finalizador giratório 360°: atinge todos os inimigos ao redor
+            return self.rect.inflate(28, 28)
+        if getattr(self, "dash_strike", False):
+            # Estocada do dash: alcance extra e perfuração frontal
+            dx, dy = VETORES.get(self.direcao, pygame.Vector2(0, 1))
+            return self.rect_espada_normal().move(round(dx * 8), round(dy * 8)).inflate(6, 6)
+        return self.rect_espada_normal()
 
     def _pos_ombro(self):
         """Posição do ombro do braço da espada no mundo."""
@@ -343,80 +414,130 @@ class Jogador(Entidade):
         return 0.65 + t * 0.06, 0.73 + t * 0.06, 6.0 - t * 0.8
 
     def _desenhar_golpe_espada(self, tela, camera, gfx, dx, dy):
-        progresso = 1.0 - (self.tempo_ataque / TEMPO_ATAQUE)
-        f_braco, f_espada, compr_braco = self._fases_ataque(progresso)
-        sentido = -1 if "direita" in self.direcao else 1
+        duracao = max(0.01, getattr(self, "duracao_ataque_atual", TEMPO_ATAQUE))
+        progresso = 1.0 - (self.tempo_ataque / duracao)
         ang_base = ANGULO_BASE_ESPADA[self.direcao]
-
-        ang_braco = ang_base + (f_braco * 72.0) * sentido
-        ang_espada = ang_base + (f_espada * 78.0) * sentido
-
-        u_braco = self._vetor_angulo(ang_braco)
-        u_espada = self._vetor_angulo(ang_espada)
-
         ox, oy = camera.offset
         ombro_tela = self._pos_ombro() - pygame.Vector2(ox - dx, oy - dy)
-        mao_tela = ombro_tela + u_braco * compr_braco
-        cotovelo_tela = ombro_tela.lerp(mao_tela, 0.5)
+
+        is_finisher = getattr(self, "combo_etapa", 0) == 2
+        is_dash_strike = getattr(self, "dash_strike", False)
+        is_cross = getattr(self, "combo_etapa", 0) == 1
+
+        if is_dash_strike:
+            # Estocada perfurante frontal
+            suave = math.sin(progresso * math.pi)
+            ang_espada = ang_base
+            ang_braco = ang_base
+            u_braco = self._vetor_angulo(ang_braco)
+            u_espada = self._vetor_angulo(ang_espada)
+            compr_braco = 6.0 + suave * 4.5
+            mao_tela = ombro_tela + u_braco * compr_braco
+            cotovelo_tela = ombro_tela.lerp(mao_tela, 0.5)
+
+            # Rastro de estocada pontiaguda
+            if 0.15 < progresso < 0.85:
+                ponta_esp = mao_tela + u_espada * 17.0
+                p1 = (round(ponta_esp.x), round(ponta_esp.y))
+                p0 = (round(ombro_tela.x), round(ombro_tela.y))
+                pygame.draw.line(tela, (255, 255, 255), p0, p1, 2)
+                pygame.draw.circle(tela, (140, 235, 255), p1, 3)
+        elif is_finisher:
+            # Finalizador Giratório 360° (Whirlwind)
+            sentido = -1 if "direita" in self.direcao else 1
+            ang_rot = (progresso * 360.0) * sentido
+            ang_braco = ang_base + ang_rot
+            ang_espada = ang_base + ang_rot + 15.0 * sentido
+            u_braco = self._vetor_angulo(ang_braco)
+            u_espada = self._vetor_angulo(ang_espada)
+            compr_braco = 6.8
+            mao_tela = ombro_tela + u_braco * compr_braco
+            cotovelo_tela = ombro_tela.lerp(mao_tela, 0.5)
+
+            # Rastro circular de 360° em volta do herói
+            if 0.10 < progresso < 0.95:
+                pontos_arco = []
+                for p in range(8):
+                    prog_p = max(0.05, progresso - p * 0.05)
+                    ang_p = ang_base + (prog_p * 360.0) * sentido
+                    u_p = self._vetor_angulo(ang_p)
+                    pt = ombro_tela + u_p * 18.0
+                    pontos_arco.append((round(pt.x), round(pt.y)))
+                if len(pontos_arco) >= 2:
+                    pygame.draw.lines(tela, (255, 235, 120), False, pontos_arco, 2)
+                    pygame.draw.lines(tela, (255, 255, 255), False, pontos_arco[:4], 1)
+        else:
+            # Golpes 0 e 1 (Corte horizontal e Corte cruzado inverso)
+            sentido_base = -1 if "direita" in self.direcao else 1
+            sentido = -sentido_base if is_cross else sentido_base
+            f_braco, f_espada, compr_braco = self._fases_ataque(progresso)
+
+            ang_braco = ang_base + (f_braco * 72.0) * sentido
+            ang_espada = ang_base + (f_espada * 78.0) * sentido
+
+            u_braco = self._vetor_angulo(ang_braco)
+            u_espada = self._vetor_angulo(ang_espada)
+
+            mao_tela = ombro_tela + u_braco * compr_braco
+            cotovelo_tela = ombro_tela.lerp(mao_tela, 0.5)
+
+            # Rastro de corte
+            if 0.16 < progresso < 0.86:
+                pontos_externos = []
+                pontos_internos = []
+                for p in range(6):
+                    prog_p = max(0.16, progresso - p * 0.06)
+                    fb_p, fe_p, cb_p = self._fases_ataque(prog_p)
+                    ang_b_p = ang_base + (fb_p * 72.0) * sentido
+                    ang_e_p = ang_base + (fe_p * 78.0) * sentido
+                    u_b_p = self._vetor_angulo(ang_b_p)
+                    u_e_p = self._vetor_angulo(ang_e_p)
+                    mao_p = ombro_tela + u_b_p * cb_p
+                    ponta_ext = mao_p + u_e_p * 13.5
+                    ponta_int = mao_p + u_e_p * 9.0
+                    pontos_externos.append((round(ponta_ext.x), round(ponta_ext.y)))
+                    pontos_internos.append((round(ponta_int.x), round(ponta_int.y)))
+                if len(pontos_externos) >= 2:
+                    cor_rastro_ext = (255, 252, 215)
+                    cor_rastro_int = (190, 225, 255)
+                    if self.arma_equipada == "lamina_vulcanica":
+                        cor_rastro_ext = (255, 120, 40)
+                        cor_rastro_int = (255, 220, 80)
+                    elif self.arma_equipada == "sabre_tempestade":
+                        cor_rastro_ext = (110, 235, 255)
+                        cor_rastro_int = (240, 250, 255)
+                    elif self.arma_equipada == "lamina_lendaria":
+                        cor_rastro_ext = (255, 240, 110)
+                        cor_rastro_int = (255, 255, 240)
+                    pygame.draw.lines(tela, cor_rastro_int, False, pontos_internos, 2)
+                    pygame.draw.lines(tela, cor_rastro_ext, False, pontos_externos, 2)
 
         p_ombro = (round(ombro_tela.x), round(ombro_tela.y))
         p_cotovelo = (round(cotovelo_tela.x), round(cotovelo_tela.y))
         p_mao = (round(mao_tela.x), round(mao_tela.y))
 
-        # 1. Rastro brilhante em arco na ponta da espada durante a fase de corte
-        if 0.18 < progresso < 0.86:
-            pontos_externos = []
-            pontos_internos = []
-            for p in range(6):
-                prog_p = max(0.18, progresso - p * 0.065)
-                fb_p, fe_p, cb_p = self._fases_ataque(prog_p)
-                ang_b_p = ang_base + (fb_p * 72.0) * sentido
-                ang_e_p = ang_base + (fe_p * 78.0) * sentido
-                u_b_p = self._vetor_angulo(ang_b_p)
-                u_e_p = self._vetor_angulo(ang_e_p)
-                mao_p = ombro_tela + u_b_p * cb_p
-                ponta_ext = mao_p + u_e_p * 13.5
-                ponta_int = mao_p + u_e_p * 9.0
-                pontos_externos.append((round(ponta_ext.x), round(ponta_ext.y)))
-                pontos_internos.append((round(ponta_int.x), round(ponta_int.y)))
-            if len(pontos_externos) >= 2:
-                cor_rastro_ext = (255, 252, 215)
-                cor_rastro_int = (190, 225, 255)
-                if self.arma_equipada == "lamina_vulcanica":
-                    cor_rastro_ext = (255, 120, 40)
-                    cor_rastro_int = (255, 220, 80)
-                elif self.arma_equipada == "sabre_tempestade":
-                    cor_rastro_ext = (110, 235, 255)
-                    cor_rastro_int = (240, 250, 255)
-                elif self.arma_equipada == "lamina_lendaria":
-                    cor_rastro_ext = (255, 240, 110)
-                    cor_rastro_int = (255, 255, 240)
-                pygame.draw.lines(tela, cor_rastro_int, False, pontos_internos, 2)
-                pygame.draw.lines(tela, cor_rastro_ext, False, pontos_externos, 2)
-
-        # 2. Manga do braço (contorno escuro + azul da túnica + luz) saindo do ombro até a mão
+        # Manga do braço saindo do ombro até a mão
         pygame.draw.line(tela, (34, 24, 40), p_ombro, p_mao, 5)
         pygame.draw.circle(tela, (34, 24, 40), p_ombro, 2)
         pygame.draw.line(tela, (52, 92, 184), p_ombro, p_cotovelo, 3)
         pygame.draw.line(tela, (88, 130, 220), p_ombro, p_cotovelo, 1)
 
-        # 3. Espada ancorada pelo cabo exatamente dentro da mão (pos_mao)
+        # Espada ancorada pelo cabo dentro da mão
         espada_rot = pygame.transform.rotate(gfx.espada["cima"], ang_espada)
         centro_espada = mao_tela + u_espada * 5.5
         rect_espada = espada_rot.get_rect(center=(round(centro_espada.x), round(centro_espada.y)))
         tela.blit(espada_rot, rect_espada)
 
-        # 4. Mão / punho do herói fechado ao redor do cabo da espada
+        # Mão / punho do herói
         pygame.draw.circle(tela, (34, 24, 40), p_mao, 3)
         pygame.draw.circle(tela, (226, 168, 128), p_mao, 2)
         tela.set_at(p_mao, (252, 214, 176))
-        if 0 <= p_mao[0] - 1 < tela.get_width() and 0 <= p_mao[1] - 1 < tela.get_height():
-            tela.set_at((p_mao[0] - 1, p_mao[1] - 1), (252, 214, 176))
 
     def _quadro_ataque(self, quadros):
         if len(quadros) < 11:
             return self.quadro_personagem(quadros)
-        progresso = 1.0 - (self.tempo_ataque / TEMPO_ATAQUE)
+        duracao = max(0.01, getattr(self, "duracao_ataque_atual", TEMPO_ATAQUE))
+        progresso = 1.0 - (self.tempo_ataque / duracao)
         if progresso < 0.22:
             return quadros[8]  # preparação
         if progresso < 0.74:
