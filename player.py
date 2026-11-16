@@ -122,6 +122,10 @@ class Jogador(Entidade):
         self._stamina = 60.0
         self._stamina_maxima = 60.0
 
+        # Micro-sonorização Dinâmica (Passos Adaptativos e Exaustão)
+        self.timer_som_passo = 0.0
+        self._exaustao_notificada = False
+
     @property
     def stamina(self):
         return self.rpg.stamina if self.rpg else self._stamina
@@ -272,7 +276,7 @@ class Jogador(Entidade):
         self.vel_atual = pygame.Vector2()
         self.atualizar_base(dt, nivel)
 
-    def atualizar(self, dt, entrada, nivel):
+    def atualizar(self, dt, entrada, nivel, audio=None):
         tempo_ataque_ant = self.tempo_ataque
         self.tempo_ataque = max(0.0, self.tempo_ataque - dt)
         if tempo_ataque_ant > 0 and self.tempo_ataque <= 0:
@@ -397,6 +401,66 @@ class Jogador(Entidade):
         if self.vel_atual.length_squared() > 0:
             self.mover(self.vel_atual * dt, nivel)
         self.nadando = nivel.eh_agua_em(self.rect.centerx, self.rect.centery) and self.z <= 2.0
+
+        # Som de Passos Adaptativo por Terreno
+        if self.andando and not self.no_ar and self.tempo_empurrao <= 0 and audio:
+            self.timer_som_passo -= dt
+            intervalo_passo = 0.22 if self.correndo else 0.33
+            if self.timer_som_passo <= 0:
+                self.timer_som_passo = intervalo_passo
+                self._tocar_som_passo(nivel, audio)
+        else:
+            self.timer_som_passo = min(getattr(self, "timer_som_passo", 0.0), 0.05)
+
+        # Feedback sonoro de exaustão de stamina
+        if self.rpg and getattr(self.rpg, "exaustao_stamina", False):
+            if not self._exaustao_notificada:
+                self._exaustao_notificada = True
+                if audio:
+                    audio.sfx("exaustao")
+        else:
+            self._exaustao_notificada = False
+
+    def _tocar_som_passo(self, nivel, audio):
+        if not audio:
+            return
+        if self.nadando or (nivel and nivel.eh_agua_em(self.rect.centerx, self.rect.bottom)):
+            audio.sfx("passo_agua")
+            return
+
+        nome_mapa = getattr(getattr(nivel, "caminho", None), "name", "").lower()
+        tema_mapa = str(getattr(nivel, "tema", "")).lower()
+
+        # Áreas com areia
+        if any(p in nome_mapa for p in ("deserto", "dunas", "oasis")) or "areia" in tema_mapa:
+            audio.sfx("passo_areia")
+            return
+
+        # Áreas de madeira (interiores de vilarejo e pontes)
+        if any(p in nome_mapa for p in ("casa", "taverna", "cabana", "forja", "pousada")):
+            audio.sfx("passo_madeira")
+            return
+
+        # Áreas de pedra / masmorras / cavernas / castelo / templos
+        if any(p in nome_mapa for p in ("castelo", "ruinas", "cripta", "caverna", "camara", "santuario", "altar", "sepulcro", "tribunal", "fosso", "nucleo")):
+            audio.sfx("passo_pedra")
+            return
+
+        # Verifica tile sob os pés
+        if nivel and hasattr(nivel, "grade"):
+            cx = int(self.rect.centerx // 16)
+            cy = int(self.rect.bottom // 16)
+            if 0 <= cy < len(nivel.grade) and 0 <= cx < len(nivel.grade[0]):
+                ch = nivel.grade[cy][cx]
+                if ch in ("W", "P", "B", "#", "S", "U"):
+                    audio.sfx("passo_pedra")
+                    return
+                elif ch in ("~", "="):
+                    audio.sfx("passo_agua")
+                    return
+
+        # Padrão: relva / grama
+        audio.sfx("passo_grama")
 
     # ------------------------------------------------------------ desenho
     def rect_sprite(self):

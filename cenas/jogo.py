@@ -1320,7 +1320,7 @@ class Jogo(Cena):
         vida_antes = jogador.vida
         z_antes = jogador.z
         dash_antes = jogador.tempo_dash
-        jogador.atualizar(dt, entrada, self.nivel)
+        jogador.atualizar(dt, entrada, self.nivel, audio=audio)
         if z_antes <= 0 and jogador.z > 0 and audio:
             audio.sfx("pulo")
         if dash_antes <= 0 and jogador.tempo_dash > 0 and audio:

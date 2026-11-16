@@ -6,11 +6,27 @@ e Percussão 16-bits) com filtro de Eco/Reverb multi-tap estilo SNES.
 """
 import array
 import math
+from pathlib import Path
 import random
 
 import pygame
 
+from settings import PASTA_BASE
+
 TAXA_AMOSTRAGEM = 22050
+DIR_AUDIO_ASSETS = PASTA_BASE / "assets" / "audio"
+
+
+def _buscar_arquivo_audio(subpasta, nome):
+    """Busca um arquivo de áudio (.ogg, .wav, .mp3) no diretório de assets se existir."""
+    pasta = DIR_AUDIO_ASSETS / subpasta
+    if not pasta.exists():
+        return None
+    for ext in (".ogg", ".wav", ".mp3"):
+        candidato = pasta / f"{nome}{ext}"
+        if candidato.is_file():
+            return candidato
+    return None
 
 # Notas musicais em semitons (MIDI: C4 = 60, A4 = 69 -> 440 Hz)
 _NOMES_NOTAS = {
@@ -662,10 +678,12 @@ def _sintetizar_nota(timbre, midi, n_amostras, ganho):
     tau_f = math.tau * freq / TAXA_AMOSTRAGEM
     tau_vib = math.tau * 5.2 / TAXA_AMOSTRAGEM
 
-    if timbre in ("cordas_quentes", "coral_sombrio"):
+    if timbre in ("cordas_quentes", "coral_sombrio", "cordas_orquestrais", "coral_mistico"):
         ataque = max(1, min(int(TAXA_AMOSTRAGEM * 0.045), n_amostras // 3))
-    elif timbre in ("harpa_celta", "alaude_solo", "cravo_sombrio", "sino_cristal"):
+    elif timbre in ("harpa_celta", "alaude_solo", "cravo_sombrio", "sino_cristal", "harpa_celestial"):
         ataque = max(1, int(TAXA_AMOSTRAGEM * 0.005))
+    elif timbre == "timpano_epico":
+        ataque = max(1, int(TAXA_AMOSTRAGEM * 0.003))
     else:
         ataque = max(1, min(int(TAXA_AMOSTRAGEM * 0.018), n_amostras // 4))
 
@@ -682,12 +700,14 @@ def _sintetizar_nota(timbre, midi, n_amostras, ganho):
             env = (n_amostras - i) / release
         else:
             p = (i - ataque) / max(1, inicio_rel - ataque)
-            if timbre in ("harpa_celta", "alaude_solo"):
+            if timbre in ("harpa_celta", "alaude_solo", "harpa_celestial"):
                 env = math.exp(-p * 3.1)
             elif timbre == "cravo_sombrio":
                 env = math.exp(-p * 2.5)
             elif timbre == "sino_cristal":
                 env = math.exp(-p * 2.0)
+            elif timbre == "timpano_epico":
+                env = math.exp(-p * 3.8)
             else:
                 env = 1.0 - 0.14 * p
 
@@ -712,11 +732,38 @@ def _sintetizar_nota(timbre, midi, n_amostras, ganho):
                 + 0.10 * math.sin(4.0 * f)
             )
         elif timbre == "trompa_real":
+            mod = 0.28 * math.sin(2.0 * f)
             val = (
-                0.55 * math.sin(f)
-                + 0.28 * math.sin(2.0 * f)
-                + 0.12 * math.sin(3.0 * f)
-                + 0.05 * math.sin(5.0 * f)
+                0.54 * math.sin(f + mod)
+                + 0.26 * math.sin(2.0 * f)
+                + 0.14 * math.sin(3.0 * f)
+                + 0.06 * math.sin(5.0 * f)
+            )
+        elif timbre == "cordas_orquestrais":
+            val = (
+                0.46 * math.sin(fase)
+                + 0.28 * math.sin(fase * 1.003 + 0.4)
+                + 0.18 * math.sin(fase * 0.997 + 0.8)
+                + 0.08 * math.sin(2.0 * fase)
+            )
+        elif timbre == "coral_mistico":
+            val = (
+                0.42 * math.sin(fase)
+                + 0.30 * math.sin(fase * 1.005 + 0.6)
+                + 0.18 * math.sin(fase * 0.995 + 1.2)
+                + 0.10 * math.sin(3.0 * fase)
+            )
+        elif timbre == "harpa_celestial":
+            val = (
+                0.62 * math.sin(fase)
+                + 0.24 * math.sin(2.0 * fase)
+                + 0.14 * math.sin(4.0 * fase) * math.exp(-i / max(1, n_amostras * 0.28))
+            )
+        elif timbre == "timpano_epico":
+            t_n = i / TAXA_AMOSTRAGEM
+            val = (
+                0.78 * math.sin(fase * (1.0 + 0.45 * math.exp(-t_n * 22.0)))
+                + 0.22 * math.sin(0.5 * fase)
             )
         elif timbre == "orgao_sombrio":
             # Órgão de tubos gótico com sub-oitava e quinta
@@ -932,8 +979,8 @@ def _gerar_sfx_notas(notas_dur, timbre="sino_cristal", ganho=13500):
 
 
 def construir_banco_sfx():
-    """Cria todos os efeitos sonoros 16-bits do jogo."""
-    return {
+    """Cria todos os efeitos sonoros 16-bits do jogo, integrando assets de áudio opcionais."""
+    banco = {
         "espada": _gerar_sfx_varredura(540, 145, 0.11, "pulso", ruido=0.45, ganho=13500),
         "hit_inimigo": _gerar_sfx_varredura(240, 75, 0.12, "pulso", ruido=0.35, ganho=15000),
         "morte_inimigo": _gerar_sfx_varredura(380, 90, 0.22, "tri", ruido=0.40, ganho=14500),
@@ -1025,7 +1072,34 @@ def construir_banco_sfx():
             "harpa_celta",
             ganho=12000,
         ),
+        # Micro-sonorização adaptativa por terreno (Passos)
+        "passo_grama": _gerar_sfx_varredura(260, 110, 0.05, "seno", ruido=0.65, ganho=5400),
+        "passo_pedra": _gerar_sfx_varredura(440, 150, 0.04, "pulso", ruido=0.40, ganho=6800),
+        "passo_agua": _gerar_sfx_varredura(220, 390, 0.07, "seno", ruido=0.55, ganho=6200),
+        "passo_areia": _gerar_sfx_varredura(310, 115, 0.06, "tri", ruido=0.75, ganho=5800),
+        "passo_madeira": _gerar_sfx_varredura(210, 90, 0.05, "tri", ruido=0.30, ganho=6500),
+        # Feedback de combate avançado & Soulslike
+        "exaustao": _gerar_sfx_varredura(340, 130, 0.28, "seno", ruido=0.80, ganho=8500),
+        "parry_perfeito": _gerar_sfx_notas(
+            [("D6", 0.04), ("A6", 0.08), ("D7", 0.22)], "sino_cristal", ganho=16500
+        ),
+        "riposte": _gerar_sfx_varredura(540, 80, 0.32, "pulso", ruido=0.60, ganho=17000),
+        "alerta_perigo": _gerar_sfx_notas(
+            [("F#6", 0.06), ("F#6", 0.12)], "sino_cristal", ganho=14000
+        ),
     }
+
+    # Sobrescreve com arquivos de áudio dedicados de alta fidelidade se presentes
+    pasta_sfx = DIR_AUDIO_ASSETS / "sfx"
+    if pasta_sfx.exists():
+        for arq in pasta_sfx.iterdir():
+            if arq.is_file() and arq.suffix.lower() in (".ogg", ".wav", ".mp3"):
+                try:
+                    banco[arq.stem] = pygame.mixer.Sound(str(arq))
+                except Exception:
+                    pass
+
+    return banco
 
 
 # =====================================================================
@@ -1047,12 +1121,15 @@ SFX_DUCKING_REGRAS = {
     "level_up": (0.35, 1.40),
     "ativar_monolito": (0.35, 1.50),
     "teleporte": (0.40, 1.20),
-    # Magias de grande impacto
+    # Magias e combate avançado
     "magia_raio": (0.50, 0.65),
     "magia_fogo": (0.60, 0.50),
     "magia_corte": (0.55, 0.45),
     "magia_gelo": (0.55, 0.50),
     "escudo_bloqueio": (0.60, 0.35),
+    "parry_perfeito": (0.35, 0.65),
+    "riposte": (0.28, 0.85),
+    "alerta_perigo": (0.45, 0.40),
 }
 
 
@@ -1140,7 +1217,14 @@ class SistemaAudio:
             return True
 
         if nome_faixa not in self._cache_bgm:
-            self._cache_bgm[nome_faixa] = sintetizar_bgm(nome_faixa)
+            arq_custom = _buscar_arquivo_audio("bgm", nome_faixa)
+            if arq_custom is not None:
+                try:
+                    self._cache_bgm[nome_faixa] = pygame.mixer.Sound(str(arq_custom))
+                except Exception:
+                    self._cache_bgm[nome_faixa] = sintetizar_bgm(nome_faixa)
+            else:
+                self._cache_bgm[nome_faixa] = sintetizar_bgm(nome_faixa)
 
         som = self._cache_bgm[nome_faixa]
         self._vol_bgm_base = max(0.0, min(1.0, self.cfg.get("volume_bgm", 70) / 100.0))
