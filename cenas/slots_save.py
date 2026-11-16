@@ -3,7 +3,17 @@ import math
 import pygame
 
 from cenas.base import Cena
-from salvamento import NUM_SLOTS, apagar_slot, carregar_jogo, copiar_slot, existe_save, ler_resumo_slot
+from cenas.jogo import Jogo
+from salvamento import (
+    NUM_SLOTS,
+    PASTA_BASE,
+    apagar_slot,
+    carregar_jogo,
+    copiar_slot,
+    existe_save,
+    ler_resumo_slot,
+    salvar_jogo,
+)
 from settings import ALTURA, LARGURA
 from ui import CINZA, desenhar_icone, desenhar_painel, desenhar_texto, limpar_texto
 
@@ -52,12 +62,10 @@ class CenaSlotsSave(Cena):
                     self.tempo_feedback = 2.5
                     self.modal = None
                 elif tipo == "sobrescrever":
-                    from cenas.jogo import Jogo
                     if audio:
                         audio.sfx("menu_confirmar")
                     self.app.trocar(Jogo(self.app, slot_salvo=slot))
                 elif tipo == "new_game_plus":
-                    from salvamento import PASTA_BASE, carregar_jogo, salvar_jogo
                     if audio:
                         audio.sfx("fanfarra_item")
                     jogo = carregar_jogo(self.app, slot)
@@ -125,7 +133,6 @@ class CenaSlotsSave(Cena):
                         audio.sfx("bloqueio")
                     self.modal = {"tipo": "sobrescrever", "slot": slot_atual}
                 else:
-                    from cenas.jogo import Jogo
                     if audio:
                         audio.sfx("menu_confirmar")
                     self.app.trocar(Jogo(self.app, slot_salvo=slot_atual))
