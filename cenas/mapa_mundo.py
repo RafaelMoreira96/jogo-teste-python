@@ -186,6 +186,16 @@ class MapaMundo(Cena):
         elif entrada.apertou("baixo"):
             self._mover_selecao(0, 1)
         elif entrada.apertou("confirmar"):
+            if getattr(self.jogo, "arena_selada", False):
+                chefe = getattr(self.jogo, "chefe_ativo", None)
+                nome_ch = getattr(chefe, "nome", "o Guardião") if chefe else "o Guardião"
+                self.jogo.aviso_mapa = f"🔒 Arena Selada: Derrote {nome_ch} para poder viajar!"
+                self.jogo.tempo_aviso_mapa = 3.5
+                audio = getattr(self.app, "audio", None)
+                if audio:
+                    audio.sfx("bloqueio")
+                return
+
             escolhido = self.nos[self.indice]["arq"]
             from cenas.jogo import MAPA_PARA_CHEFE_ID, REQUISITOS_MAPA_CHEFE
             if escolhido in MAPA_PARA_CHEFE_ID:

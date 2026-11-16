@@ -148,6 +148,7 @@ class Jogo(Cena):
         self.tempo_cenario = 0.0
         self.aviso_mapa = ""
         self.tempo_aviso_mapa = 0.0
+        self.tempo_alerta_selo = 0.0
         self.tempo_autosave = 0.0
         self.aviso_autosave = ""
         self.em_abertura = bool(dialogo_inicial == "inicio")
@@ -294,6 +295,21 @@ class Jogo(Cena):
                 from cenas.modo_chefes import ResultadoChefe
                 self.timer_resultado = float("inf")
                 self.app.empilhar(ResultadoChefe(self.app, self, self.tempo_luta, self.dano_luta))
+
+    @property
+    def chefe_ativo(self):
+        """Retorna o primeiro chefe vivo na arena atual, ou None."""
+        if not self.chefes:
+            return None
+        for c in self.chefes:
+            if getattr(c, "vida", 0) > 0 and not getattr(c, "morrendo", False):
+                return c
+        return None
+
+    @property
+    def arena_selada(self):
+        """Indica se a arena de chefe está selada (chefe vivo ou Boss Rush em andamento)."""
+        return (self.chefe_ativo is not None) or (self.boss_rush_ativo and not self.boss_rush_concluido)
 
     def recarregar_historia(self):
         self.historia = Historia.carregar(ARQUIVO_HISTORIA)
@@ -869,6 +885,11 @@ class Jogo(Cena):
         }
         self.tremor = 2.5
         self.tempo_tremor = 0.35
+        self.textos_flutuantes.append(
+            TextoFlutuante(self.jogador.rect.midtop, "Arena Selada!", (255, 75, 95))
+        )
+        self.aviso_mapa = f"🔒 Arena Selada! Derrote {chefe.nome} para liberar as saídas!"
+        self.tempo_aviso_mapa = 3.5
 
     def invocar_vento_guia(self):
         proximo = self.rpg.proximo_chefe()
@@ -967,6 +988,7 @@ class Jogo(Cena):
     def _atualizar_efeitos_cena(self, dt, entrada):
         self.clarao = max(0.0, self.clarao - dt * 2.2)
         self.tempo_aviso_mapa = max(0.0, self.tempo_aviso_mapa - dt)
+        self.tempo_alerta_selo = max(0.0, getattr(self, "tempo_alerta_selo", 0.0) - dt)
         if self.tempo_tremor > 0:
             self.tempo_tremor = max(0.0, self.tempo_tremor - dt)
             if self.tempo_tremor <= 0:
@@ -1140,8 +1162,19 @@ class Jogo(Cena):
                 self.efeito_ativo = None
 
             if entrada.apertou("mapa") and not self.modo_chefe:
-                self.app.empilhar(MapaMundo(self.app, self))
-                return
+                if self.arena_selada:
+                    nome_ch = getattr(self.chefe_ativo, "nome", "o Guardião") if self.chefe_ativo else "o Guardião"
+                    self.textos_flutuantes.append(
+                        TextoFlutuante(self.jogador.rect.midtop, "Arena Selada!", (255, 75, 95))
+                    )
+                    self.aviso_mapa = f"🔒 Arena Selada: Derrote {nome_ch} para poder usar o mapa!"
+                    self.tempo_aviso_mapa = 3.5
+                    audio_ref = getattr(self.app, "audio", None)
+                    if audio_ref:
+                        audio_ref.sfx("bloqueio")
+                else:
+                    self.app.empilhar(MapaMundo(self.app, self))
+                    return
             if entrada.apertou("habilidades"):
                 self.app.empilhar(ArvoreHabilidades(self.app, self))
                 return
@@ -1241,6 +1274,14 @@ class Jogo(Cena):
             # Interação com Monólito de Teleporte (Pilar 3)
             for monolito in self.monolitos:
                 if monolito.id_waypoint in self.rpg.waypoint_descobertos and monolito.pos.distance_to(jogador.rect.center) < 32.0:
+                    if self.arena_selada:
+                        nome_ch = getattr(self.chefe_ativo, "nome", "o Guardião") if self.chefe_ativo else "o Guardião"
+                        self.textos_flutuantes.append(TextoFlutuante(jogador.rect.midtop, "Arena Selada!", (255, 75, 95)))
+                        self.aviso_mapa = f"🔒 Arena Selada: Derrote {nome_ch} para poder usar o teleporte!"
+                        self.tempo_aviso_mapa = 3.5
+                        if audio:
+                            audio.sfx("bloqueio")
+                        return
                     from cenas.teleporte import CenaTeleporte
                     self.app.empilhar(CenaTeleporte(self.app, self, id_origem=monolito.id_waypoint))
                     return
@@ -1341,11 +1382,14 @@ class Jogo(Cena):
             portao.definir_aberto(portao.id_gatilho in gatilhos_ativos, audio)
             portao.atualizar(dt)
 
+        barreiras_portas = [r for r, _ in self.nivel.portas] if self.arena_selada else []
+
         self.nivel.obstaculos = (
             [n.rect for n in self.npcs]
             + [b.rect for b in self.blocos]
             + [p.rect for p in self.portoes if p.solido]
             + [w.rect for w in self.paredes_rachadas]
+            + barreiras_portas
         )
 
         # Atualiza bombas, moedas, itens de missão e baús
@@ -1358,7 +1402,22 @@ class Jogo(Cena):
 
         # Portas para entrar / sair da casinha (ou outros mapas) com fade-out / fade-in.
         for rect_porta, destino in self.nivel.portas:
-            if jogador.rect.colliderect(rect_porta):
+            if jogador.rect.colliderect(rect_porta) or (self.arena_selada and jogador.rect.inflate(8, 8).colliderect(rect_porta)):
+                # Se a arena estiver selada (chefe ativo ou Boss Rush), bloqueia qualquer saída!
+                if self.arena_selada:
+                    if getattr(self, "tempo_alerta_selo", 0.0) <= 0:
+                        self.tempo_alerta_selo = 1.5
+                        nome_ch = getattr(self.chefe_ativo, "nome", "o Guardião") if self.chefe_ativo else "o Guardião"
+                        self.textos_flutuantes.append(
+                            TextoFlutuante(self.jogador.rect.midtop, "Arena Selada!", (255, 75, 95))
+                        )
+                        self.aviso_mapa = f"🔒 Arena Selada! Derrote {nome_ch} para poder sair."
+                        self.tempo_aviso_mapa = 3.5
+                        if audio:
+                            audio.sfx("bloqueio")
+                    jogador.empurrar(rect_porta.center, 90, 0.25)
+                    return
+
                 # Checa se o chefe desta área já foi derrotado (bloqueio permanente para sempre)
                 if destino.name in MAPA_PARA_CHEFE_ID:
                     chefe_id = MAPA_PARA_CHEFE_ID[destino.name]
@@ -1630,7 +1689,14 @@ class Jogo(Cena):
                     self.timer_transicao_final = 5.0
             else:
                 chefes_vivos.append(chefe)
+        tinha_chefe_antes = bool(self.chefes)
         self.chefes = chefes_vivos
+        if tinha_chefe_antes and not self.chefes and not self.boss_rush_ativo:
+            self.aviso_mapa = "✨ Arena Aberta! O selo se desfez — saídas liberadas!"
+            self.tempo_aviso_mapa = 4.0
+            self.ondas.append(OndaMagica(self.jogador.rect.center, 64, (255, 220, 120), 0.7))
+            for r_p, _ in self.nivel.portas:
+                self.particulas += explosao(r_p.center, [(255, 225, 120), (120, 240, 255)], 10)
 
         # Avanço do Boss Rush
         if self.boss_rush_ativo and not self.chefes and not self.boss_rush_concluido:
@@ -1792,6 +1858,9 @@ class Jogo(Cena):
                 totem.desenhar(tela, self.camera, fonte, self.jogador.rect)
             for vg in self.ventos_guia:
                 vg.desenhar(tela, self.camera)
+
+            if self.arena_selada:
+                self._desenhar_barreiras_arena_selada(tela)
 
             for o in self.ondas:
                 o.desenhar(tela, self.camera)
@@ -2199,6 +2268,43 @@ class Jogo(Cena):
                 if nivel.grade[cy][cx] == "~" and (cx + cy) % 2 == 0:
                     pontos.append((cx * TILE + TILE // 2 - ox, cy * TILE + TILE // 2 - oy))
         return pontos
+
+    def _desenhar_barreiras_arena_selada(self, tela):
+        """Desenha uma barreira mágica translúcida pulsante sobre as saídas da arena selada."""
+        if not self.nivel or not self.nivel.portas:
+            return
+        t = pygame.time.get_ticks() / 1000.0
+        pulsar = 0.5 + 0.5 * math.sin(t * 5.0)
+        alfa_base = int(140 + 60 * pulsar)
+
+        for rect_porta, _ in self.nivel.portas:
+            r_tela = self.camera.aplicar(rect_porta)
+            if r_tela.right < -30 or r_tela.left > LARGURA + 30 or r_tela.bottom < -30 or r_tela.top > ALTURA + 30:
+                continue
+
+            # Superfície com canal alfa para o escudo protetor
+            sup = pygame.Surface((r_tela.width, r_tela.height), pygame.SRCALPHA)
+            sup.fill((165, 20, 50, alfa_base))
+
+            # Feixes de energia em diagonal
+            cor_linha = (255, 120, 150, int(160 + 80 * pulsar))
+            desloc = int((t * 28.0) % 10)
+            for x0 in range(-r_tela.height, r_tela.width + r_tela.height, 10):
+                px = x0 + desloc
+                pygame.draw.line(sup, cor_linha, (px, r_tela.height), (px + 10, 0), 1)
+
+            # Moldura rubra vibrante
+            pygame.draw.rect(sup, (255, 80, 110, 240), (0, 0, r_tela.width, r_tela.height), 2)
+            tela.blit(sup, r_tela.topleft)
+
+            # Cadeado selado dourado no centro da passagem
+            cx, cy = r_tela.center
+            cor_ouro = (255, 220, 90)
+            pygame.draw.rect(tela, cor_ouro, (cx - 4, cy - 7, 8, 5), 1)
+            pygame.draw.rect(tela, (215, 160, 40), (cx - 5, cy - 2, 10, 8))
+            pygame.draw.rect(tela, (130, 90, 20), (cx - 5, cy - 2, 10, 8), 1)
+            tela.set_at((cx, cy + 1), (40, 10, 15))
+            tela.set_at((cx, cy + 2), (40, 10, 15))
 
     def _desenhar_clima(self, tela):
         clima_atual = self.clima
