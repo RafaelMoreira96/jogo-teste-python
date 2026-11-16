@@ -180,6 +180,14 @@ def salvar_jogo(jogo, slot=None):
     with open(temp_path, "w", encoding="utf-8") as f:
         json.dump(dados, f, indent=2, ensure_ascii=False)
     temp_path.replace(caminho)
+
+    # Mantém savegame.json sincronizado para retrocompatibilidade
+    if slot == 1:
+        try:
+            (PASTA_BASE / "savegame.json").write_text(caminho.read_text(encoding="utf-8"), encoding="utf-8")
+        except OSError:
+            pass
+
     return True
 
 

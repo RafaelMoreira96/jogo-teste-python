@@ -91,6 +91,41 @@ class App:
                     mapa_atual = getattr(getattr(self.cenas[-1], "nivel", None), "caminho", None)
                     self.trocar(Editor(self, mapa_atual))
                 elif evento.key == pygame.K_F5 and isinstance(self.cenas[-1], Jogo):
+                    # Salvamento Rápido (Quick Save)
+                    jogo = self.cenas[-1]
+                    slot = getattr(jogo, "slot_salvo", 1)
+                    jogo.definir_checkpoint(
+                        jogo.nivel.caminho,
+                        (jogo.jogador.rect.centerx, jogo.jogador.rect.bottom),
+                        jogo.jogador.direcao,
+                        f"Quick Save ({getattr(jogo.nivel, 'nome', 'Mundo')})",
+                        notificar=False,
+                    )
+                    from salvamento import salvar_jogo
+                    salvar_jogo(jogo, slot=slot)
+                    jogo.aviso_autosave = f"Quick Save (Slot {slot})"
+                    jogo.tempo_autosave = 3.5
+                    if getattr(self, "audio", None):
+                        self.audio.sfx("salvar")
+                    from ui import TextoFlutuante
+                    jogo.textos_flutuantes.append(
+                        TextoFlutuante(jogo.jogador.rect.midtop, f"Progresso Salvo! (Slot {slot})", (110, 255, 180))
+                    )
+                elif evento.key == pygame.K_F6 and isinstance(self.cenas[-1], Jogo):
+                    # Carregamento Rápido (Quick Load)
+                    jogo_atual = self.cenas[-1]
+                    slot = getattr(jogo_atual, "slot_salvo", 1)
+                    from salvamento import carregar_jogo
+                    jogo_carregado = carregar_jogo(self, slot=slot)
+                    if jogo_carregado:
+                        if getattr(self, "audio", None):
+                            self.audio.sfx("menu_confirmar")
+                        self.trocar(jogo_carregado)
+                        from ui import TextoFlutuante
+                        jogo_carregado.textos_flutuantes.append(
+                            TextoFlutuante(jogo_carregado.jogador.rect.midtop, f"Slot {slot} Carregado!", (180, 240, 255))
+                        )
+                elif evento.key == pygame.K_F9 and isinstance(self.cenas[-1], Jogo):
                     self.cenas[-1].recarregar_historia()
                     self.cenas[-1].iniciar_dialogo("inicio", opcional=True)
             self.entrada.processar(evento)

@@ -1159,6 +1159,34 @@ class Jogo(Cena):
         audio = getattr(self.app, "audio", None)
 
         if entrada.apertou("confirmar") or entrada.apertou("acao"):
+            # Interação com Altar / Ponto de Salvamento Celestial (Pilar 1)
+            ponto_salve = None
+            for psx, psy in getattr(self.nivel, "pontos_salvamento", []):
+                if pygame.Vector2(jogador.rect.center).distance_to((psx, psy)) <= 34.0:
+                    ponto_salve = (psx, psy)
+                    break
+
+            if ponto_salve:
+                self.jogador.vida = self.vida_max_total()
+                self.rpg.mana = self.rpg.mana_maxima
+                self.definir_checkpoint(self.nivel.caminho, (ponto_salve[0], ponto_salve[1] + 14), "baixo", f"Altar: {self.nivel.nome}")
+                salvar_jogo(self)
+                self.aviso_autosave = f"Altar: {self.nivel.nome}"
+                self.tempo_autosave = 3.5
+                if audio:
+                    audio.sfx("salvar")
+                self.textos_flutuantes.append(
+                    TextoFlutuante(jogador.rect.midtop, "Jogo Salvo! Vida & Mana Restauradas!", (110, 255, 180))
+                )
+                self.clarao = 0.45
+                self.cor_clarao = (255, 240, 140)
+                self.ondas.append(OndaMagica(ponto_salve, 36, (255, 230, 110), 0.4))
+                for _ in range(14):
+                    p = Particula(ponto_salve, random.choice([(255, 230, 100), (120, 240, 255), (255, 255, 230)]))
+                    p.vel = pygame.Vector2(random.uniform(-35, 35), random.uniform(-40, -10))
+                    self.particulas.append(p)
+                return
+
             # Interação com Monólito de Teleporte (Pilar 3)
             for monolito in self.monolitos:
                 if monolito.id_waypoint in self.rpg.waypoint_descobertos and monolito.pos.distance_to(jogador.rect.center) < 32.0:
@@ -1276,31 +1304,6 @@ class Jogo(Cena):
         self.pontes_gelo = [pg for pg in self.pontes_gelo if pg.atualizar(dt)]
         for b in self.baus:
             b.atualizar(dt)
-
-        # Interação com Altar / Ponto de Salvamento
-        ponto_salve = None
-        for psx, psy in getattr(self.nivel, "pontos_salvamento", []):
-            if pygame.Vector2(jogador.rect.center).distance_to((psx, psy)) < 26:
-                ponto_salve = (psx, psy)
-                break
-
-        if ponto_salve and (entrada.apertou("acao") or entrada.apertou("confirmar")):
-            self.definir_checkpoint(self.nivel.caminho, (ponto_salve[0], ponto_salve[1] + 14), "baixo", f"Altar: {self.nivel.nome}")
-            salvar_jogo(self)
-            self.jogador.vida = self.vida_max_total()
-            self.rpg.mana = self.rpg.mana_maxima
-            if audio:
-                audio.sfx("salvar")
-            self.textos_flutuantes.append(
-                TextoFlutuante(jogador.rect.midtop, "Jogo Salvo! Vida & Mana Restauradas!", (110, 255, 180))
-            )
-            self.clarao = 0.45
-            self.cor_clarao = (255, 240, 140)
-            self.ondas.append(OndaMagica(ponto_salve, 36, (255, 230, 110), 0.4))
-            for _ in range(14):
-                p = Particula(ponto_salve, random.choice([(255, 230, 100), (120, 240, 255), (255, 255, 230)]))
-                p.vel = pygame.Vector2(random.uniform(-35, 35), random.uniform(-40, -10))
-                self.particulas.append(p)
 
         # Portas para entrar / sair da casinha (ou outros mapas) com fade-out / fade-in.
         for rect_porta, destino in self.nivel.portas:
@@ -1761,7 +1764,7 @@ class Jogo(Cena):
 
             # Dica visual na tela ao se aproximar de um Ponto de Salvamento
             for psx, psy in getattr(self.nivel, "pontos_salvamento", []):
-                if pygame.Vector2(self.jogador.rect.center).distance_to((psx, psy)) < 26:
+                if pygame.Vector2(self.jogador.rect.center).distance_to((psx, psy)) <= 34.0:
                     dica = "[Espaço / Enter] Salvar Jogo & Descansar"
                     larg_d = fonte.size(dica)[0] + 12
                     faixa_s = pygame.Surface((larg_d, 13), pygame.SRCALPHA)

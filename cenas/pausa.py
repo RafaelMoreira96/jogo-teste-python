@@ -79,8 +79,17 @@ class Pausa(Cena):
                     audio.sfx("menu_confirmar")
                 self.app.desempilhar()
             elif escolha == "Salvar Jogo" and self.jogo is not None:
-                salvar_jogo(self.jogo)
                 slot = getattr(self.jogo, "slot_salvo", 1)
+                self.jogo.definir_checkpoint(
+                    self.jogo.nivel.caminho,
+                    (self.jogo.jogador.rect.centerx, self.jogo.jogador.rect.bottom),
+                    self.jogo.jogador.direcao,
+                    getattr(self.jogo.nivel, "nome", "Salvamento Manual"),
+                    notificar=False,
+                )
+                salvar_jogo(self.jogo, slot=slot)
+                self.jogo.aviso_autosave = f"Manual: {getattr(self.jogo.nivel, 'nome', 'Salvo')}"
+                self.jogo.tempo_autosave = 3.5
                 if audio:
                     audio.sfx("salvar")
                 self.msg_salvo = f"Progresso Salvo no Arquivo {slot}!"
